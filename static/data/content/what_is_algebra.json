@@ -1,0 +1,139 @@
+{
+  "name": "what_is_algebra",
+  "description": "Introductory deck on the concept and purpose of Algebra",
+  "tags": [
+    "algebra",
+    "math",
+    "class9"
+  ],
+  "status": "draft",
+  "createdAt": "2025-07-11T00:00:00Z",
+  "editedAt": "2025-07-11T00:00:00Z",
+  "version": "deck-v1",
+  "background": {
+    "backgroundColor": "#F3E5AB",
+    "backgroundImage": "/images/taleem.webp",
+    "backgroundImageOpacity": 0.07
+  },
+  "deck": [
+    {
+      "type": "titleSlide",
+      "start": 0,
+      "end": 10,
+      "data": [
+        {
+          "name": "title",
+          "content": "What is Algebra?",
+          "showAt": 0
+        }
+      ]
+    },
+    {
+      "type": "imageLeftBulletsRight",
+      "start": 10,
+      "end": 20,
+      "data": [
+        {
+          "name": "bullet",
+          "content": "The word Algebra comes from Arabic — “al-jabr” — meaning “reunion of broken parts”.",
+          "showAt": 10
+        },
+        {
+          "name": "bullet",
+          "content": "Originally referred to fixing things, like bones or equations.",
+          "showAt": 12
+        },
+        {
+          "name": "bullet",
+          "content": "Now used for mathematical restoration.",
+          "showAt": 14
+        }
+      ]
+    },
+    {
+      "type": "bulletList",
+      "start": 20,
+      "end": 30,
+      "data": [
+        {
+          "name": "bullet",
+          "content": "total cost = price × quantity",
+          "showAt": 21
+        },
+        {
+          "name": "bullet",
+          "content": "area = length × width",
+          "showAt": 23
+        }
+      ]
+    },
+    {
+      "type": "titleAndSubtitle",
+      "start": 30,
+      "end": 40,
+      "data": [
+        {
+          "name": "title",
+          "content": "What Problems Does Algebra Solve?",
+          "showAt": 30
+        },
+        {
+          "name": "subtitle",
+          "content": "Unknowns, formulas, and patterns",
+          "showAt": 32
+        }
+      ]
+    },
+    {
+      "type": "twoColumnText",
+      "start": 40,
+      "end": 50,
+      "data": [
+        {
+          "name": "left",
+          "content": "“I think of a number. I add 3. The result is 7.”",
+          "showAt": 40
+        },
+        {
+          "name": "right",
+          "content": "Finding missing parts using simple rules.",
+          "showAt": 42
+        }
+      ]
+    },
+    {
+      "type": "twoColumnText",
+      "start": 50,
+      "end": 60,
+      "data": [
+        {
+          "name": "left",
+          "content": "Area = length × width",
+          "showAt": 50
+        },
+        {
+          "name": "right",
+          "content": "Speed = distance / time\nTotal = rate × time",
+          "showAt": 52
+        }
+      ]
+    },
+    {
+      "type": "imageWithCaption",
+      "start": 60,
+      "end": 70,
+      "data": [
+        {
+          "name": "image",
+          "content": "/images/pythagoras_diagram.webp",
+          "showAt": 60
+        },
+        {
+          "name": "caption",
+          "content": "a² + b² = c² — the Pythagorean Theorem in any right triangle.",
+          "showAt": 62
+        }
+      ]
+    }
+  ]
+}

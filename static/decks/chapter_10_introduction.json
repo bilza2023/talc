@@ -1,0 +1,117 @@
+{
+    "name": "chapter_10_introduction",
+    "description": "Overview of all postulates and theorems from Chapter 10 (Triangle Congruence)",
+    "tags": ["geometry", "triangles", "congruence"],
+    "status": "draft",
+    "createdAt": "2025-07-21T00:00:00.000Z",
+    "editedAt": "2025-07-21T00:00:00.000Z",
+    "version": "deck-v1",
+    "deck": [
+      {
+        "type": "titleSlide",
+        "start": 0,
+        "end": 10,
+        "data": [
+          {
+            "name": "title",
+            "content": "Chapter 10: Triangle Congruence",
+            "showAt": 0
+          }
+        ]
+      },
+      {
+        "type": "eq",
+        "start": 10,
+        "end": 60,
+        "data": [
+          {
+            "name": "line",
+            "type": "heading",
+            "content": "Postulates Used in Chapter 10",
+            "showAt": 10,
+            "spItems": []
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "SAS Postulate: Two sides and the included angle → triangles congruent",
+            "showAt": 11,
+            "spItems": [
+              { "type": "spImage", "content": "/images/side_angle_side_postulate.webp" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "ASA Postulate: Two angles and the included side → triangles congruent",
+            "showAt": 12,
+            "spItems": [
+              { "type": "spImage", "content": "/images/congruent_triangle2.webp" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "AAS Rule: Two angles and a non-included side → triangles congruent",
+            "showAt": 13,
+            "spItems": [
+              { "type": "spImage", "content": "/images/congruent_triangle.webp" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "CPCTC: Corresponding parts of congruent triangles are congruent",
+            "showAt": 14,
+            "spItems": [
+              { "type": "spImage", "content": "/images/8.1-q2-p-1.png" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "heading",
+            "content": "Theorems from Chapter 10",
+            "showAt": 20,
+            "spItems": []
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "Theorem 10.1.1 (ASA): Triangles are congruent",
+            "showAt": 21,
+            "spItems": [
+              { "type": "spImage", "content": "/images/theorem10.1.1.png" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "Theorem 10.1.2: Two equal angles → opposite sides are equal",
+            "showAt": 22,
+            "spItems": [
+              { "type": "spImage", "content": "/images/theorem9old_10_1_2.webp" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "Theorem 10.1.3 (SSS): Triangles are congruent",
+            "showAt": 23,
+            "spItems": [
+              { "type": "spImage", "content": "/images/congruent_triangle2.webp" }
+            ]
+          },
+          {
+            "name": "line",
+            "type": "text",
+            "content": "Theorem 10.1.4 (HS): Right-angled triangles congruent by hypotenuse & side",
+            "showAt": 24,
+            "spItems": [
+              { "type": "spImage", "content": "/images/congruent_triangle.webp" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+  

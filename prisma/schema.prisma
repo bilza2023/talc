@@ -1,0 +1,61 @@
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+model Question {
+  filename     String   @id               // e.g., "what_is_algebra"
+  name         String?
+  description  String?
+  tags         Json?                      // stored as ["math", "algebra"]
+  status       String?                    // e.g., "draft", "ready"
+  timed        Boolean  @default(false)   // true = has showAt timings
+  createdAt    DateTime @default(now())
+  editedAt     DateTime @updatedAt
+  deck         Json                       // full validated deck object
+
+  slides       Slide[]  @relation("QuestionSlides")
+}
+
+
+model Slide {
+  id              Int      @id @default(autoincrement())
+  questionFilename String   @map("question_filename") // FK → Question
+  index           Int      // order in deck
+  type            String
+  start           Float
+  end             Float
+  // dataJson        Json     // original data[] block <<< ---gone
+
+  question        Question @relation("QuestionSlides", fields: [questionFilename], references: [filename])
+  items           SlideItem[]
+}
+
+model SlideItem {
+  id         Int     @id @default(autoincrement())
+  slideId    Int
+  index      Int
+  name       String
+  showAt     Float?
+  textContent String?
+  numValue   Float?
+  label      String?
+  imageUrl   String?
+  colorHex   String?
+  typeHint   String?
+  extraJson  Json?
+
+  slide      Slide   @relation(fields: [slideId], references: [id])
+}
+
+// model Deck {
+//   id        Int        @id @default(autoincrement())
+//   filename  String     @unique
+//   content   Json
+//   createdAt DateTime   @default(now())
+
+// }

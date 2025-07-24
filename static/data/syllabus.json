@@ -1,0 +1,338 @@
+[
+  {
+    "tcodeName": "fbise9physics",
+    "filename": "fbise9physics",
+    "description": "Federal Board Grade 9 Physics",
+    "image": "/bookcovers/physics_10thFBSIE.png",
+    "chapters": [
+      {
+        "name": "Physical Quantities and Measurement",
+        "filename": "ch1_physical_quantities",
+        "exercises": [
+          {
+            "name": "Introduction to Physics",
+            "filename": "ch1_physical_quantities_ex1_intro",
+            "questions": [
+              {
+                "name": "What is Albegra",
+                "filename": "fbise9matholdsyllabus__algebric_manipulation__basics__what-is-algebra"
+              },
+              {
+                "name": "Test 1!!",
+                "filename": "test__test_chapter__test_ex__test_question"
+              },
+              {
+                "name": "Test 2",
+                "filename": "test__test_chapter__test_ex__test_question2"
+              }
+            ]
+          },
+          {
+            "name": "International System of Units (SI)",
+            "filename": "ch1_physical_quantities_ex2_units"
+          },
+          {
+            "name": "Measuring Instruments",
+            "filename": "ch1_physical_quantities_ex3_instruments"
+          },
+          {
+            "name": "Scientific Notation",
+            "filename": "ch1_physical_quantities_ex4_notations"
+          },
+          {
+            "name": "Significant Figures",
+            "filename": "ch1_physical_quantities_ex5_sigfigs"
+          }
+        ]
+      },
+      {
+        "name": "Kinematics",
+        "filename": "ch2_kinematics",
+        "exercises": [
+          {
+            "name": "Introduction to Kinematics",
+            "filename": "ch2_kinematics_ex1_intro"
+          },
+          {
+            "name": "Distance and Displacement",
+            "filename": "ch2_kinematics_ex2_distance"
+          },
+          {
+            "name": "Speed and Velocity",
+            "filename": "ch2_kinematics_ex3_velocity"
+          },
+          {
+            "name": "Acceleration",
+            "filename": "ch2_kinematics_ex4_acceleration"
+          },
+          {
+            "name": "Graphical Representation of Motion",
+            "filename": "ch2_kinematics_ex5_graphs"
+          },
+          {
+            "name": "Equations of Motion",
+            "filename": "ch2_kinematics_ex6_equations"
+          },
+          {
+            "name": "Free Fall and Uniform Acceleration",
+            "filename": "ch2_kinematics_ex7_freefall"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch2_kinematics_ex8_problems"
+          }
+        ]
+      },
+      {
+        "name": "Dynamics",
+        "filename": "ch3_dynamics",
+        "exercises": [
+          {
+            "name": "Introduction to Dynamics and Force",
+            "filename": "ch3_dynamics_ex1_intro"
+          },
+          {
+            "name": "Newton’s Laws of Motion",
+            "filename": "ch3_dynamics_ex2_newton_laws"
+          },
+          {
+            "name": "Inertia, Mass & Weight",
+            "filename": "ch3_dynamics_ex3_inertia_mass_weight"
+          },
+          {
+            "name": "Action-Reaction Principle",
+            "filename": "ch3_dynamics_ex4_action_reaction"
+          },
+          {
+            "name": "Friction: Causes and Effects",
+            "filename": "ch3_dynamics_ex5_friction"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch3_dynamics_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Turning Effect of Forces",
+        "filename": "ch4_turning_effect",
+        "exercises": [
+          {
+            "name": "Introduction to Moments",
+            "filename": "ch4_turning_effect_ex1_intro"
+          },
+          {
+            "name": "Principle of Moments",
+            "filename": "ch4_turning_effect_ex2_moment_principle"
+          },
+          {
+            "name": "Centre of Mass and Stability",
+            "filename": "ch4_turning_effect_ex3_center_mass"
+          },
+          {
+            "name": "Conditions of Equilibrium",
+            "filename": "ch4_turning_effect_ex4_equilibrium"
+          },
+          {
+            "name": "Applications in Real Life",
+            "filename": "ch4_turning_effect_ex5_applications"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch4_turning_effect_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Gravitation",
+        "filename": "ch5_gravitation",
+        "exercises": [
+          {
+            "name": "Introduction to Gravitation",
+            "filename": "ch5_gravitation_ex1_intro"
+          },
+          {
+            "name": "Mass and Weight",
+            "filename": "ch5_gravitation_ex2_mass_weight"
+          },
+          {
+            "name": "Newton’s Law of Gravitation",
+            "filename": "ch5_gravitation_ex3_newton_gravity"
+          },
+          {
+            "name": "Gravitational Field Strength",
+            "filename": "ch5_gravitation_ex4_gravitational_field"
+          },
+          {
+            "name": "Satellites and Circular Orbits",
+            "filename": "ch5_gravitation_ex5_orbits"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch5_gravitation_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Work and Energy",
+        "filename": "ch6_work_energy",
+        "exercises": [
+          {
+            "name": "Introduction to Work and Energy",
+            "filename": "ch6_work_energy_ex1_intro"
+          },
+          {
+            "name": "Work Done and Its Calculation",
+            "filename": "ch6_work_energy_ex2_work"
+          },
+          {
+            "name": "Kinetic and Potential Energy",
+            "filename": "ch6_work_energy_ex3_kinetic_potential"
+          },
+          {
+            "name": "Power and Its Measurement",
+            "filename": "ch6_work_energy_ex4_power"
+          },
+          {
+            "name": "Efficiency and Energy Conservation",
+            "filename": "ch6_work_energy_ex5_efficiency"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch6_work_energy_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Properties of Matter",
+        "filename": "ch7_properties_matter",
+        "exercises": [
+          {
+            "name": "Introduction to Matter and Its States",
+            "filename": "ch7_properties_matter_ex1_intro"
+          },
+          {
+            "name": "Density and Its Determination",
+            "filename": "ch7_properties_matter_ex2_density"
+          },
+          {
+            "name": "Pressure in Solids, Liquids, and Gases",
+            "filename": "ch7_properties_matter_ex3_pressure"
+          },
+          {
+            "name": "Elasticity and Hooke’s Law",
+            "filename": "ch7_properties_matter_ex4_elasticity"
+          },
+          {
+            "name": "Applications of Pressure",
+            "filename": "ch7_properties_matter_ex5_applications"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch7_properties_matter_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Thermal Properties of Matter",
+        "filename": "ch8_thermal_properties",
+        "exercises": [
+          {
+            "name": "Temperature and Heat",
+            "filename": "ch8_thermal_properties_ex1_intro"
+          },
+          {
+            "name": "Heat Capacity and Specific Heat",
+            "filename": "ch8_thermal_properties_ex2_heat_capacity"
+          },
+          {
+            "name": "Latent Heat and Change of State",
+            "filename": "ch8_thermal_properties_ex3_latent_heat"
+          },
+          {
+            "name": "Thermal Expansion of Solids, Liquids, Gases",
+            "filename": "ch8_thermal_properties_ex4_thermal_expansion"
+          },
+          {
+            "name": "Applications in Daily Life",
+            "filename": "ch8_thermal_properties_ex5_real_life"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch8_thermal_properties_ex6_numericals"
+          }
+        ]
+      },
+      {
+        "name": "Transfer of Heat",
+        "filename": "ch9_transfer_heat",
+        "exercises": [
+          {
+            "name": "Modes of Heat Transfer",
+            "filename": "ch9_transfer_heat_ex1_intro"
+          },
+          {
+            "name": "Conduction and Thermal Conductors",
+            "filename": "ch9_transfer_heat_ex2_conduction"
+          },
+          {
+            "name": "Convection in Fluids",
+            "filename": "ch9_transfer_heat_ex3_convection"
+          },
+          {
+            "name": "Radiation and Absorbers/Emitters",
+            "filename": "ch9_transfer_heat_ex4_radiation"
+          },
+          {
+            "name": "Everyday Applications of Heat Transfer",
+            "filename": "ch9_transfer_heat_ex5_household"
+          },
+          {
+            "name": "Problem Solving and Numericals",
+            "filename": "ch9_transfer_heat_ex6_numericals"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "tcodeName": "fbise9mathold",
+    "filename": "fbise9mathold",
+    "description": "Math Class 9 Old Course",
+    "image": "/bookcovers/math_9thFBSIE.png",
+    "chapters": [
+      {
+        "name": "Theorems",
+        "filename": "theorems",
+        "exercises": [
+          {
+            "name": "Theorems -1",
+            "filename": "theorems_1",
+            "questions": [
+              {
+                "name": "Congruent Triangles",
+                "filename": "congruent_triangles"
+              },
+              {
+                "name": "SAS Postulate",
+                "filename": "posultate_and_SAS_postulate"
+              },
+              {
+                "name": "Th 10.1.1 - SSA",
+                "filename": "theorem_10_1_1_deck"
+              },
+              {
+                "name": "Th 10.1.2",
+                "filename": "theorem_10_1_2"
+              },
+              {
+                "name": "Th 10.1.3",
+                "filename": "theorem_10_1_3"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

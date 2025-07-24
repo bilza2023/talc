@@ -1,0 +1,213 @@
+# North-West Business Events Data Collection Draft (12-Jul-2025)
+
+#### 27 Events in total, with a combined 126 data items
+
+### 1. BS-arrival (`bs_arrival`)
+
+1. grade: We need a grade table and if it is seperate from the internal NW grades that needs to be marked.
+2. Mine-owner: A seperate table needed.
+3. supplier: A seperate table needed
+4. location: simple text OR drop down ? please give examples , samples
+5. code: simple text OR number or drop down ? please give examples , samples
+6. condition: simple text ? please give examples , samples
+7. stock: simple number ? please give examples , samples
+8. Estm-qty: simple number ? please give examples , samples
+9. loading: simple text OR drop down ? please give examples , samples
+
+### 2. Jss Arival (`jss_arival`)
+
+1. truck number: simple text ?
+2. time: --ok
+3. date: -- ok
+4. total qty: number (any bounds lower value higher value)
+5. net qty: number (any bounds lower value higher value)
+6. empt qty: number (any bounds lower value higher value)
+7. visual asbestos: number (any bounds lower value higher value)
+8. srpentin y/n: Y/N -ok
+
+### 3. Jss-processing (`jss_processing`)
+
+1. Lumps: number (any bounds lower value higher value)
+2. Chips: number (any bounds lower value higher value)
+3. Fines Grains: number (any bounds lower value higher value)
+4. business Logic: Supplier contract Table : We need to match these values with the supplier contact. Location of supplier contract (supplier table obviously)?
+
+### 4. sorting (`sorting`)
+
+1. wasting: number (any bounds lower value higher value)
+2. visual asbestos: number (any bounds lower value higher value)
+
+### 5. bagging (`bagging`)
+
+1. bags/lumps:
+2. bags chips:
+3. bags fine:
+
+### 6. loading (`loading`)
+
+1. Weighbridge Slip:
+
+### 7. gumrak (`gumrak`)
+
+1. clerence chit:
+
+### 8. border (Torkham) (`border_torkham`)
+
+1. gd file:
+2. importer:
+3. exporter:
+4. GD No.:
+5. Date:
+6. Qty:
+7. Exchange Rate:
+8. Declared Value:
+9. Assessed Value:
+10. Truck No.:
+
+### 9. clerance (`clerance`)
+
+1. clearance time:
+
+### 10. arrival to PSS (`arrival_to_pss`)
+
+1. Weight Slip:
+2. Supplier:
+3. Lumps:
+4. Chips:
+5. Fines Grains:
+
+### 11. qta lab (`qta_lab`)
+
+1. specs Unsorted:
+2. Supplier:
+3. Grade:
+4. Y:
+5. LOI:
+6. b.v:
+
+### 12. Production (`production`)
+
+1. Supplier:
+2. visual inspection:
+3. Lumps:
+4. Chips:
+5. Fines Grains:
+6. Hammer Fines Grains:
+7. Wastage:
+
+### 13. blending (`blending`)
+
+1. Grades:
+
+### 14. grading (`grading`)
+
+1. NW grades:
+2. SPL:
+3. KCW02:
+4. SPF:
+5. STL:
+6. PTC:
+7. STF:
+
+### 15. Labtest Sorted (`labtest_sorted`)
+
+1. Specs Sorted:
+2. Grade:
+3. Y:
+4. LOI:
+5. b.v:
+
+### 16. loading for karachi (`loading_for_karachi`)
+
+1. weigh bridge \*\*:
+2. grade:
+
+### 17. Kef arrival/unlo (`kef_arrivalunlo`)
+
+1. way bridge \*\*:
+
+### 18. stocks (`stocks`)
+
+1. Grade:
+2. SPL:
+3. KCW02:
+4. SPF:
+5. STL:
+6. PTC:
+7. STF:
+
+### 19. loading (`loading`)
+
+1. bulk:
+2. jumbo bag:
+3. bll vessle:
+4. Shipping Line:
+5. Grade:
+6. Qty:
+
+### 20. vessel (`vessel`)
+
+1. Shipping Line:
+2. Vessel/Voyage No.:
+3. CutOff Date:
+4. Sailing Date:
+5. ETA Destination:
+
+### 21. arrival port (`arrival_port`)
+
+1. port name:
+2. agent:
+3. CRO:
+4. Empty Container:
+5. Container No.:
+6. Containerization:
+7. Gate In:
+8. Inspection:
+
+### 22. bill of lading (`bill_of_lading`)
+
+1. Draft BL:
+2. MBL:
+
+### 23. cutomer destination (`cutomer_destination`)
+
+_(no data items)_
+
+### 24. Receivable (`receivable`)
+
+1. Customer:
+2. Destination:
+3. Grade:
+4. Qty:
+5. Value (USD):
+6. Advance Received (USD):
+7. Receivable (USD):
+
+### 25. Supplier (`supplier`)
+
+1. Material Value (PKR):
+2. Paid (PKR):
+3. Payable (PKR):
+
+### 26. Trucks Freight PSS to KEF (`trucks_freight_pss_to_kef`)
+
+1. Adda/Agent:
+2. Grade:
+3. Qty:
+4. Freight/mt (PKR):
+5. Total Freight (PKR):
+6. Paid (PKR):
+7. Payable (PKR):
+
+### 27. FFS (`ffs`)
+
+1. Invoice No.:
+2. Destination:
+3. No. Of Containers:
+4. Qty:
+5. Grade:
+6. Invoice Value (PKR):
+7. Paid (PKR):
+8. Payable (PKR):
+
+---

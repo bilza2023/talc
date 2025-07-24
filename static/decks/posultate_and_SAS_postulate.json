@@ -1,0 +1,45 @@
+{
+    "name": "side_angle_side_postulate",
+    "description": "Introduction to Postulates and the SAS Postulate in Geometry",
+    "tags": ["geometry", "postulate", "sas"],
+    "status": "draft",
+    "createdAt": "2025-07-21T00:00:00.000Z",
+    "editedAt": "2025-07-21T00:00:00.000Z",
+    "version": "deck-v1",
+    "background": {
+      "backgroundColor": "#FEF9C3",
+      "backgroundImage": "/images/taleem.webp",
+      "backgroundImageOpacity": 0.07
+    },
+    "deck": [
+      {
+        "type": "titleSlide",
+        "start": 0,
+        "end": 10,
+        "data": [
+          { "name": "title", "content": "Postulate and Side Angle Side Postulate", "showAt": 0 }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "start": 10,
+        "end": 20,
+        "data": [
+          { "name": "bullet", "content": "A postulate is a basic rule accepted without proof", "showAt": 11 },
+          { "name": "bullet", "content": "Used as a foundation to build geometric reasoning", "showAt": 13 },
+          { "name": "bullet", "content": "Examples include straight line between two points", "showAt": 15 }
+        ]
+      },
+      {
+        "type": "imageLeftBulletsRight",
+        "start": 20,
+        "end": 30,
+        "data": [
+          { "name": "image", "content": "/images/side_angle_side_postulate.webp", "showAt": 20 },
+          { "name": "bullet", "content": "SAS Postulate proves triangle congruence", "showAt": 22 },
+          { "name": "bullet", "content": "If two sides and the included angle are equal, triangles are congruent", "showAt": 25 }
+        ]
+      }
+    ]
+  }
+  
