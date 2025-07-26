@@ -7,55 +7,62 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-model Question {
-  filename     String   @id               // e.g., "what_is_algebra"
-  name         String?
-  description  String?
-  tags         Json?                      // stored as ["math", "algebra"]
-  status       String?                    // e.g., "draft", "ready"
-  timed        Boolean  @default(false)   // true = has showAt timings
-  createdAt    DateTime @default(now())
-  editedAt     DateTime @updatedAt
-  deck         Json                       // full validated deck object
+// schema.prisma  (fully corrected)
 
-  slides       Slide[]  @relation("QuestionSlides")
+/* ---------- Core look-ups ---------- */
+model Station {
+  id              Int             @id @default(autoincrement())
+  name            String
+  ores            Ore[]                           // back-ref ①
+  fromTransports  OreTransport[] @relation("FromStation") // back-ref ②
+  toTransports    OreTransport[] @relation("ToStation")   // back-ref ③
 }
 
-
-model Slide {
-  id              Int      @id @default(autoincrement())
-  questionFilename String   @map("question_filename") // FK → Question
-  index           Int      // order in deck
-  type            String
-  start           Float
-  end             Float
-  // dataJson        Json     // original data[] block <<< ---gone
-
-  question        Question @relation("QuestionSlides", fields: [questionFilename], references: [filename])
-  items           SlideItem[]
+model Supplier {
+  id        Int   @id @default(autoincrement())
+  name      String
+  code      String  @unique                // e.g. SUP001
+  ores      Ore[]                          // back-ref ④
 }
 
-model SlideItem {
-  id         Int     @id @default(autoincrement())
-  slideId    Int
-  index      Int
-  name       String
-  showAt     Float?
-  textContent String?
-  numValue   Float?
-  label      String?
-  imageUrl   String?
-  colorHex   String?
-  typeHint   String?
-  extraJson  Json?
+/* ---------- Main tables ---------- */
+model Ore {
+  id           Int        @id @default(autoincrement())
+  stationId    Int
+  supplierId   Int
+  batchRef     String     // will be autogen, e.g. SUP001-WL-20250724-001
+  weightTon    Float
+  gradeCode    String     // WL, WC, WF, GL, GC, GF
+  createdAt    DateTime   @default(now())
 
-  slide      Slide   @relation(fields: [slideId], references: [id])
+  station      Station    @relation(fields: [stationId], references: [id])
+  supplier     Supplier   @relation(fields: [supplierId], references: [id])
+  transports   OreTransport[]
 }
 
-// model Deck {
-//   id        Int        @id @default(autoincrement())
-//   filename  String     @unique
-//   content   Json
-//   createdAt DateTime   @default(now())
+model OreTransport {
+  id            Int       @id @default(autoincrement())
+  oreId         Int
+  fromStationId Int
+  toStationId   Int
+  truckNo       String
+  weightTon     Float
+  status        String    // 'in_transit' | 'received' | 'cancelled'
+  departedAt    DateTime
+  receivedAt    DateTime?
 
-// }
+  ore           Ore       @relation(fields: [oreId], references: [id])
+  fromStation   Station   @relation("FromStation", fields: [fromStationId], references: [id])
+  toStation     Station   @relation("ToStation",   fields: [toStationId],   references: [id])
+}
+
+model Log {
+  id        Int       @id @default(autoincrement())
+  level     String    @default("info")      // e.g. "info", "warn", "error"
+  type      String?                       // e.g. "ORE_DEPOSIT", "ORE_DESPATCH"
+  metadata  Json?                         // arbitrary payload (Prisma’s JSON type)
+  createdAt DateTime @default(now())
+  
+  @@index([createdAt])                   // fast queries by time
+  @@map("logs")                          // table name = "logs"
+}

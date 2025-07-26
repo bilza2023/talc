@@ -5,14 +5,18 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "cross-env DATABASE_URL='file:memory:?cache=shared' jest"
   },
   "devDependencies": {
+    "@jest/globals": "^30.0.5",
     "@sveltejs/adapter-node": "^4.0.1",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "autoprefixer": "^10.4.16",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
+    "jest": "^30.0.5",
     "postcss": "^8.4.30",
     "prisma": "^6.12.0",
     "svelte": "^4.0.5",

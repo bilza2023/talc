@@ -1,0 +1,13 @@
+[
+    {
+      "title": "Ore Deposit",
+      "description": "Record new ore deposit into station inventory",
+      "path": "/forms/ore-deposit"
+    },
+    {
+      "title": "Ore Receive",
+      "description": "Log ore received at station",
+      "path": "/forms/ore-receive"
+    }
+]
+  

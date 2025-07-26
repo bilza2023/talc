@@ -26,6 +26,7 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const DATABASE_URL: string;
 	export const GJS_DEBUG_TOPICS: string;
 	export const LESSOPEN: string;
 	export const USER: string;
@@ -147,6 +148,7 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		DATABASE_URL: string;
 		GJS_DEBUG_TOPICS: string;
 		LESSOPEN: string;
 		USER: string;
