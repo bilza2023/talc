@@ -9,11 +9,13 @@
   import "../app.css";
   import { SvelteToast } from '@zerodevx/svelte-toast'
    const options = {}
-
+    import Nav from "$lib/components/Nav.svelte";
 
 
 </script>
 
+
+<Nav />
 <SvelteToast {options} />
 <!-- <slot/> -->
 
