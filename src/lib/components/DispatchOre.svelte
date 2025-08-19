@@ -1,19 +1,49 @@
-
+<!-- src/lib/components/DispatchOre.svelte -->
 <script>
-    // From-station is the page context (e.g., JSS)
+    import { enhance } from '$app/forms';
+  
+    // Optional initial form from parent
+    export let form = null;
+  
+    // Context + lists
     export let stationCode = 'JSS';
-  
-    // Allowed stations; destination excludes the current station
     export let stations = ['JSS', 'PSS', 'KEF'];
+    export let grades   = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
   
-    // Grade is optional for dispatch (kept for consistency)
-    export let grades = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
+    // Local state to display errors / sticky values
+    let localForm = form;
   
     $: destinationOptions = stations.filter((s) => s !== stationCode);
+    const v = (k, d = '') => localForm?.values?.[k] ?? d;
+  
+    // Correct enhance signature: first call receives submit info,
+    // then we RETURN a function that gets { result, update }.
+    const onEnhance = ({ form, data, action, cancel, submitter }) => {
+      return async ({ result, update }) => {
+        if (result.type === 'failure') {
+          // fail(400, { message, values }) from the action
+          localForm = result.data;
+          return; // stay on page and show error
+        }
+        // success or redirect → let SvelteKit handle it
+        await update();
+      };
+    };
   </script>
   
-  <form method="post" action="/stations?/dispatch" class="space-y-4">
-    <!-- Required by the server action -->
+  {#if localForm?.message}
+    <div role="alert"
+         class="mb-3 rounded-lg border border-red-600/40 bg-red-900/30 px-3 py-2 text-red-200">
+      {localForm.message}
+    </div>
+  {/if}
+  
+  <form
+    method="post"
+    action="/stations?/dispatch"     
+    use:enhance={onEnhance}
+    class="space-y-4"
+  >
     <input type="hidden" name="fromStation" value={stationCode} />
   
     <label class="flex flex-col gap-1">
@@ -22,7 +52,7 @@
         class="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-slate-100 outline-none focus:border-slate-600 focus:ring-2 focus:ring-sky-400">
         <option value="">-- Select destination --</option>
         {#each destinationOptions as s}
-          <option value={s}>{s}</option>
+          <option value={s} selected={v('toStation') === s}>{s}</option>
         {/each}
       </select>
     </label>
@@ -31,23 +61,23 @@
       <span class="text-sm text-slate-400">Truck No</span>
       <input name="truckNo" type="text" required
         class="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-slate-100 outline-none placeholder-slate-500 focus:border-slate-600 focus:ring-2 focus:ring-sky-400"
-        placeholder="e.g. LES-1234" />
+        placeholder="e.g. LES-1234" value={v('truckNo')} />
     </label>
   
     <label class="flex flex-col gap-1">
       <span class="text-sm text-slate-400">Weight (tons)</span>
       <input name="weightTon" type="number" min="0.001" step="0.001" required
         class="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-slate-100 outline-none placeholder-slate-500 focus:border-slate-600 focus:ring-2 focus:ring-sky-400"
-        placeholder="e.g. 20" />
+        placeholder="e.g. 20" value={v('weightTon')} />
     </label>
   
     <label class="flex flex-col gap-1">
       <span class="text-sm text-slate-400">Grade (optional)</span>
       <select name="gradeCode"
         class="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-slate-100 outline-none focus:border-slate-600 focus:ring-2 focus:ring-sky-400">
-        <option value="">-- Optional --</option>
+        <option value="" selected={!v('gradeCode')}>-- Optional --</option>
         {#each grades as g}
-          <option value={g}>{g}</option>
+          <option value={g} selected={v('gradeCode') === g}>{g}</option>
         {/each}
       </select>
     </label>

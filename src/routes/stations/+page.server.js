@@ -6,22 +6,7 @@ import createOreService from '/services/oreService.js';
 const ore = createOreService();
 
 export const actions = {
-  async deposit({ request }) {
-    const fd = await request.formData();
-    const stationCode = String(fd.get('stationCode') || '').toUpperCase();
-    const supplierId  = Number(fd.get('supplierId') || 0);
-    const weightTon   = Number(fd.get('weightTon') || 0);
-    const gradeCode   = String(fd.get('gradeCode') || '').toUpperCase();
-    const batchRef    = (fd.get('batchRef') || '').toString().trim() || null;
-
-    if (!stationCode || !supplierId || !weightTon || !gradeCode) {
-      return fail(400, { message: 'stationCode, supplierId, weightTon, gradeCode required' });
-    }
-
-    await ore.deposit({ stationCode, supplierId, weightTon, gradeCode, batchRef });
-    throw redirect(303, `/stations/${stationCode.toLowerCase()}`);
-  },
-
+ 
   async dispatch({ request }) {
     const fd = await request.formData();
     const fromStation = String(fd.get('fromStation') || '').toUpperCase();
@@ -30,13 +15,33 @@ export const actions = {
     const weightTon   = Number(fd.get('weightTon') || 0);
     const gradeCode   = (fd.get('gradeCode') || '').toString().toUpperCase() || null;
 
+    const values = { fromStation, toStation, truckNo, weightTon, gradeCode };
+
     if (!fromStation || !toStation || !truckNo || !weightTon) {
-      return fail(400, { message: 'fromStation, toStation, truckNo, weightTon required' });
+      return fail(400, { message: 'fromStation, toStation, truckNo, weightTon required', values });
+    }
+    if (fromStation === toStation) {
+      return fail(400, { message: 'fromStation and toStation cannot be the same', values });
+    }
+    if (!(weightTon > 0)) {
+      return fail(400, { message: 'weightTon must be > 0', values });
     }
 
-    await ore.dispatch({ fromStation, toStation, truckNo, weightTon, gradeCode });
-    throw redirect(303, `/stations/${fromStation.toLowerCase()}`);
+    try {
+      await ore.dispatch(values); // may throw INSUFFICIENT_STOCK
+      throw redirect(303, `/stations/${fromStation.toLowerCase()}`);
+    } catch (e) {
+      if (e?.code === 'INSUFFICIENT_STOCK') {
+        return fail(400, { message: e.message, values });
+      }
+      if (e?.code === 'P2025') {
+        return fail(404, { message: 'Record not found', values });
+      }
+      console.error('dispatch error:', e);
+      return fail(400, { message: e?.message || 'Dispatch failed', values });
+    }
   },
+  
 
   async unload({ request }) {
     const fd = await request.formData();
