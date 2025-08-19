@@ -12,29 +12,21 @@
     <div class="spacer"></div>
 
     <ul>
-      <li>
-        <a href="/suppliers" class:active={$path.startsWith('/suppliers')}>
-          <span class="emoji">📋</span><span>Suppliers</span>
-        </a>
-      </li>
-      <li>
-        <a href="/mines" class:active={$path.startsWith('/mines')}>
-          <span class="emoji">⛏️</span><span>Mines</span>
-        </a>
-      </li>
+      
+ 
       <li>
         <a href="/stations/jss" class:active={$path.startsWith('/stations')}>
-          <span class="emoji">🏭</span><span>JSS</span>
+          <span class="emoji">🏭</span><span>Help</span>
         </a>
-      </li>
-      <li>
-        <a href="/logs" class:active={$path.startsWith('/logs')}>
-          <span class="emoji">🗄️</span><span>Logs</span>
-        </a>
-      </li>
       <li>
         <a href="/dashboard" class:active={$path.startsWith('/dashboard')}>
-          <span class="emoji">📊</span><span>Dashboard</span>
+          <span class="emoji">📊</span><span>Website</span>
+        </a>
+      </li>
+
+      <li>
+        <a href="/settings" class:active={$path.startsWith('/mines')}>
+          <span class="emoji">⛏️</span><span>Settings</span>
         </a>
       </li>
     </ul>
@@ -44,7 +36,7 @@
 <!-- just replace the <style> block's .inner rule -->
   <style>
     :root {
-      --bg:    #0a0d13;      /* near-black */
+      --bg:    #005537;      /* near-black */
       --bg2:   #0b1018;      /* subtle gradient */
       --ink:   #e6ebf1;      /* primary text */
       --muted: #a9b3c2;      /* secondary text */
@@ -57,11 +49,12 @@
   
     nav {
       position: sticky; top: 0; z-index: 50;
-      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      background-color: #005537;
+      /* background: linear-gradient(180deg, var(--bg), var(--bg2)); */
       color: var(--ink);
       border-bottom: 1px solid var(--edge);
-      box-shadow: 0 8px 24px rgba(0,0,0,.45);
-      backdrop-filter: saturate(1.1);
+      /* box-shadow: 0 8px 24px rgba(0,0,0,.45); */
+      /* backdrop-filter: saturate(1.1); */
     }
   
     /* full-bleed; brand locked left */
