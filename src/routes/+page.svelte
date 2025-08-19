@@ -6,19 +6,25 @@
   
     // Example nav model
     const entries = [
-    { type: 'heading', title: 'Operations' },
-    { title: 'Dashboard', url: '/',            icon: '🧭' },
     
-    { type: 'heading', title: 'Ore' },
+    { type: 'heading', title: 'JSS' },
     { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
     { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
     { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
     
     
-    { type: 'heading', title: 'Talc' },
-    { title: 'Deposit Talc',  url: '/talc/deposit',  icon: '⚖️' },
-    { title: 'Dispatch Talc', url: '/talc/dispatch', icon: '📦' },
-    { title: 'Unload Talc',   url: '/talc/dispatch', icon: '📦' },
+    { type: 'heading', title: 'PSS' },
+    { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
+    { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
+    { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
+    
+    
+    { type: 'heading', title: 'KEF' },
+    { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
+    { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
+    { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
+    
+    
     
     { type: 'heading', title: 'Admin' },
     { title: 'Logs',     url: '/admin/logs',     icon: '🗒️' },
