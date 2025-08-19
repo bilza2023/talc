@@ -5,6 +5,8 @@
 </script>
 
 <form method="post" action="/stations?/deposit" class="space-y-4">
+  <!-- formKey routes to ore.deposit in stations/+page.server.js -->
+  <input type="hidden" name="formKey" value="ore:deposit" />
   <input type="hidden" name="stationCode" value={stationCode} />
 
   <label class="flex flex-col gap-1">
@@ -50,6 +52,8 @@
   </div>
 
   {#if !suppliers?.length}
-    <p class="text-sm text-slate-400">No suppliers yet. Add some on the <a href="/suppliers" class="underline">Suppliers</a> page.</p>
+    <p class="text-sm text-slate-400">
+      No suppliers yet. Add some on the <a href="/suppliers" class="underline">Suppliers</a> page.
+    </p>
   {/if}
 </form>

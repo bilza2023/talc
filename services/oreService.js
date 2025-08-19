@@ -8,50 +8,27 @@ const TRANSPORT_STATUS = {
   CANCELLED: 'cancelled',
 };
 
-/**
- * Ore Service (owns Ore + OreTransport)
- * Usage:
- *   const oreService = createOreService();
- *   await oreService.createDeposit({ stationCode:'JSS', supplierId:1, weightTon:20, gradeCode:'WL' });
- */
 export default function createOreService(prisma = defaultPrisma) {
-  // ---- internal helpers ----------------------------------------------------
-
-  function now() {
-    return new Date();
-  }
-
-  function assert(value, msg) {
-    if (!value) throw new Error(msg);
-  }
-
-  function asStationCode(code) {
-    // Tolerate lowercase input, enforce enum-like values; SQLite stores TEXT anyway.
+  // -- helpers ---------------------------------------------------------------
+  const now = () => new Date();
+  const assert = (v, msg) => { if (!v) throw new Error(msg); };
+  const asStationCode = (code) => {
     const normalized = String(code || '').toUpperCase();
     const allowed = StationCode ? Object.values(StationCode) : ['JSS', 'PSS', 'KEF'];
     assert(allowed.includes(normalized), `Invalid stationCode: ${code}`);
     return normalized;
-  }
+  };
+  const logEvent = (type, metadata = {}, level = 'info') =>
+    prisma.log.create({ data: { type, level, metadata, createdAt: now() } });
 
-  async function logEvent(type, metadata = {}, level = 'info') {
-    return prisma.log.create({
-      data: { type, level, metadata, createdAt: now() },
-    });
-  }
-
-  // ---- deposits (Ore table) ------------------------------------------------
-
-  /**
-   * Create a deposit (supplier -> station)
-   * data: { stationCode, supplierId, weightTon, gradeCode, batchRef? }
-   */
-  async function createDeposit(data) {
+  // -- deposits (Ore) --------------------------------------------------------
+  async function deposit(data) {
     assert(data, 'data required');
     const stationCode = asStationCode(data.stationCode);
-    const supplierId = Number(data.supplierId);
-    const weightTon = Number(data.weightTon);
-    const gradeCode = String(data.gradeCode || '').toUpperCase();
-    const batchRef  = data.batchRef ?? null;
+    const supplierId  = Number(data.supplierId);
+    const weightTon   = Number(data.weightTon);
+    const gradeCode   = String(data.gradeCode || '').toUpperCase();
+    const batchRef    = data.batchRef ?? null;
 
     assert(supplierId > 0, 'supplierId required');
     assert(weightTon > 0, 'weightTon must be > 0');
@@ -65,10 +42,6 @@ export default function createOreService(prisma = defaultPrisma) {
     return row;
   }
 
-  /**
-   * List deposit events
-   * filter: { stationCode?, supplierId?, gradeCode?, from?, to? }
-   */
   async function listDeposits(filter = {}) {
     const where = {};
     if (filter.stationCode) where.stationCode = asStationCode(filter.stationCode);
@@ -79,19 +52,10 @@ export default function createOreService(prisma = defaultPrisma) {
       if (filter.from) where.createdAt.gte = new Date(filter.from);
       if (filter.to)   where.createdAt.lte = new Date(filter.to);
     }
-    return prisma.ore.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    return prisma.ore.findMany({ where, orderBy: { createdAt: 'desc' } });
   }
 
-  // ---- transports (OreTransport table) ------------------------------------
-
-  /**
-   * Dispatch ore from one station to another (creates a transport)
-   * data: { fromStation, toStation, truckNo, weightTon, gradeCode?, supplierId?, departedAt? }
-   * options: { enforceStock = true }
-   */
+  // -- transports (OreTransport) --------------------------------------------
   async function dispatch(data, options = { enforceStock: true }) {
     assert(data, 'data required');
     const fromStation = asStationCode(data.fromStation);
@@ -110,7 +74,7 @@ export default function createOreService(prisma = defaultPrisma) {
       const s = await getStationStock(fromStation);
       if (weightTon > s.stock) {
         const e = new Error(
-          `INSUFFICIENT_STOCK: trying to dispatch ${weightTon}t from ${fromStation} but stock is ${s.stock}t`
+          `INSUFFICIENT_STOCK: dispatch ${weightTon}t from ${fromStation} but stock is ${s.stock}t`
         );
         e.code = 'INSUFFICIENT_STOCK';
         throw e;
@@ -137,11 +101,7 @@ export default function createOreService(prisma = defaultPrisma) {
     return row;
   }
 
-  /**
-   * Mark a transport as received at destination
-   * args: { transportId, receivedAt? }
-   */
-  async function receive({ transportId, receivedAt = null }) {
+  async function unload({ transportId, receivedAt = null }) {
     const id = Number(transportId);
     assert(id > 0, 'transportId required');
 
@@ -164,17 +124,12 @@ export default function createOreService(prisma = defaultPrisma) {
     return row;
   }
 
-  /**
-   * List transports (dispatch/receive events)
-   * filter: { fromStation?, toStation?, status?, from?, to? }
-   */
   async function listTransports(filter = {}) {
     const where = {};
     if (filter.fromStation) where.fromStation = asStationCode(filter.fromStation);
     if (filter.toStation)   where.toStation   = asStationCode(filter.toStation);
     if (filter.status)      where.status      = String(filter.status);
     if (filter.from || filter.to) {
-      // If status=received, use receivedAt; otherwise use departedAt window
       const useReceived = filter.status === TRANSPORT_STATUS.RECEIVED;
       const key = useReceived ? 'receivedAt' : 'departedAt';
       where[key] = {};
@@ -188,13 +143,7 @@ export default function createOreService(prisma = defaultPrisma) {
     });
   }
 
-  // ---- stock calculations (derived) ---------------------------------------
-
-  /**
-   * Get station stock snapshot
-   * stock = deposits + received - dispatched
-   * inTransit = transports out that haven't been received yet
-   */
+  // -- stock + summaries -----------------------------------------------------
   async function getStationStock(stationCode) {
     const S = asStationCode(stationCode);
 
@@ -209,7 +158,7 @@ export default function createOreService(prisma = defaultPrisma) {
       }),
       prisma.oreTransport.aggregate({
         _sum: { weightTon: true },
-        where: { fromStation: S }, // all dispatched count against origin (received or not)
+        where: { fromStation: S },
       }),
       prisma.oreTransport.aggregate({
         _sum: { weightTon: true },
@@ -226,64 +175,42 @@ export default function createOreService(prisma = defaultPrisma) {
     return { stationCode: S, deposits, received, dispatched, inTransit, stock };
   }
 
-  /**
-   * Station summary: stock + recent activity
-   */
   async function getStationSummary(stationCode) {
     const S = asStationCode(stationCode);
 
     const [stock, recentDeposits, recentOut, recentIn] = await Promise.all([
       getStationStock(S),
-      prisma.ore.findMany({
-        where: { stationCode: S },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      }),
-      prisma.oreTransport.findMany({
-        where: { fromStation: S },
-        orderBy: { departedAt: 'desc' },
-        take: 10,
-      }),
-      prisma.oreTransport.findMany({
-        where: { toStation: S, status: TRANSPORT_STATUS.RECEIVED },
-        orderBy: { receivedAt: 'desc' },
-        take: 10,
-      }),
+      prisma.ore.findMany({ where: { stationCode: S }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.oreTransport.findMany({ where: { fromStation: S }, orderBy: { departedAt: 'desc' }, take: 10 }),
+      prisma.oreTransport.findMany({ where: { toStation: S, status: TRANSPORT_STATUS.RECEIVED }, orderBy: { receivedAt: 'desc' }, take: 10 }),
     ]);
 
     return { ...stock, recentDeposits, recentDispatches: recentOut, recentReceipts: recentIn };
   }
 
-  /**
-   * Snapshot across all stations (based on enum set)
-   */
   async function getAllStocks() {
     const stations = StationCode ? Object.values(StationCode) : ['JSS', 'PSS', 'KEF'];
-    const results = await Promise.all(stations.map(getStationStock));
-    return results;
+    return Promise.all(stations.map(getStationStock));
   }
 
-  // ---- public API ----------------------------------------------------------
-
+  // -- public API ------------------------------------------------------------
   return {
-    // deposits
-    createDeposit,
-    listDeposits,
-
-    // transports
+    // API-aligned names only:
+    deposit,
     dispatch,
-    receive,
+    unload,
+
+    // listings
+    listDeposits,
     listTransports,
 
-    // stock / summaries
+    // stock/summaries
     getStationStock,
     getStationSummary,
     getAllStocks,
 
-    // logging (exposed in case callers want to add custom logs)
+    // optional exports
     logEvent,
-
-    // exposed constants
     TRANSPORT_STATUS,
   };
 }

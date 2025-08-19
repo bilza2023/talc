@@ -8,7 +8,7 @@
 
 <nav aria-label="Main">
   <div class="inner">
-    <div class="brand">North&nbsp;West&nbsp;Minerals</div>
+    <div class="brand"><a href="/">North&nbsp;West&nbsp;Minerals</a></div>
     <div class="spacer"></div>
 
     <ul>

@@ -8,22 +8,18 @@
     const entries = [
     
     { type: 'heading', title: 'JSS' },
-    { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
-    { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
-    { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
+    { title: 'Deposit Ore',  url: '/stations/jss/ore_deposit',  icon: '⚖️' },
+    { title: 'Dispatch Ore', url: '/station/jss/dispatch', icon: '📦' },
+    { title: 'Unload Ore', url: '/station/jss/dispatch', icon: '📦' },
     
     
     { type: 'heading', title: 'PSS' },
-    { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
-    { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
-    { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
+    { title: 'Comming soon',  url: '/',  icon: '⚖️' },
     
     
     { type: 'heading', title: 'KEF' },
-    { title: 'Deposit Ore',  url: '/ore/deposit',  icon: '⚖️' },
-    { title: 'Dispatch Ore', url: '/ore/dispatch', icon: '📦' },
-    { title: 'Unload Ore', url: '/ore/dispatch', icon: '📦' },
-    
+    { title: 'Comming soon',  url: '/',  icon: '⚖️' },
+   
     
     
     { type: 'heading', title: 'Admin' },

@@ -1,4 +1,5 @@
 
+// src/routes/stations/+page.server.js
 import { fail, redirect } from '@sveltejs/kit';
 import createOreService from '/services/oreService.js';
 
@@ -13,10 +14,11 @@ export const actions = {
     const gradeCode   = String(fd.get('gradeCode') || '').toUpperCase();
     const batchRef    = (fd.get('batchRef') || '').toString().trim() || null;
 
-    if (!stationCode || !supplierId || !weightTon || !gradeCode)
+    if (!stationCode || !supplierId || !weightTon || !gradeCode) {
       return fail(400, { message: 'stationCode, supplierId, weightTon, gradeCode required' });
+    }
 
-    await ore.createDeposit({ stationCode, supplierId, weightTon, gradeCode, batchRef });
+    await ore.deposit({ stationCode, supplierId, weightTon, gradeCode, batchRef });
     throw redirect(303, `/stations/${stationCode.toLowerCase()}`);
   },
 
@@ -28,8 +30,9 @@ export const actions = {
     const weightTon   = Number(fd.get('weightTon') || 0);
     const gradeCode   = (fd.get('gradeCode') || '').toString().toUpperCase() || null;
 
-    if (!fromStation || !toStation || !truckNo || !weightTon)
+    if (!fromStation || !toStation || !truckNo || !weightTon) {
       return fail(400, { message: 'fromStation, toStation, truckNo, weightTon required' });
+    }
 
     await ore.dispatch({ fromStation, toStation, truckNo, weightTon, gradeCode });
     throw redirect(303, `/stations/${fromStation.toLowerCase()}`);
@@ -40,8 +43,9 @@ export const actions = {
     const transportId = Number(fd.get('transportId') || 0);
     if (!transportId) return fail(400, { message: 'transportId required' });
 
-    await ore.receive({ transportId });
-    // You may also pass a hidden nextStation to redirect properly
+    await ore.unload({ transportId });
+
+    // Optional hidden field from form to decide where to land after unload
     const nextStation = (fd.get('nextStation') || '').toString().toLowerCase() || 'jss';
     throw redirect(303, `/stations/${nextStation}`);
   }

@@ -21,7 +21,7 @@ export const dictionary = {
 		"/settings": [4],
 		"/stations": [~5,[2]],
 		"/stations/jss": [6,[2]],
-		"/stations/jss/deposit": [7,[2]],
+		"/stations/jss/ore_deposit": [7,[2]],
 		"/suppliers": [~8],
 		"/suppliers/new": [10],
 		"/suppliers/[id]/edit": [9]
