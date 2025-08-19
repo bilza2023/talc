@@ -27,10 +27,10 @@
   <!-- Top bar -->
   <div class="flex items-center justify-between h-14 px-2">
     {#if !collapsed}
-      <span class="text-sm font-semibold tracking-wide">Navigation</span>
+      <!-- <span class="text-sm font-semibold tracking-wide">Navigation</span> -->
     {/if}
     <button
-      class="grid place-items-center w-9 h-9 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400"
+      class="grid place-items-center w-9 h-9 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 font-xs  "
       on:click={toggle}
       type="button"
       aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
