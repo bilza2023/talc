@@ -6,15 +6,14 @@
   
     // Example nav model
     const entries = [
-    
+
     { type: 'heading', title: 'JSS' },
-    { title: 'Deposit Ore',  url: '/stations/jss/ore_deposit',  icon: '⚖️' },
-    { title: 'Dispatch Ore', url: '/stations/jss/ore_dispatch', icon: '📦' },
-    { title: 'Unload Ore', url: '/station/jss/dispatch', icon: '📦' },
+    { title: 'Deposit Ore',  url: '/ore/deposit?station=JSS',  icon: '⚖️' },
     
     
     { type: 'heading', title: 'PSS' },
-    { title: 'Comming soon',  url: '/',  icon: '⚖️' },
+    { title: 'Deposit Ore',  url: '/ore/deposit?station=PSS',  icon: '⚖️' },
+    
     
     
     { type: 'heading', title: 'KEF' },

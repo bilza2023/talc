@@ -16,42 +16,63 @@ enum StationCode {
   // add more when needed
 }
 
+enum TransportStatus {
+  in_transit
+  received
+  cancelled
+}
+
 /* ---------- Core look-ups ---------- */
 model Supplier {
-  id    Int     @id @default(autoincrement())
-  name  String
-  code  String  @unique               // e.g. SUP001
-  ores  Ore[]                         // back-ref
+  id         Int            @id @default(autoincrement())
+  name       String
+  code       String  @unique               // e.g. SUP001
+
+  deposits   OreDeposit[]                  // ore received from outside
+  transports OreTransport[]                // ore moved between stations
 }
 
 /* ---------- Main tables ---------- */
-model Ore {
+/// External inflows from suppliers (mines, contractors, etc.)
+model OreDeposit {
   id          Int          @id @default(autoincrement())
-  stationCode StationCode  // stored as TEXT in SQLite
+  stationCode StationCode
   supplierId  Int
   weightTon   Float
-  gradeCode   String       // WL, WC, WF, GL, GC, GF
-  createdAt   DateTime     @default(now())
+  gradeCode   String
+   truckNo    String//new added
+  depositedAt DateTime     @default(now())
 
   supplier    Supplier     @relation(fields: [supplierId], references: [id])
 
-
-  @@index([stationCode, createdAt])
+  @@index([stationCode, depositedAt])
 }
 
+/// Internal movements between stations (dispatch + unload)
+/// One row = one trip, with send-side filled at dispatch,
+/// and receive-side filled at unload.
 model OreTransport {
-  id           Int          @id @default(autoincrement())
-  fromStation  StationCode
-  toStation    StationCode
-  truckNo      String
-  weightTon    Float
-  gradeCode    String?
-  supplierId   Int?
-  status       String       @default("in_transit")
-  departedAt   DateTime
-  receivedAt   DateTime?
+  id              Int          @id @default(autoincrement())
+  fromStation     StationCode
+  toStation       StationCode
 
-  @@index([fromStation, departedAt])
+  truckNo         String?
+  sendWeightTon   Float
+  receiveWeightTon Float?
+
+  sendGradeCode   String
+  receiveGradeCode String?
+  
+  status           TransportStatus @default(in_transit)
+  
+  dispatchedAt    DateTime     @default(now())
+  receivedAt       DateTime?
+  receivedBy       String?
+
+  supplierId      Int?
+  supplier        Supplier?    @relation(fields: [supplierId], references: [id])
+
+  @@index([fromStation, dispatchedAt])
   @@index([toStation, receivedAt])
 }
 
@@ -59,10 +80,10 @@ model OreTransport {
 model Log {
   id        Int       @id @default(autoincrement())
   level     String    @default("info")   // "info" | "warn" | "error"
-  type      String?                      // e.g. "ORE_DEPOSIT", "ORE_DESPATCH"
+  type      String?                      // e.g. "ORE_DEPOSIT", "ORE_DISPATCH"
   metadata  Json?                        // arbitrary payload
   createdAt DateTime @default(now())
 
   @@index([createdAt])
-  @@map("logs")                          // table name = "logs"
+  @@map("logs")
 }

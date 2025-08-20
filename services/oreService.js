@@ -1,5 +1,5 @@
 // services/oreService.js
-import { PrismaClient, StationCode } from '@prisma/client';
+import { PrismaClient, StationCode, TransportStatus } from '@prisma/client';
 
 const defaultPrisma = new PrismaClient();
 const TRANSPORT_STATUS = {
@@ -21,43 +21,34 @@ export default function createOreService(prisma = defaultPrisma) {
   const logEvent = (type, metadata = {}, level = 'info') =>
     prisma.log.create({ data: { type, level, metadata, createdAt: now() } });
 
-  // -- deposits (Ore) --------------------------------------------------------
+  // -- deposits (OreDeposit) -------------------------------------------------
   async function deposit(data) {
     assert(data, 'data required');
     const stationCode = asStationCode(data.stationCode);
     const supplierId  = Number(data.supplierId);
     const weightTon   = Number(data.weightTon);
     const gradeCode   = String(data.gradeCode || '').toUpperCase();
+    const truckNo     = String(data.truckNo || '').trim();
 
     assert(supplierId > 0, 'supplierId required');
     assert(weightTon > 0, 'weightTon must be > 0');
     assert(gradeCode, 'gradeCode required');
+    assert(truckNo, 'truckNo required');
 
-        const row = await prisma.ore.create({
-            data: {
-              stationCode,
-              weightTon,
-              gradeCode,
-              createdAt: now(),
-              supplier: { connect: { id: supplierId } }  // ← satisfy required relation
-            },
-          });
+    const row = await prisma.oreDeposit.create({
+      data: {
+        stationCode,
+        weightTon,
+        gradeCode,
+        truckNo,
+        depositedAt: now(),
+        supplier: { connect: { id: supplierId } },
+      },
+    });
+    
+    await logEvent('ORE_DEPOSIT', { stationCode, supplierId, weightTon, gradeCode, truckNo, depositId: row.id });
 
-    await logEvent('ORE_DEPOSIT', { stationCode, supplierId, weightTon, gradeCode, oreId: row.id });
     return row;
-  }
-
-  async function listDeposits(filter = {}) {
-    const where = {};
-    if (filter.stationCode) where.stationCode = asStationCode(filter.stationCode);
-    if (filter.supplierId)  where.supplierId  = Number(filter.supplierId);
-    if (filter.gradeCode)   where.gradeCode   = String(filter.gradeCode).toUpperCase();
-    if (filter.from || filter.to) {
-      where.createdAt = {};
-      if (filter.from) where.createdAt.gte = new Date(filter.from);
-      if (filter.to)   where.createdAt.lte = new Date(filter.to);
-    }
-    return prisma.ore.findMany({ where, orderBy: { createdAt: 'desc' } });
   }
 
   // -- transports (OreTransport) --------------------------------------------
@@ -67,9 +58,9 @@ export default function createOreService(prisma = defaultPrisma) {
     const toStation   = asStationCode(data.toStation);
     const truckNo     = String(data.truckNo || '').trim();
     const weightTon   = Number(data.weightTon);
-    const gradeCode   = data.gradeCode ? String(data.gradeCode).toUpperCase() : null;
+    const gradeCode   = String(data.gradeCode || '').toUpperCase();
     const supplierId  = data.supplierId ? Number(data.supplierId) : null;
-    const departedAt  = data.departedAt ? new Date(data.departedAt) : now();
+    const dispatchedAt = data.dispatchedAt ? new Date(data.dispatchedAt) : now();
 
     assert(truckNo, 'truckNo required');
     assert(weightTon > 0, 'weightTon must be > 0');
@@ -91,42 +82,54 @@ export default function createOreService(prisma = defaultPrisma) {
         fromStation,
         toStation,
         truckNo,
-        weightTon,
-        gradeCode,
+        sendWeightTon: weightTon,
+        sendGradeCode: gradeCode,
         supplierId,
         status: TRANSPORT_STATUS.IN_TRANSIT,
-        departedAt,
+        dispatchedAt,
       },
     });
 
-    await logEvent('ORE_DISPATCH', {
-      fromStation, toStation, truckNo, weightTon, gradeCode, supplierId, transportId: row.id,
-    });
-
+    await logEvent('ORE_DISPATCH', { fromStation, toStation, truckNo, weightTon, gradeCode, supplierId, transportId: row.id });
     return row;
   }
 
-  async function unload({ transportId, receivedAt = null }) {
+  async function unload({ transportId, receivedWeight, receivedGrade, receivedBy, receivedAt = null }) {
     const id = Number(transportId);
     assert(id > 0, 'transportId required');
+
+    const transport = await prisma.oreTransport.findUnique({ where: { id } });
+    assert(transport, `Transport ${id} not found`);
+    if (transport.status !== TRANSPORT_STATUS.IN_TRANSIT) {
+      throw new Error(`Transport ${id} already ${transport.status}`);
+    }
 
     const row = await prisma.oreTransport.update({
       where: { id },
       data: {
         status: TRANSPORT_STATUS.RECEIVED,
+        receiveWeightTon: Number(receivedWeight),
+        receiveGradeCode: String(receivedGrade || '').toUpperCase(),
+        receivedBy: receivedBy || null,
         receivedAt: receivedAt ? new Date(receivedAt) : now(),
       },
     });
 
-    await logEvent('ORE_RECEIVE', {
-      toStation: row.toStation,
-      fromStation: row.fromStation,
-      truckNo: row.truckNo,
-      weightTon: row.weightTon,
-      transportId: row.id,
-    });
-
+    await logEvent('ORE_RECEIVE', { toStation: row.toStation, fromStation: row.fromStation, truckNo: row.truckNo, sendWeightTon: row.sendWeightTon, receiveWeightTon: row.receiveWeightTon, transportId: row.id });
     return row;
+  }
+
+  async function listDeposits(filter = {}) {
+    const where = {};
+    if (filter.stationCode) where.stationCode = asStationCode(filter.stationCode);
+    if (filter.supplierId)  where.supplierId  = Number(filter.supplierId);
+    if (filter.gradeCode)   where.gradeCode   = String(filter.gradeCode).toUpperCase();
+    if (filter.from || filter.to) {
+      where.depositedAt = {};
+      if (filter.from) where.depositedAt.gte = new Date(filter.from);
+      if (filter.to)   where.depositedAt.lte = new Date(filter.to);
+    }
+    return prisma.oreDeposit.findMany({ where, orderBy: { depositedAt: 'desc' } });
   }
 
   async function listTransports(filter = {}) {
@@ -136,7 +139,7 @@ export default function createOreService(prisma = defaultPrisma) {
     if (filter.status)      where.status      = String(filter.status);
     if (filter.from || filter.to) {
       const useReceived = filter.status === TRANSPORT_STATUS.RECEIVED;
-      const key = useReceived ? 'receivedAt' : 'departedAt';
+      const key = useReceived ? 'receivedAt' : 'dispatchedAt';
       where[key] = {};
       if (filter.from) where[key].gte = new Date(filter.from);
       if (filter.to)   where[key].lte = new Date(filter.to);
@@ -144,7 +147,7 @@ export default function createOreService(prisma = defaultPrisma) {
 
     return prisma.oreTransport.findMany({
       where,
-      orderBy: [{ departedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ dispatchedAt: 'desc' }, { id: 'desc' }],
     });
   }
 
@@ -152,32 +155,27 @@ export default function createOreService(prisma = defaultPrisma) {
   async function getStationStock(stationCode) {
     const S = asStationCode(stationCode);
 
-    const [depositsAgg, receivedAgg, dispatchedAgg, inTransitAgg] = await Promise.all([
-      prisma.ore.aggregate({
+    const [depositsAgg, receivedAgg, inTransitAgg] = await Promise.all([
+      prisma.oreDeposit.aggregate({
         _sum: { weightTon: true },
         where: { stationCode: S },
       }),
       prisma.oreTransport.aggregate({
-        _sum: { weightTon: true },
+        _sum: { receiveWeightTon: true },
         where: { toStation: S, status: TRANSPORT_STATUS.RECEIVED },
       }),
       prisma.oreTransport.aggregate({
-        _sum: { weightTon: true },
-        where: { fromStation: S },
-      }),
-      prisma.oreTransport.aggregate({
-        _sum: { weightTon: true },
+        _sum: { sendWeightTon: true },
         where: { fromStation: S, status: TRANSPORT_STATUS.IN_TRANSIT },
       }),
     ]);
 
     const deposits   = Number(depositsAgg._sum.weightTon || 0);
-    const received   = Number(receivedAgg._sum.weightTon || 0);
-    const dispatched = Number(dispatchedAgg._sum.weightTon || 0);
-    const inTransit  = Number(inTransitAgg._sum.weightTon || 0);
-    const stock      = deposits + received - dispatched;
+    const received   = Number(receivedAgg._sum.receiveWeightTon || 0);
+    const inTransit  = Number(inTransitAgg._sum.sendWeightTon || 0);
+    const stock      = deposits + received - inTransit;
 
-    return { stationCode: S, deposits, received, dispatched, inTransit, stock };
+    return { stationCode: S, deposits, received, inTransit, stock };
   }
 
   async function getStationSummary(stationCode) {
@@ -185,8 +183,8 @@ export default function createOreService(prisma = defaultPrisma) {
 
     const [stock, recentDeposits, recentOut, recentIn] = await Promise.all([
       getStationStock(S),
-      prisma.ore.findMany({ where: { stationCode: S }, orderBy: { createdAt: 'desc' }, take: 10 }),
-      prisma.oreTransport.findMany({ where: { fromStation: S }, orderBy: { departedAt: 'desc' }, take: 10 }),
+      prisma.oreDeposit.findMany({ where: { stationCode: S }, orderBy: { depositedAt: 'desc' }, take: 10 }),
+      prisma.oreTransport.findMany({ where: { fromStation: S }, orderBy: { dispatchedAt: 'desc' }, take: 10 }),
       prisma.oreTransport.findMany({ where: { toStation: S, status: TRANSPORT_STATUS.RECEIVED }, orderBy: { receivedAt: 'desc' }, take: 10 }),
     ]);
 
@@ -200,7 +198,6 @@ export default function createOreService(prisma = defaultPrisma) {
 
   // -- public API ------------------------------------------------------------
   return {
-    // API-aligned names only:
     deposit,
     dispatch,
     unload,
@@ -214,7 +211,6 @@ export default function createOreService(prisma = defaultPrisma) {
     getStationSummary,
     getAllStocks,
 
-    // optional exports
     logEvent,
     TRANSPORT_STATUS,
   };
