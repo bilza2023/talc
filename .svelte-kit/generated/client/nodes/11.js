@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/stations/jss/ore_unload/+page.svelte";
+export { default as component } from "../../../../src/routes/stations/jss/ore_deposit/+page.svelte";

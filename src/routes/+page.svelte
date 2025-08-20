@@ -9,6 +9,7 @@
 
     { type: 'heading', title: 'JSS' },
     { title: 'Deposit Ore',  url: '/ore/deposit?station=JSS',  icon: '⚖️' },
+    { title: 'Dispatch Ore',  url: '/ore/dispatch?station=JSS',  icon: '🚀' },
     
     
     { type: 'heading', title: 'PSS' },

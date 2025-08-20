@@ -15,7 +15,9 @@ export const nodes = [
 	() => import('./nodes/11'),
 	() => import('./nodes/12'),
 	() => import('./nodes/13'),
-	() => import('./nodes/14')
+	() => import('./nodes/14'),
+	() => import('./nodes/15'),
+	() => import('./nodes/16')
 ];
 
 export const server_loads = [2];
@@ -24,15 +26,17 @@ export const dictionary = {
 		"/": [3],
 		"/dashboards/ore_dashboard": [~4],
 		"/ore/deposit": [~5],
-		"/settings": [6],
-		"/stations": [~7,[2]],
-		"/stations/jss": [8,[2]],
-		"/stations/jss/ore_deposit": [9,[2]],
-		"/stations/jss/ore_dispatch": [10,[2]],
-		"/stations/jss/ore_unload": [11,[2]],
-		"/suppliers": [~12],
-		"/suppliers/new": [14],
-		"/suppliers/[id]/edit": [13]
+		"/ore/dispatch": [~6],
+		"/ore/unload": [~7],
+		"/settings": [8],
+		"/stations": [~9,[2]],
+		"/stations/jss": [10,[2]],
+		"/stations/jss/ore_deposit": [11,[2]],
+		"/stations/jss/ore_dispatch": [12,[2]],
+		"/stations/jss/ore_unload": [13,[2]],
+		"/suppliers": [~14],
+		"/suppliers/new": [16],
+		"/suppliers/[id]/edit": [15]
 	};
 
 export const hooks = {
