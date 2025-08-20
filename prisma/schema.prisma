@@ -29,7 +29,6 @@ model Ore {
   id          Int          @id @default(autoincrement())
   stationCode StationCode  // stored as TEXT in SQLite
   supplierId  Int
-  batchRef    String       // e.g. SUP001-WL-20250724-001
   weightTon   Float
   gradeCode   String       // WL, WC, WF, GL, GC, GF
   createdAt   DateTime     @default(now())
@@ -48,7 +47,6 @@ model OreTransport {
   weightTon    Float
   gradeCode    String?
   supplierId   Int?
-  originRef    String?
   status       String       @default("in_transit")
   departedAt   DateTime
   receivedAt   DateTime?

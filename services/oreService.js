@@ -28,15 +28,20 @@ export default function createOreService(prisma = defaultPrisma) {
     const supplierId  = Number(data.supplierId);
     const weightTon   = Number(data.weightTon);
     const gradeCode   = String(data.gradeCode || '').toUpperCase();
-    const batchRef    = data.batchRef ?? null;
 
     assert(supplierId > 0, 'supplierId required');
     assert(weightTon > 0, 'weightTon must be > 0');
     assert(gradeCode, 'gradeCode required');
 
-    const row = await prisma.ore.create({
-      data: { stationCode, supplierId, weightTon, gradeCode, batchRef, createdAt: now() },
-    });
+        const row = await prisma.ore.create({
+            data: {
+              stationCode,
+              weightTon,
+              gradeCode,
+              createdAt: now(),
+              supplier: { connect: { id: supplierId } }  // ← satisfy required relation
+            },
+          });
 
     await logEvent('ORE_DEPOSIT', { stationCode, supplierId, weightTon, gradeCode, oreId: row.id });
     return row;

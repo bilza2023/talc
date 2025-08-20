@@ -12,21 +12,23 @@ export const nodes = [
 	() => import('./nodes/8'),
 	() => import('./nodes/9'),
 	() => import('./nodes/10'),
-	() => import('./nodes/11')
+	() => import('./nodes/11'),
+	() => import('./nodes/12')
 ];
 
 export const server_loads = [2];
 
 export const dictionary = {
 		"/": [3],
-		"/settings": [4],
-		"/stations": [~5,[2]],
-		"/stations/jss": [6,[2]],
-		"/stations/jss/ore_deposit": [7,[2]],
-		"/stations/jss/ore_dispatch": [8,[2]],
-		"/suppliers": [~9],
-		"/suppliers/new": [11],
-		"/suppliers/[id]/edit": [10]
+		"/dashboards/ore_dashboard": [~4],
+		"/settings": [5],
+		"/stations": [~6,[2]],
+		"/stations/jss": [7,[2]],
+		"/stations/jss/ore_deposit": [8,[2]],
+		"/stations/jss/ore_dispatch": [9,[2]],
+		"/suppliers": [~10],
+		"/suppliers/new": [12],
+		"/suppliers/[id]/edit": [11]
 	};
 
 export const hooks = {

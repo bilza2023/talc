@@ -1,18 +1,12 @@
 <script>
-  export let data;
   import DepositOre from '$lib/components/DepositOre.svelte';
-  const station = 'JSS';
+  export let data;   // expects { suppliers: [...] }
+  export let form;   // SvelteKit form data (will be null initially)
 </script>
 
-<div class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="mx-auto max-w-3xl p-4">
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg">
-      <div class="border-b border-slate-800 px-5 py-4">
-        <h1 class="text-xl font-semibold">Deposit Ore — {station}</h1>
-      </div>
-      <div class="p-5">
-        <DepositOre stationCode={station} suppliers={data.suppliers} />
-      </div>
-    </div>
+<div class="px-4 py-6">
+  <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow">
+    <h1 class="mb-4 text-2xl font-bold text-slate-100">Deposit Ore — JSS</h1>
+    <DepositOre stationCode="JSS" suppliers={data.suppliers} {form} />
   </div>
 </div>

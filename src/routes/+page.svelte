@@ -23,6 +23,7 @@
     
     
     { type: 'heading', title: 'Admin' },
+    { title: 'Ore Dashboard',     url: '/dashboards/ore_dashboard',     icon: '🗒️' },
     { title: 'Logs',     url: '/admin/logs',     icon: '🗒️' },
     { title: 'Suppliers', url: '/suppliers',   icon: '🚚' },
     { title: 'Mines',  url: '/stations',    icon: '🏗️' },

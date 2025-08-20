@@ -1,57 +1,45 @@
 
-// src/routes/stations/+page.server.js
-import { fail, redirect } from '@sveltejs/kit';
-import createOreService from '/services/oreService.js';
+import createOreService from '../../../services/oreService.js';
+import { R } from '../../lib/formKit/readers.js';
+import { makeAction } from '../../lib/formKit/actionFactory.js';
 
 const ore = createOreService();
 
 export const actions = {
- 
-  async dispatch({ request }) {
-    const fd = await request.formData();
-    const fromStation = String(fd.get('fromStation') || '').toUpperCase();
-    const toStation   = String(fd.get('toStation') || '').toUpperCase();
-    const truckNo     = String(fd.get('truckNo') || '').trim();
-    const weightTon   = Number(fd.get('weightTon') || 0);
-    const gradeCode   = (fd.get('gradeCode') || '').toString().toUpperCase() || null;
+  // POST /stations?/_action=deposit
+  deposit: makeAction({
+    spec: {
+      stationCode: R.str('stationCode', { upper: true, required: true }),
+      supplierId:  R.intId('supplierId', { required: true }),
+      truckNo:     R.str('truckNo',     { trim: true, required: true }), // UI-only
+      weightTon:   R.num('weightTon',   { required: true, gt: 0 }),
+      gradeCode:   R.str('gradeCode',   { upper: true, required: true })
+    },
+    // Optionally strip UI-only fields before service call
+    prepare: (v) => ({ stationCode: v.stationCode, supplierId: v.supplierId, weightTon: v.weightTon, gradeCode: v.gradeCode }),
+    service: (v) => ore.deposit(v),
+    success: (_result, v) => ({ station: v.stationCode })
+  }),
 
-    const values = { fromStation, toStation, truckNo, weightTon, gradeCode };
-
-    if (!fromStation || !toStation || !truckNo || !weightTon) {
-      return fail(400, { message: 'fromStation, toStation, truckNo, weightTon required', values });
-    }
-    if (fromStation === toStation) {
-      return fail(400, { message: 'fromStation and toStation cannot be the same', values });
-    }
-    if (!(weightTon > 0)) {
-      return fail(400, { message: 'weightTon must be > 0', values });
-    }
-
-    try {
-      await ore.dispatch(values); // may throw INSUFFICIENT_STOCK
-      throw redirect(303, `/stations/${fromStation.toLowerCase()}`);
-    } catch (e) {
-      if (e?.code === 'INSUFFICIENT_STOCK') {
-        return fail(400, { message: e.message, values });
+  // POST /stations?/_action=dispatch
+  dispatch: makeAction({
+    spec: {
+      fromStation: R.str('fromStation', { upper: true, required: true }),
+      toStation:   R.str('toStation',   { upper: true, required: true }),
+      truckNo:     R.str('truckNo',     { trim: true, required: true }),
+      weightTon:   R.num('weightTon',   { required: true, gt: 0 }),
+      gradeCode:   R.str('gradeCode',   { upper: true }) // keep optional if that’s your rule
+    },
+    // simple rule examples
+    prepare: (v) => {
+      if (v.fromStation === v.toStation) {
+        const err = new Error('fromStation and toStation cannot be the same');
+        err.code = 'VALIDATION';
+        throw err;
       }
-      if (e?.code === 'P2025') {
-        return fail(404, { message: 'Record not found', values });
-      }
-      console.error('dispatch error:', e);
-      return fail(400, { message: e?.message || 'Dispatch failed', values });
-    }
-  },
-  
-
-  async unload({ request }) {
-    const fd = await request.formData();
-    const transportId = Number(fd.get('transportId') || 0);
-    if (!transportId) return fail(400, { message: 'transportId required' });
-
-    await ore.unload({ transportId });
-
-    // Optional hidden field from form to decide where to land after unload
-    const nextStation = (fd.get('nextStation') || '').toString().toLowerCase() || 'jss';
-    throw redirect(303, `/stations/${nextStation}`);
-  }
+      return v;
+    },
+    service: (v) => ore.dispatch(v),
+    success: (_result, v) => ({ routeFrom: v.fromStation, routeTo: v.toStation })
+  })
 };
