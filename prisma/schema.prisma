@@ -51,6 +51,7 @@ model OreDeposit {
 /// Internal movements between stations (dispatch + unload)
 /// One row = one trip, with send-side filled at dispatch,
 /// and receive-side filled at unload.
+
 model OreTransport {
   id              Int          @id @default(autoincrement())
   fromStation     StationCode
@@ -71,6 +72,47 @@ model OreTransport {
 
   supplierId      Int?
   supplier        Supplier?    @relation(fields: [supplierId], references: [id])
+  talcDeposits      talcDeposit[]
+
+  @@index([fromStation, dispatchedAt])
+  @@index([toStation, receivedAt])
+}
+
+
+model talcDeposit {
+  id                 Int          @id @default(autoincrement())
+  stationCode        StationCode
+  weightTon          Float
+  gradeCode          String
+  depositedAt        DateTime     @default(now())
+
+  // NEW: traceability link (nullable so external talc is still allowed)
+  oreTransportId Int?
+  oreTransport   OreTransport? @relation(fields: [oreTransportId], references: [id])
+
+  @@index([stationCode, depositedAt])
+  @@index([oreTransportId])
+}
+
+model talcTransport {
+  id              Int          @id @default(autoincrement())
+  fromStation     StationCode
+  toStation       StationCode
+
+  truckNo         String?
+  sendWeightTon   Float
+  receiveWeightTon Float?
+
+  sendGradeCode   String
+  receiveGradeCode String?
+  
+  status           TransportStatus @default(in_transit)
+  
+  dispatchedAt    DateTime     @default(now())
+  receivedAt       DateTime?
+  receivedBy       String?
+
+  supplierId      Int?
 
   @@index([fromStation, dispatchedAt])
   @@index([toStation, receivedAt])

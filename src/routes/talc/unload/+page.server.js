@@ -1,10 +1,11 @@
-// /src/routes/ore/unload/+page.server.js
+
+// /src/routes/talc/unload/+page.server.js
 import { error } from '@sveltejs/kit';
-import createOreService from '../../../lib/services/oreServices.js';
+import createTalcService from '../../../lib/services/talcServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
 
-const ore = createOreService();
+const talc = createTalcService();
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {
@@ -23,7 +24,7 @@ export const actions = {
       receiveGradeCode: R.str('receiveGradeCode', { upper: true, required: true }),
       receivedBy:       R.str('receivedBy', { trim: true, required: true })
     },
-    service: (v) => ore.unload(v),
+    service: (v) => talc.unload(v),
     success: (_row, v) => ({ success: true, transportId: v.transportId, station: v.stationCode, status: 'received' })
   })
 };

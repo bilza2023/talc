@@ -17,7 +17,10 @@ export const nodes = [
 	() => import('./nodes/13'),
 	() => import('./nodes/14'),
 	() => import('./nodes/15'),
-	() => import('./nodes/16')
+	() => import('./nodes/16'),
+	() => import('./nodes/17'),
+	() => import('./nodes/18'),
+	() => import('./nodes/19')
 ];
 
 export const server_loads = [2];
@@ -36,7 +39,10 @@ export const dictionary = {
 		"/stations/jss/ore_unload": [13,[2]],
 		"/suppliers": [~14],
 		"/suppliers/new": [16],
-		"/suppliers/[id]/edit": [15]
+		"/suppliers/[id]/edit": [15],
+		"/talc/deposit": [~17],
+		"/talc/dispatch": [~18],
+		"/talc/unload": [~19]
 	};
 
 export const hooks = {
