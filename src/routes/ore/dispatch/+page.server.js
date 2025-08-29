@@ -4,7 +4,8 @@ import createOreService from '../../../lib/services/oreServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
 
-const ore = createOreService();
+import prisma from '../../../lib/server/prisma.js';  
+const ore = createOreService(prisma);
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 const STATIONS = ['JSS', 'PSS', 'KEF'];
 

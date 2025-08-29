@@ -4,9 +4,7 @@ import { error } from '@sveltejs/kit';
 import createTalcService from '../../../lib/services/talcServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
-
-import prisma from '$lib/server/prisma.js';
-
+import prisma from '../../../lib/server/prisma.js';  
 const talc = createTalcService(prisma);
 
 

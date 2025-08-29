@@ -4,8 +4,9 @@ import createOreService from '../../../lib/services/oreServices.js';
 import { list as listSuppliers } from '../../../lib/services/supplierService.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
+import prisma from '../../../lib/server/prisma.js';     
 
-const ore = createOreService();
+const ore = createOreService(prisma);
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {

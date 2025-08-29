@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/dashboards/ore_dashboard/+page.svelte";
+export { default as component } from "../../../../src/routes/dashboards-old/ore_dashboard/+page.svelte";

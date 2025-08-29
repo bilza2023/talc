@@ -1,28 +1,23 @@
+
 // schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-
-/* ---------- Enums ---------- */
 enum StationCode {
   JSS
   PSS
   KEF
   // add more when needed
 }
-
 enum TransportStatus {
   in_transit
   received
   cancelled
 }
-
-/* ---------- Core look-ups ---------- */
 model Supplier {
   id         Int            @id @default(autoincrement())
   name       String
@@ -31,9 +26,6 @@ model Supplier {
   deposits   OreDeposit[]                  // ore received from outside
   transports OreTransport[]                // ore moved between stations
 }
-
-/* ---------- Main tables ---------- */
-/// External inflows from suppliers (mines, contractors, etc.)
 model OreDeposit {
   id          Int          @id @default(autoincrement())
   stationCode StationCode
@@ -47,10 +39,6 @@ model OreDeposit {
 
   @@index([stationCode, depositedAt])
 }
-
-/// Internal movements between stations (dispatch + unload)
-/// One row = one trip, with send-side filled at dispatch,
-/// and receive-side filled at unload.
 
 model OreTransport {
   id              Int          @id @default(autoincrement())
@@ -77,7 +65,6 @@ model OreTransport {
   @@index([fromStation, dispatchedAt])
   @@index([toStation, receivedAt])
 }
-
 
 model talcDeposit {
   id                 Int          @id @default(autoincrement())
@@ -118,7 +105,6 @@ model talcTransport {
   @@index([toStation, receivedAt])
 }
 
-/* ---------- System logs ---------- */
 model Log {
   id        Int       @id @default(autoincrement())
   level     String    @default("info")   // "info" | "warn" | "error"

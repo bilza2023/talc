@@ -17,32 +17,26 @@ export const nodes = [
 	() => import('./nodes/13'),
 	() => import('./nodes/14'),
 	() => import('./nodes/15'),
-	() => import('./nodes/16'),
-	() => import('./nodes/17'),
-	() => import('./nodes/18'),
-	() => import('./nodes/19')
+	() => import('./nodes/16')
 ];
 
 export const server_loads = [2];
 
 export const dictionary = {
 		"/": [3],
-		"/dashboards/ore_dashboard": [~4],
+		"/dashboards-old/ore_dashboard": [~4],
 		"/ore/deposit": [~5],
 		"/ore/dispatch": [~6],
 		"/ore/unload": [~7],
 		"/settings": [8],
 		"/stations": [~9,[2]],
-		"/stations/jss": [10,[2]],
-		"/stations/jss/ore_deposit": [11,[2]],
-		"/stations/jss/ore_dispatch": [12,[2]],
-		"/stations/jss/ore_unload": [13,[2]],
-		"/suppliers": [~14],
-		"/suppliers/new": [16],
-		"/suppliers/[id]/edit": [15],
-		"/talc/deposit": [~17],
-		"/talc/dispatch": [~18],
-		"/talc/unload": [~19]
+		"/stations/jss": [~10,[2]],
+		"/suppliers": [~11],
+		"/suppliers/new": [13],
+		"/suppliers/[id]/edit": [12],
+		"/talc/deposit": [~14],
+		"/talc/dispatch": [~15],
+		"/talc/unload": [~16]
 	};
 
 export const hooks = {
