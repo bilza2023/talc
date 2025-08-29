@@ -12,6 +12,7 @@ export const load = async ({ url }) => {
   const stationParam = url.searchParams.get('station');
   if (!stationParam) throw error(400, 'Station code is required in query (?station=XYZ)');
   const stationCode = String(stationParam).toUpperCase();
+  // transportId comes via query; we read it in +page.svelte from $page.url
   return { stationCode, grades: GRADES };
 };
 
@@ -25,6 +26,11 @@ export const actions = {
       receivedBy:       R.str('receivedBy', { trim: true, required: true })
     },
     service: (v) => ore.unload(v),
-    success: (_row, v) => ({ success: true, transportId: v.transportId, station: v.stationCode, status: 'received' })
+    success: (_row, v) => ({
+      success: true,
+      transportId: v.transportId,
+      station: v.stationCode,
+      status: 'received'
+    })
   })
 };
