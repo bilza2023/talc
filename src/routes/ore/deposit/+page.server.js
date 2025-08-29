@@ -1,12 +1,13 @@
 // /src/routes/ore/deposit/+page.server.js
 import { error } from '@sveltejs/kit';
 import createOreService from '../../../lib/services/oreServices.js';
-import { list as listSuppliers } from '../../../lib/services/supplierService.js';
+import createSupplierService from '../../../lib/services/supplierService.js'; // ⬅️ change
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
-import prisma from '../../../lib/server/prisma.js';     
+import prisma from '../../../lib/server/prisma.js';
 
 const ore = createOreService(prisma);
+const suppliersSvc = createSupplierService(prisma);             // ⬅️ add
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {
@@ -15,7 +16,12 @@ export const load = async ({ url }) => {
   const stationCode = String(stationParam).toUpperCase();
 
   let suppliers = [];
-  try { suppliers = await listSuppliers(); } catch {}
+  try {
+    suppliers = await suppliersSvc.list();                      // ⬅️ call factory method
+  } catch (e) {
+    console.error('supplier list failed', e);
+  }
+
   return { stationCode, suppliers, grades: GRADES };
 };
 

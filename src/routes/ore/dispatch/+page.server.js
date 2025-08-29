@@ -1,18 +1,19 @@
 // /src/routes/ore/dispatch/+page.server.js
 import { error } from '@sveltejs/kit';
+import prisma from '../../../lib/server/prisma.js';
 import createOreService from '../../../lib/services/oreServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
 
-import prisma from '../../../lib/server/prisma.js';  
 const ore = createOreService(prisma);
-const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
+const GRADES   = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 const STATIONS = ['JSS', 'PSS', 'KEF'];
 
 export const load = async ({ url }) => {
   const stationParam = url.searchParams.get('station');
   if (!stationParam) throw error(400, 'Station code is required in query (?station=XYZ)');
   const stationCode = String(stationParam).toUpperCase();
+
   const toStations = STATIONS.filter(s => s !== stationCode);
   return { stationCode, grades: GRADES, toStations };
 };

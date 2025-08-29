@@ -1,5 +1,6 @@
 <script>
-  export let data;
+ import { enhance } from '$app/forms';   
+export let data;
   export let form; // ✅ receive action result
 
   let stationCode = data.stationCode;
@@ -29,7 +30,9 @@
       </div>
     {/if}
 
-    <form method="post" action="?station={stationCode}&/deposit" class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
+    <form method="POST" action="?/deposit" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
+    <!-- <form method="post" action="?station={stationCode}&/deposit" class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]"> -->
+
       <input type="hidden" name="stationCode" value={stationCode} />
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">

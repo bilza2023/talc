@@ -7,19 +7,14 @@
     // Example nav model
     const entries = [
 
-    { type: 'heading', title: 'JSS' },
-    { title: 'Deposit Ore',  url: '/ore/deposit?station=JSS',  icon: '⚖️' },
-    { title: 'Dispatch Ore',  url: '/ore/dispatch?station=JSS',  icon: '🚀' },
+    { type: 'heading', title: 'Stations' },
+    { title: 'BS1',  url: '/stations/bs1',  icon: '⚖️' },
+    { title: 'BS2',  url: '/stations/bs2',  icon: '⚖️' },
+    { title: 'BS3',  url: '/stations/bs3',  icon: '⚖️' },
+    { title: 'JSS',  url: '/stations/jss',  icon: '⚖️' },
+    { title: 'PSS',  url: '/stations/pss',  icon: '⚖️' },
+    { title: 'KEF',  url: '/stations/kef',  icon: '⚖️' },
     
-    
-    { type: 'heading', title: 'PSS' },
-    { title: 'Deposit Ore',  url: '/ore/deposit?station=PSS',  icon: '⚖️' },
-    
-    
-    
-    { type: 'heading', title: 'KEF' },
-    { title: 'Comming soon',  url: '/',  icon: '⚖️' },
-   
     
     
     { type: 'heading', title: 'Admin' },

@@ -17,7 +17,8 @@ export const nodes = [
 	() => import('./nodes/13'),
 	() => import('./nodes/14'),
 	() => import('./nodes/15'),
-	() => import('./nodes/16')
+	() => import('./nodes/16'),
+	() => import('./nodes/17')
 ];
 
 export const server_loads = [2];
@@ -31,12 +32,13 @@ export const dictionary = {
 		"/settings": [8],
 		"/stations": [~9,[2]],
 		"/stations/jss": [~10,[2]],
-		"/suppliers": [~11],
-		"/suppliers/new": [13],
-		"/suppliers/[id]/edit": [12],
-		"/talc/deposit": [~14],
-		"/talc/dispatch": [~15],
-		"/talc/unload": [~16]
+		"/stations/pss": [~11,[2]],
+		"/suppliers": [~12],
+		"/suppliers/new": [14],
+		"/suppliers/[id]/edit": [13],
+		"/talc/deposit": [~15],
+		"/talc/dispatch": [~16],
+		"/talc/unload": [~17]
 	};
 
 export const hooks = {

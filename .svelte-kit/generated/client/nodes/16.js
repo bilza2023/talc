@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/talc/unload/+page.svelte";
+export { default as component } from "../../../../src/routes/talc/dispatch/+page.svelte";
