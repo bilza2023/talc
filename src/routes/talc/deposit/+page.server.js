@@ -1,10 +1,15 @@
+
 // /src/routes/talc/deposit/+page.server.js
 import { error } from '@sveltejs/kit';
 import createTalcService from '../../../lib/services/talcServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
 
-const talc = createTalcService();
+import prisma from '$lib/server/prisma.js';
+
+const talc = createTalcService(prisma);
+
+
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {

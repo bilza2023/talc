@@ -77,6 +77,7 @@ export default function createTalcService(db) {
      * @param {{transportId:number, stationCode:string, receiveWeightTon:number, receiveGradeCode:string, receivedBy:string}} v
      */
     async function unload(v) {
+      // console.log("v" ,v);
       const id = Number(v.transportId);
       if (!(id > 0)) throw Object.assign(new Error('transportId required'), { code: 'E_MISSING_FIELD' });
   

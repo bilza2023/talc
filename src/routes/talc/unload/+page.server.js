@@ -4,8 +4,10 @@ import { error } from '@sveltejs/kit';
 import createTalcService from '../../../lib/services/talcServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
+import prisma from '$lib/server/prisma.js';
 
-const talc = createTalcService();
+const talc = createTalcService(prisma);
+
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {
@@ -16,6 +18,7 @@ export const load = async ({ url }) => {
 };
 
 export const actions = {
+
   unload: makeAction({
     spec: {
       transportId:      R.intId('transportId', { required: true }),
