@@ -18,8 +18,11 @@
     
     
     { type: 'heading', title: 'Admin' },
-    { title: 'Ore Dashboard',     url: '/dashboard/ore',     icon: '🗒️' },
-    { title: 'Logs',     url: '/logs',     icon: '🗒️' },
+    { title: 'Overview',     url: '/dashboard/overview',     icon: '🗒️' },
+    { title: 'Ore Dashboard',     url: '/dashboard/ore',     icon: '🪨' },
+    { title: 'Talc Dashboard',     url: '/dashboard/talc',     icon: '🧼' },
+    { title: 'Trucks',     url: '/dashboard/talc',     icon: '🧼' },
+    { title: 'Logs',     url: '/dashboard/trucks',     icon: '🚚' },
     { title: 'Suppliers', url: '/suppliers',   icon: '🚚' },
     { title: 'Mines',  url: '/mines',    icon: '🏗️' },
     { title: 'Settings', url: '/settings', icon: '⚙️' },

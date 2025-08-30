@@ -23,33 +23,41 @@ export const nodes = [
 	() => import('./nodes/19'),
 	() => import('./nodes/20'),
 	() => import('./nodes/21'),
-	() => import('./nodes/22')
+	() => import('./nodes/22'),
+	() => import('./nodes/23'),
+	() => import('./nodes/24'),
+	() => import('./nodes/25'),
+	() => import('./nodes/26')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
 		"/": [2],
-		"/dashboard/ore": [~3],
-		"/dashboard/talc": [~4],
-		"/logs": [5],
-		"/mines": [6],
-		"/ore/deposit": [~7],
-		"/ore/dispatch": [~8],
-		"/ore/unload": [~9],
-		"/settings": [10],
-		"/stations": [~11],
-		"/stations/abs": [~12],
-		"/stations/bs1": [~13],
-		"/stations/bs2": [~14],
-		"/stations/bs3": [~15],
-		"/stations/jss": [~16],
-		"/stations/kef": [~17],
-		"/stations/pss": [~18],
-		"/suppliers": [~19],
-		"/talc/deposit": [~20],
-		"/talc/dispatch": [~21],
-		"/talc/unload": [~22]
+		"/dashboard/in-transit": [~3],
+		"/dashboard/ore": [~4],
+		"/dashboard/overview": [~5],
+		"/dashboard/talc": [~6],
+		"/dashboard/traceability": [~7],
+		"/dashboard/trucks": [~8],
+		"/logs": [9],
+		"/mines": [10],
+		"/ore/deposit": [~11],
+		"/ore/dispatch": [~12],
+		"/ore/unload": [~13],
+		"/settings": [14],
+		"/stations": [~15],
+		"/stations/abs": [~16],
+		"/stations/bs1": [~17],
+		"/stations/bs2": [~18],
+		"/stations/bs3": [~19],
+		"/stations/jss": [~20],
+		"/stations/kef": [~21],
+		"/stations/pss": [~22],
+		"/suppliers": [~23],
+		"/talc/deposit": [~24],
+		"/talc/dispatch": [~25],
+		"/talc/unload": [~26]
 	};
 
 export const hooks = {

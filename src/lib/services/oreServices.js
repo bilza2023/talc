@@ -172,6 +172,117 @@ async function listOreByStation({ stationCode, onlyReceived = true, since = null
   return rows;
 }
 
+// Add inside createOreService(db)
+async function overview({ since = null } = {}) {
+  const depWhere  = since ? { depositedAt: { gte: since } } : {};
+  const recvWhere = since ? { status: 'received', receivedAt: { gte: since } } : { status: 'received' };
 
-  return { deposit, dispatch, unload, listInTransit, getTransport,getStationStock,listOreByStation };
+  const [depAgg, recvAgg, inAgg] = await Promise.all([
+    db.oreDeposit.aggregate({ _sum: { weightTon: true }, where: depWhere }),
+    db.oreTransport.aggregate({ _sum: { receiveWeightTon: true }, where: recvWhere }),
+    db.oreTransport.aggregate({ _sum: { sendWeightTon: true }, _count: { _all: true }, where: { status: 'in_transit' } })
+  ]);
+
+  return {
+    depositsTonSince: Number(depAgg._sum.weightTon || 0),
+    receivedTonSince: Number(recvAgg._sum.receiveWeightTon || 0),
+    inTransitTon:     Number(inAgg._sum.sendWeightTon || 0),
+    inTransitCount:   Number((inAgg._count && inAgg._count._all) || 0)
+  };
+}
+
+
+// Inside createOreService(db)
+async function groupByTruck({ since = null, dateFrom = null, dateTo = null } = {}) {
+  const from = dateFrom || since || null;
+  const whereBase = {
+    truckNo: { not: null },
+    ...(from ? { dispatchedAt: { gte: from } } : {}),
+    ...(dateTo ? { dispatchedAt: { gte: from, lte: dateTo } } : {})
+  };
+
+  // Aggregates by truck
+  const agg = await db.oreTransport.groupBy({
+    by: ["truckNo"],
+    where: whereBase,
+    _sum: { sendWeightTon: true, receiveWeightTon: true },
+    _count: { _all: true },
+    _max: { dispatchedAt: true }
+  });
+
+  // For avg turnaround, read only received rows in window
+  const recvd = await db.oreTransport.findMany({
+    where: { ...whereBase, status: "received" },
+    select: { truckNo: true, dispatchedAt: true, receivedAt: true }
+  });
+
+  const durByTruck = new Map(); // truckNo -> { sumHrs, n }
+  for (const t of recvd) {
+    if (!t.receivedAt || !t.dispatchedAt) continue;
+    const hrs = (new Date(t.receivedAt).getTime() - new Date(t.dispatchedAt).getTime()) / 3600000;
+    const cur = durByTruck.get(t.truckNo) || { sumHrs: 0, n: 0 };
+    cur.sumHrs += hrs;
+    cur.n += 1;
+    durByTruck.set(t.truckNo, cur);
+  }
+
+  return agg.map((r) => {
+    const { sumHrs, n } = durByTruck.get(r.truckNo) || { sumHrs: 0, n: 0 };
+    return {
+      material: "ore",
+      truckNo: r.truckNo,
+      tripsCount: r._count?._all || 0,
+      totalSendTon: Number(r._sum?.sendWeightTon || 0),
+      totalReceiveTon: Number(r._sum?.receiveWeightTon || 0),
+      avgTurnaroundHrs_sum: sumHrs,
+      avgTurnaroundHrs_n: n,
+      lastTripAt: r._max?.dispatchedAt || null
+    };
+  });
+}
+
+// Inside createOreService(db)
+async function listTransports({
+  since = null,
+  dateFrom = null,
+  dateTo = null,
+  status = null,
+  fromStation = null,
+  toStation = null
+} = {}) {
+  const from = dateFrom || since || null;
+
+  const where = {
+    ...(from || dateTo
+      ? { dispatchedAt: { ...(from ? { gte: from } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
+      : {}),
+    ...(status ? { status } : {}),
+    ...(fromStation ? { fromStation } : {}),
+    ...(toStation ? { toStation } : {})
+  };
+
+  return db.oreTransport.findMany({
+    where,
+    select: {
+      id: true,
+      fromStation: true,
+      toStation: true,
+      sendWeightTon: true,
+      sendGradeCode: true,
+      dispatchedAt: true,
+      receivedAt: true,
+      status: true
+    },
+    orderBy: { dispatchedAt: 'desc' }
+  });
+}
+
+
+
+// Add to returned object:
+return {
+  deposit, dispatch, unload, listInTransit, getTransport, getStationStock, overview, groupByTruck,
+  listTransports
+};
+
 }

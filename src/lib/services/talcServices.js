@@ -133,13 +133,147 @@ export default function createTalcService(db) {
       return { stationCode: S, deposits, received, inTransit, stock };
     }
   
-    return {
-      deposit,
-      dispatch,
-      unload,
-      listInTransit,
-      getTransport,
-      getStationStock, // handy for dashboards
-    };
+
+    // Add inside createTalcService(db)
+async function overview({ since = null } = {}) {
+  const depWhere  = since ? { depositedAt: { gte: since } } : {};
+  const recvWhere = since ? { status: 'received', receivedAt: { gte: since } } : { status: 'received' };
+
+  const [depAgg, recvAgg, inAgg] = await Promise.all([
+    db.talcDeposit.aggregate({ _sum: { weightTon: true }, where: depWhere }),
+    db.talcTransport.aggregate({ _sum: { receiveWeightTon: true }, where: recvWhere }),
+    db.talcTransport.aggregate({ _sum: { sendWeightTon: true }, _count: { _all: true }, where: { status: 'in_transit' } })
+  ]);
+
+  return {
+    depositsTonSince: Number(depAgg._sum.weightTon || 0),
+    receivedTonSince: Number(recvAgg._sum.receiveWeightTon || 0),
+    inTransitTon:     Number(inAgg._sum.sendWeightTon || 0),
+    inTransitCount:   Number((inAgg._count && inAgg._count._all) || 0)
+  };
+}
+
+// Inside createTalcService(db)
+async function groupByTruck({ since = null, dateFrom = null, dateTo = null } = {}) {
+  const from = dateFrom || since || null;
+  const whereBase = {
+    truckNo: { not: null },
+    ...(from ? { dispatchedAt: { gte: from } } : {}),
+    ...(dateTo ? { dispatchedAt: { gte: from, lte: dateTo } } : {})
+  };
+
+  const agg = await db.talcTransport.groupBy({
+    by: ["truckNo"],
+    where: whereBase,
+    _sum: { sendWeightTon: true, receiveWeightTon: true },
+    _count: { _all: true },
+    _max: { dispatchedAt: true }
+  });
+
+  const recvd = await db.talcTransport.findMany({
+    where: { ...whereBase, status: "received" },
+    select: { truckNo: true, dispatchedAt: true, receivedAt: true }
+  });
+
+  const durByTruck = new Map();
+  for (const t of recvd) {
+    if (!t.receivedAt || !t.dispatchedAt) continue;
+    const hrs = (new Date(t.receivedAt).getTime() - new Date(t.dispatchedAt).getTime()) / 3600000;
+    const cur = durByTruck.get(t.truckNo) || { sumHrs: 0, n: 0 };
+    cur.sumHrs += hrs;
+    cur.n += 1;
+    durByTruck.set(t.truckNo, cur);
   }
+
+  return agg.map((r) => {
+    const { sumHrs, n } = durByTruck.get(r.truckNo) || { sumHrs: 0, n: 0 };
+    return {
+      material: "talc",
+      truckNo: r.truckNo,
+      tripsCount: r._count?._all || 0,
+      totalSendTon: Number(r._sum?.sendWeightTon || 0),
+      totalReceiveTon: Number(r._sum?.receiveWeightTon || 0),
+      avgTurnaroundHrs_sum: sumHrs,
+      avgTurnaroundHrs_n: n,
+      lastTripAt: r._max?.dispatchedAt || null
+    };
+  });
+}
+
+
+// Inside createTalcService(db)
+async function sumLinkedTalcByOreTransportIds({ oreTransportIds = [], dateFrom = null, dateTo = null } = {}) {
+  if (!Array.isArray(oreTransportIds) || oreTransportIds.length === 0) {
+    return new Map();
+  }
+
+  const where = {
+    oreTransportId: { in: oreTransportIds },
+    ...(dateFrom ? { depositedAt: { gte: dateFrom } } : {}),
+    ...(dateTo ? { depositedAt: { lte: dateTo } } : {})
+  };
+
+  const agg = await db.talcDeposit.groupBy({
+    by: ["oreTransportId"],
+    where,
+    _sum: { weightTon: true },
+    _min: { depositedAt: true }
+  });
+
+  // Map: transportId -> { linkedTon, firstDepositAt }
+  const map = new Map();
+  for (const r of agg) {
+    map.set(r.oreTransportId, {
+      linkedTon: Number(r._sum?.weightTon || 0),
+      firstDepositAt: r._min?.depositedAt || null
+    });
+  }
+  return map;
+}
+
+
+// src/lib/services/talcServices.js
+// ...
+async function sumLinkedTalcByOreTransportIds({
+  oreTransportIds = [],
+  dateFrom = null,
+  dateTo = null
+} = {}) {
+  if (!Array.isArray(oreTransportIds) || oreTransportIds.length === 0) {
+    return new Map();
+  }
+
+  const where = {
+    oreTransportId: { in: oreTransportIds },
+    ...(dateFrom || dateTo
+      ? { depositedAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
+      : {})
+  };
+
+  const agg = await db.talcDeposit.groupBy({
+    by: ['oreTransportId'],
+    where,
+    _sum: { weightTon: true },
+    _min: { depositedAt: true }
+  });
+
+  const map = new Map();
+  for (const r of agg) {
+    map.set(r.oreTransportId, {
+      linkedTon: Number(r._sum?.weightTon || 0),
+      firstDepositAt: r._min?.depositedAt || null
+    });
+  }
+  return map;
+}
+
+
+// Add to returned object:
+return {
+  deposit, dispatch, unload, listInTransit, getTransport, getStationStock, overview, groupByTruck,
+  sumLinkedTalcByOreTransportIds,sumLinkedTalcByOreTransportIds
+};
+
+
+}
   

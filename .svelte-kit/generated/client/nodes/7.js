@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/ore/deposit/+page.svelte";
+export { default as component } from "../../../../src/routes/dashboard/traceability/+page.svelte";
