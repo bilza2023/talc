@@ -1,6 +1,7 @@
 <script>
   export let data;
   import StationStockCard from "../StationStockCard.svelte";
+  import InboundList from "../InboundList.svelte";
   const { stationCode, inbound } = data || {};
 
   const talcPalette = ["#b72222", "#14b8a6", "#f59e0b", "#b72222"];
@@ -53,48 +54,11 @@
       
     </section>
 
-    <!-- Inbound (in_transit → Unload required) -->
-    <section class="space-y-3">
-      <h2 class="text-xl">Inbound (Awaiting Unload)</h2>
-
-      {#if inbound && inbound.length}
-        <div class="overflow-hidden rounded-xl border border-[#1c2433]">
-          <div
-            class="grid grid-cols-7 gap-2 px-4 py-3 bg-[#0f1521] text-sm text-[#9fb0c5]"
-          >
-            <div>Truck</div>
-            <div>Material</div>
-            <div>From</div>
-            <div>Grade</div>
-            <div>Weight (t)</div>
-            <div>Dispatched</div>
-            <div>Action</div>
-          </div>
-
-          {#each inbound as row}
-            <div
-              class="grid grid-cols-7 gap-2 px-4 py-3 border-t border-[#1c2433] items-center"
-            >
-              <div class="truncate">{row.truckNo}</div>
-              <div class="uppercase">{row.material}</div>
-              <div>{row.fromStation}</div>
-              <div class="font-mono text-sm">{row.gradeCode}</div>
-              <div>{row.weightTon}</div>
-              <div>{new Date(row.dispatchedAt).toLocaleString()}</div>
-              <div>
-                <a href={row.unloadUrl} class="text-[#7cc4ff] hover:underline"
-                  >Unload</a
-                >
-              </div>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="text-[#9fb0c5]">
-          No inbound trucks currently en route to {stationCode}.
-        </div>
-      {/if}
-    </section>
+    <InboundList
+  rows={data.inbound}
+  stationCode={data.stationCode}
+/>
+  
   </div>
 </div>
 
