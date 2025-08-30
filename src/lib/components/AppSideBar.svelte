@@ -1,7 +1,38 @@
 <script>
   // Props
-  export let entries = []; // [{ title, url, type?: 'normal'|'heading', icon?: '…' }]
-  export let textColor = "text-zinc-100";
+  export const entries = [
+
+
+{ type: 'heading', title: 'Dashboard' },
+{ title: 'Overview',     url: '/dashboard/overview',     icon: '🗒️' },
+{ title: 'Ore',     url: '/dashboard/ore',     icon: '🪨' },
+{ title: 'Talc',     url: '/dashboard/talc',     icon: '🧼' },
+{ title: 'Traceability',     url: '/dashboard/traceability',     icon: '🧼' },
+{ title: 'Transit',     url: '/dashboard/transit',     icon: '🧼' },
+{ title: 'Trucks',     url: '/dashboard/trucks',     icon: '🧼' },
+
+
+
+{ type: 'heading', title: 'Stations' },
+{ title: 'BS1', url: '/stations/bs1', icon: '🏗️1' }, // weighbridge
+{ title: 'BS2', url: '/stations/bs2', icon: '🏗️2' },
+{ title: 'BS3', url: '/stations/bs3', icon: '🏗️3' },
+{ title: 'JSS', url: '/stations/jss', icon: '🚚' }, // logistics hub
+{ title: 'PSS', url: '/stations/pss', icon: '🗺️' }, // regional station
+{ title: 'KEF', url: '/stations/kef', icon: '📦' }, // export facility
+
+
+
+{ type: 'heading', title: 'Admin' },
+
+{ title: 'Suppliers', url: '/suppliers',   icon: '🚚' },
+{ title: 'Mines',  url: '/mines',    icon: '🏗️' },
+{ title: 'Settings', url: '/settings', icon: '⚙️' },
+
+
+];
+  
+export let textColor = "text-zinc-100";
   export let bgColor = "bg-zinc-900";
   export let collapsed = false; // bindable
   export let activeUrl = ""; // optional

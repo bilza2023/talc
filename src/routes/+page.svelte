@@ -4,42 +4,19 @@
     import AppSideBar from "$lib/components/AppSideBar.svelte";
     import { page } from '$app/stores';
   
-    // Example nav model
-    const entries = [
-
-    { type: 'heading', title: 'Stations' },
-{ title: 'BS1', url: '/stations/bs1', icon: '🏗️1' }, // weighbridge
-{ title: 'BS2', url: '/stations/bs2', icon: '🏗️2' },
-{ title: 'BS3', url: '/stations/bs3', icon: '🏗️3' },
-{ title: 'JSS', url: '/stations/jss', icon: '🚚' }, // logistics hub
-{ title: 'PSS', url: '/stations/pss', icon: '🗺️' }, // regional station
-{ title: 'KEF', url: '/stations/kef', icon: '📦' }, // export facility
-
-    
-    
-    { type: 'heading', title: 'Admin' },
-    { title: 'Overview',     url: '/dashboard/overview',     icon: '🗒️' },
-    { title: 'Ore Dashboard',     url: '/dashboard/ore',     icon: '🪨' },
-    { title: 'Talc Dashboard',     url: '/dashboard/talc',     icon: '🧼' },
-    { title: 'Trucks',     url: '/dashboard/talc',     icon: '🧼' },
-    { title: 'Logs',     url: '/dashboard/trucks',     icon: '🚚' },
-    { title: 'Suppliers', url: '/suppliers',   icon: '🚚' },
-    { title: 'Mines',  url: '/mines',    icon: '🏗️' },
-    { title: 'Settings', url: '/settings', icon: '⚙️' },
-  ];
-  
     let collapsed = false; // bindable
     $: activeUrl = $page?.url?.pathname; // highlight current route
   </script>
   
   <div class="flex min-h-screen">
+  
     <AppSideBar
-      {entries}
       bind:collapsed
       {activeUrl}
       textColor="text-white"
        bgColor="bg-[#002316]"
     />
+
     <main class="flex-1 p-6 bg-gradient-to-b from-[#06110d] to-[#0b1813] text-[#e6ebf1]">
       <section class="mx-auto max-w-7xl">
         <!-- Title block (top) -->
