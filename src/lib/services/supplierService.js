@@ -1,82 +1,41 @@
 // src/lib/services/supplierService.js
 
 /**
- * Supplier service (factory pattern).
- * Usage:
- *   import prisma from '$lib/server/prisma.js';
- *   import createSupplierService from '$lib/services/supplierService.js';
- *   const suppliers = createSupplierService(prisma);
- *   await suppliers.list();
+ * Supplier service (factory) — inject a Prisma client.
+ * @param {import('@prisma/client').PrismaClient} db
  */
-export default function createSupplierService(prisma) {
-    if (!prisma) throw new Error('supplierService requires a prisma instance');
-  
-    return {
-      /**
-       * Create a supplier
-       * @param {{ name: string, code: string }} dto
-       */
-      async create({ name, code }) {
-        return prisma.supplier.create({
-          data: { name: String(name || '').trim(), code: String(code || '').trim() }
-        });
-      },
-  
-      /**
-       * Update a supplier by id
-       * @param {{ id: number, name?: string, code?: string }} dto
-       */
-      async update({ id, name, code }) {
-        const data = {};
-        if (name !== undefined) data.name = String(name).trim();
-        if (code !== undefined) data.code = String(code).trim();
-        return prisma.supplier.update({ where: { id: Number(id) }, data });
-      },
-  
-      /**
-       * Delete a supplier by id
-       * @param {{ id: number }} dto
-       */
-      async remove({ id }) {
-        return prisma.supplier.delete({ where: { id: Number(id) } });
-      },
-  
-      /**
-       * List suppliers (ordered)
-       */
-      async list() {
-        return prisma.supplier.findMany({ orderBy: [{ name: 'asc' }, { id: 'asc' }] });
-      },
-  
-      /**
-       * Get supplier by id
-       * @param {{ id: number }} dto
-       */
-      async get({ id }) {
-        return prisma.supplier.findUnique({ where: { id: Number(id) } });
-      },
-  
-      /**
-       * Get supplier by code
-       * @param {{ code: string }} dto
-       */
-      async getByCode({ code }) {
-        return prisma.supplier.findUnique({ where: { code: String(code || '').trim() } });
-      },
-  
-      /**
-       * Upsert supplier by code (handy for quick workflows)
-       * @param {{ code: string, name: string }} dto
-       */
-      async upsertByCode({ code, name }) {
-        const _code = String(code || '').trim();
-        const _name = String(name || '').trim();
-        return prisma.supplier.upsert({
-          where: { code: _code },
-          update: { name: _name },
-          create: { code: _code, name: _name }
-        });
-      }
-    };
+export default function createSupplierService(db) {
+  if (!db) {
+    throw Object.assign(new Error('Prisma client required'), { code: 'E_PRISMA_REQUIRED' });
   }
-  
+
+  /** Create a supplier */
+  async function create({ name, code }) {
+    return db.supplier.create({ data: { name, code } });
+  }
+
+  /** Update a supplier */
+  async function update({ id, name, code }) {
+    return db.supplier.update({
+      where: { id: Number(id) },
+      data: { name, code }
+    });
+  }
+
+  /** Delete a supplier */
+  async function remove({ id }) {
+    return db.supplier.delete({ where: { id: Number(id) } });
+  }
+
+  /** List suppliers (ascending by id) */
+  async function list() {
+    return db.supplier.findMany({ orderBy: { id: 'asc' } });
+  }
+
+  /** Get one supplier by id */
+  async function get({ id }) {
+    return db.supplier.findUnique({ where: { id: Number(id) } });
+  }
+
+  return { create, update, remove, list, get };
+}

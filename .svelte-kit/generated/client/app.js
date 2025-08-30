@@ -21,32 +21,31 @@ export const nodes = [
 	() => import('./nodes/17'),
 	() => import('./nodes/18'),
 	() => import('./nodes/19'),
-	() => import('./nodes/20'),
-	() => import('./nodes/21')
+	() => import('./nodes/20')
 ];
 
-export const server_loads = [2];
+export const server_loads = [];
 
 export const dictionary = {
-		"/": [3],
-		"/dashboards-old/ore_dashboard": [~4],
-		"/ore/deposit": [~5],
-		"/ore/dispatch": [~6],
-		"/ore/unload": [~7],
-		"/settings": [8],
-		"/stations": [~9,[2]],
-		"/stations/bs1": [~10,[2]],
-		"/stations/bs2": [~11,[2]],
-		"/stations/bs3": [~12,[2]],
-		"/stations/jss": [~13,[2]],
-		"/stations/kef": [~14,[2]],
-		"/stations/pss": [~15,[2]],
-		"/suppliers": [~16],
-		"/suppliers/new": [18],
-		"/suppliers/[id]/edit": [17],
-		"/talc/deposit": [~19],
-		"/talc/dispatch": [~20],
-		"/talc/unload": [~21]
+		"/": [2],
+		"/dashboards/ore_dashboard": [~3],
+		"/ore/deposit": [~4],
+		"/ore/dispatch": [~5],
+		"/ore/unload": [~6],
+		"/settings": [7],
+		"/stations": [~8],
+		"/stations/bs1": [~9],
+		"/stations/bs2": [~10],
+		"/stations/bs3": [~11],
+		"/stations/jss": [~12],
+		"/stations/kef": [~13],
+		"/stations/pss": [~14],
+		"/suppliers": [~15],
+		"/suppliers/new": [17],
+		"/suppliers/[id]/edit": [16],
+		"/talc/deposit": [~18],
+		"/talc/dispatch": [~19],
+		"/talc/unload": [~20]
 	};
 
 export const hooks = {

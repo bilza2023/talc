@@ -47,7 +47,7 @@
     </div>
 
     <div class="stat v3">
-      <div class="label">In Transit</div>
+      <div class="label">Out Bound</div>
       <div class="value">{fmt(inTransit)}</div>
     </div>
 
