@@ -131,6 +131,47 @@ async function getStationStock(stationCode) {
   return { stationCode: S, deposits, received, inTransit, stock };
 }
 
+// lib/services/talcServices.js (inside createTalcService(prisma))
+// inside createOreService(db)
+async function listOreByStation({ stationCode, onlyReceived = true, since = null, limit = 100, excludeLinked = false }) {
+  const where = {
+    toStation: stationCode,
+    ...(onlyReceived ? { status: 'received' } : {}),
+    ...(since ? { receivedAt: { gte: since } } : {})
+  };
 
-  return { deposit, dispatch, unload, listInTransit, getTransport,getStationStock };
+  const rows = await db.oreTransport.findMany({
+    where,
+    orderBy: [{ receivedAt: 'desc' }, { dispatchedAt: 'desc' }, { id: 'desc' }],
+    take: limit,
+    select: {
+      id: true,
+      truckNo: true,
+      fromStation: true,
+      toStation: true,
+      sendGradeCode: true,
+      sendWeightTon: true,
+      receiveGradeCode: true,
+      receiveWeightTon: true,
+      dispatchedAt: true,
+      receivedAt: true,
+      status: true
+    }
+  });
+
+  if (excludeLinked && rows.length) {
+    const ids = rows.map(r => r.id);
+    const linked = await db.talcDeposit.findMany({
+      where: { oreTransportId: { in: ids } },
+      select: { oreTransportId: true }
+    });
+    const linkedSet = new Set(linked.map(x => x.oreTransportId).filter(Boolean));
+    return rows.filter(r => !linkedSet.has(r.id));
+  }
+
+  return rows;
+}
+
+
+  return { deposit, dispatch, unload, listInTransit, getTransport,getStationStock,listOreByStation };
 }

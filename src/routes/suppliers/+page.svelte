@@ -1,76 +1,96 @@
-
+<!-- /home/bilal-tariq/ab/src/routes/suppliers/+page.svelte -->
 <script>
-    export let data;
-    const suppliers = data?.suppliers ?? [];
-  </script>
-  
-  <style>
-    :root{ --ink:#e6ebf1; --muted:#a9b3c2; --edge:#0f1724; --card:#101721; --card2:#0f1621; }
-    :global(body){ color: var(--ink); }
-  
-    .wrap{ max-width: 900px; margin: 0 auto; padding: 1rem; }
-    .bar{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom: .8rem; }
-    h1{ font-size:1.1rem; margin:0; font-weight:800; }
-    .btn{
-      background:#1a2536; color:var(--ink); border:1px solid #233049; padding:.55rem .8rem;
-      border-radius:.6rem; text-decoration:none; font-weight:700;
-    }
-    .btn:hover{ background:#21314a; }
-  
-    .card{ background:var(--card); border:1px solid var(--edge); border-radius:.8rem; overflow:hidden; }
-    .card h2{ margin:0; padding:.8rem .9rem; font-size:.98rem; font-weight:800; border-bottom:1px solid var(--edge); }
-    .body{ padding:.8rem .9rem; }
-  
-    table{ width:100%; border-collapse:collapse; font-size:.95rem; }
-    th,td{ text-align:left; padding:.55rem .4rem; border-bottom:1px solid #131a28; }
-    th{ color:var(--muted); font-weight:600; font-size:.82rem; }
-    tr:hover{ background:#0f1622; }
-  
-    .row-actions{ display:flex; gap:.4rem; }
-    .link{ color:var(--ink); text-decoration:underline; }
-    .del{
-      background:#2a1a1a; color:#ffdcdc; border:1px solid #3b2222; padding:.35rem .6rem; border-radius:.5rem;
-    }
-    .del:hover{ background:#3b2222; }
-  </style>
-  
-  <div class="wrap">
-    <div class="bar">
-      <h1>Suppliers</h1>
-      <a class="btn" href="/suppliers/new">Add Supplier</a>
-    </div>
-  
-    <section class="card">
-      <h2>All Suppliers</h2>
-      <div class="body">
-        {#if suppliers.length}
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Code</th><th>Name</th><th></th></tr>
-            </thead>
-            <tbody>
+  export let data;
+  let { suppliers = [] } = data ?? {};
+
+  // simple client-side helpers
+  const fmtId = (n) => (n == null ? '—' : Number(n));
+</script>
+
+<div class="min-h-screen bg-gradient-to-b from-[#0a0d13] to-[#0b1018] text-[#e6ebf1]">
+  <div class="mx-auto max-w-5xl px-4 py-8 space-y-8">
+    <header class="space-y-1">
+      <h1 class="text-2xl font-semibold tracking-tight">Suppliers</h1>
+      <p class="text-sm text-[#9fb0c5]">Create, edit, and remove supplier records.</p>
+    </header>
+
+    <!-- Create Supplier -->
+    <section class="rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+      <h2 class="text-lg font-semibold mb-4">Add New Supplier</h2>
+      <form method="post" action="?/create" class="grid gap-4 sm:grid-cols-3">
+        <label class="flex flex-col gap-1">
+          <span class="text-sm text-[#9fb0c5]">Code</span>
+          <input name="code" class="rounded-md bg-black/20 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-600" required />
+        </label>
+        <label class="flex flex-col gap-1 sm:col-span-2">
+          <span class="text-sm text-[#9fb0c5]">Name</span>
+          <input name="name" class="rounded-md bg-black/20 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-600" required />
+        </label>
+        <div class="sm:col-span-3">
+          <button class="rounded-lg bg-emerald-700/80 hover:bg-emerald-700 px-4 py-2 font-medium">
+            Create
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Supplier List (inline update & delete) -->
+    <section class="space-y-3">
+      <h2 class="text-lg font-semibold">All Suppliers</h2>
+      <div class="overflow-x-auto rounded-xl border border-white/10">
+        <table class="min-w-full text-sm">
+          <thead class="bg-white/5 text-left text-[#9fb0c5]">
+            <tr>
+              <th class="px-4 py-3 font-medium">ID</th>
+              <th class="px-4 py-3 font-medium">Code</th>
+              <th class="px-4 py-3 font-medium">Name</th>
+              <th class="px-4 py-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#if suppliers.length}
               {#each suppliers as s}
-                <tr>
-                  <td>{s.id}</td>
-                  <td>{s.code}</td>
-                  <td>{s.name}</td>
-                  <td>
-                    <div class="row-actions">
-                      <a class="link" href={`/suppliers/${s.id}/edit?code=${encodeURIComponent(s.code)}&name=${encodeURIComponent(s.name)}`}>Edit</a>
-                      <form method="post" action="?/delete" on:submit|preventDefault={(e)=>{ if(confirm('Delete this supplier?')) e.target.submit(); }}>
-                        <input type="hidden" name="id" value={s.id} />
-                        <button class="del" type="submit">Delete</button>
-                      </form>
-                    </div>
+                <tr class="even:bg-white/[0.03] align-top">
+                  <td class="px-4 py-3">{fmtId(s.id)}</td>
+                  <td class="px-4 py-3">
+                    <form method="post" action="?/update" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input type="hidden" name="id" value={s.id} />
+                      <input
+                        name="code"
+                        value={s.code}
+                        class="w-36 rounded-md bg-black/20 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
+                        required
+                      />
+                      <input
+                        name="name"
+                        value={s.name}
+                        class="min-w-[16rem] rounded-md bg-black/20 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-600"
+                        required
+                      />
+                      <button class="rounded-lg bg-sky-700/80 hover:bg-sky-700 px-3 py-2 font-medium">
+                        Save
+                      </button>
+                    </form>
+                  </td>
+                  <td class="px-4 py-3"></td>
+                  <td class="px-4 py-3">
+                    <form method="post" action="?/delete" on:submit={() => confirm('Delete this supplier?') || event.preventDefault()}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <button class="rounded-lg bg-rose-700/80 hover:bg-rose-700 px-3 py-2 font-medium">
+                        Delete
+                      </button>
+                    </form>
                   </td>
                 </tr>
               {/each}
-            </tbody>
-          </table>
-        {:else}
-          <p>No suppliers yet. Click <a class="link" href="/suppliers/new">Add Supplier</a> to create one.</p>
-        {/if}
+            {:else}
+              <tr>
+                <td class="px-4 py-6 text-center text-[#9fb0c5]" colspan="4">No suppliers yet.</td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
       </div>
     </section>
   </div>
-  
+</div>

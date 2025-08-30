@@ -19,6 +19,6 @@
 <SvelteToast {options} />
 <!-- <slot/> -->
 
-<div class=" min-h-screen h-full bg-slate-800 text-white ">
+<div class=" min-h-screen h-full bg-[#1d503d] text-white ">
   <slot></slot>
   </div>

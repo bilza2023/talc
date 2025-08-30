@@ -1,7 +1,9 @@
-
-// /src/routes/suppliers/+page.server.js
+// /home/bilal-tariq/ab/src/routes/suppliers/+page.server.js
 import { fail, redirect } from '@sveltejs/kit';
-import * as supplierService from '/services/supplierService.js';
+import prisma from '../../lib/server/prisma.js';
+import createSupplierService from '../../lib/services/supplierService.js';
+
+const supplierService = createSupplierService(prisma);
 
 export async function load() {
   const suppliers = await supplierService.list();
@@ -31,7 +33,7 @@ export const actions = {
     const id = Number(fd.get('id'));
     const code = String(fd.get('code') || '').trim();
     const name = String(fd.get('name') || '').trim();
-    if (!id || !code || !name) return fail(400, { message: 'ID, Code, Name required.' });
+    if (!id || !code || !name) return fail(400, { message: 'ID, Code, and Name are required.' });
 
     try {
       await supplierService.update({ id, code, name });
