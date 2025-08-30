@@ -2,6 +2,7 @@
   export let data;
   import StationStockCard from "../StationStockCard.svelte";
   import InboundList from "../InboundList.svelte";
+  import StaHeader from "../StaHeader.svelte";
   const { stationCode, inbound } = data || {};
 
   const talcPalette = ["#b72222", "#14b8a6", "#f59e0b", "#b72222"];
@@ -11,9 +12,10 @@
 
 <div class="min-h-screen bg-[#0b1018] text-[#e6ebf1]">
   <div class="mx-auto max-w-6xl p-6 space-y-8">
-    <header class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold">Station: {stationCode}</h1>
-    </header>
+    <StaHeader
+    stationCode={data.stationCode}
+    description="Peshawar Supply Station"
+  />
 
     <StationStockCard
     title="Talc — Live Stock"
