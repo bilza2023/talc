@@ -25,8 +25,9 @@
 
 { type: 'heading', title: 'Admin' },
 
-{ title: 'Suppliers', url: '/suppliers',   icon: '🚚' },
+{ title: 'Help', url: '/help/dashboard',   icon: '⚙️' },
 { title: 'Mines',  url: '/mines',    icon: '🏗️' },
+{ title: 'Settings', url: '/settings', icon: '⚙️' },
 { title: 'Settings', url: '/settings', icon: '⚙️' },
 
 

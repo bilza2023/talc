@@ -1,3 +1,4 @@
+<!-- /src/routes/+page.svelte -->
 <script>
   // Static documentation page — no loader needed.
   const chips = (arr) =>
@@ -5,7 +6,7 @@
 </script>
 
 <style>
-  /* Tiny helpers to keep markup clean */
+  /* Tiny helpers to keep markup clean (Tailwind @apply assumed available) */
   .card {
     @apply rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.03] shadow-xl shadow-black/30;
   }
@@ -39,7 +40,7 @@
 </style>
 
 <div class="min-h-screen bg-[#0b1018] text-[#e6ebf1]">
-  <div class="mx-auto max-w-5xl p-6 space-y-8">
+  <div class="mx-auto max-w-10xl p-6 space-y-8 text-2xl">
 
     <!-- Title -->
     <header class="space-y-2">
@@ -68,14 +69,14 @@
       </div>
       <div class="card-body">
         <p>
-          Company-wide snapshot combining **Ore** and **Talc**. Shows current
-          in-transit shipments, plus total **Deposits** and **Receipts** within the selected window.
+          Company-wide snapshot combining <strong>Ore</strong> and <strong>Talc</strong>. Shows current
+          in-transit shipments, plus total <strong>Deposits</strong> and <strong>Receipts</strong> within the selected window.
           It also displays per-material mini-cards for quick comparison.
         </p>
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days"])}</div>
+          <div class="space-x-1">{@html chips(["days"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -119,14 +120,14 @@
       </div>
       <div class="card-body">
         <p>
-          Material-specific view for **Ore**. Mirrors Overview but restricted to Ore:
+          Material-specific view for <strong>Ore</strong>. Mirrors Overview but restricted to Ore:
           in-transit shipments, deposits (last N days), and receipts (last N days). Useful for
           supply-side tracking and supplier discussions.
         </p>
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days"])}</div>
+          <div class="space-x-1">{@html chips(["days"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -154,14 +155,14 @@
       </div>
       <div class="card-body">
         <p>
-          Material-specific view for **Talc**. Same KPIs as Ore but on Talc transport and deposits.
+          Material-specific view for <strong>Talc</strong>. Same KPIs as Ore but on Talc transport and deposits.
           When talc deposits are linked back to ore transports (<code>oreTransportId</code>),
-          deeper analysis appears in the **Traceability** board.
+          deeper analysis appears in the <strong>Traceability</strong> board.
         </p>
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days"])}</div>
+          <div class="space-x-1">{@html chips(["days"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -189,13 +190,13 @@
       </div>
       <div class="card-body">
         <p>
-          Operations board showing **all shipments on the road** for the selected window, with a
+          Operations board showing <strong>all shipments on the road</strong> for the selected window, with a
           summary by destination and a full detail table. Great for daily dispatch/receiving coordination.
         </p>
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days","from","to","grade","truck"])}</div>
+          <div class="space-x-1">{@html chips(["days","from","to","grade","truck"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -248,7 +249,7 @@
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days"])}</div>
+          <div class="space-x-1">{@html chips(["days"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -280,14 +281,14 @@
       </div>
       <div class="card-body">
         <p>
-          Links **Ore transports** to **Talc deposits** using <code>talcDeposit.oreTransportId</code>.
+          Links <strong>Ore transports</strong> to <strong>Talc deposits</strong> using <code>talcDeposit.oreTransportId</code>.
           Shows coverage (how much talc is mapped back to an ore shipment) and lag (time from ore receive
           to first linked talc deposit). Use this for QA/compliance.
         </p>
 
         <div class="space-y-2">
           <div class="text-xs text-[#9fb0c5]">Filters</div>
-          <div class="space-x-1" use:chips>{@html chips(["days","from","to","status"])}</div>
+          <div class="space-x-1">{@html chips(["days","from","to","status"])}</div>
         </div>
 
         <div class="space-y-2">
@@ -314,7 +315,7 @@
     <section class="card">
       <div class="card-head">
         <h2 class="text-xl font-semibold">Notes</h2>
-        <div />
+        <div></div>
       </div>
       <div class="card-body">
         <ul class="list-disc ml-6 text-sm space-y-1 text-[#c7d2e1]">

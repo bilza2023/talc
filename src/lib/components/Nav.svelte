@@ -10,7 +10,7 @@
   <div class="inner">
     <div class="brand"><a href="/">North&nbsp;West&nbsp;Minerals</a></div>
     <div class="spacer"></div>
-
+<!-- 
     <ul>
       
  
@@ -29,7 +29,7 @@
           <span class="emoji">⛏️</span><span>Settings</span>
         </a>
       </li>
-    </ul>
+    </ul> -->
   </div>
 </nav>
 
