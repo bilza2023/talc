@@ -41,10 +41,14 @@
     <main class="flex-1 p-6 ">
    
   
-      <h1 class="text-2xl font-semibold mb-2">Content Area</h1>
-      <p>This is your page content…</p>
+      <h1 class="text-2xl font-semibold mb-2">North West Transportation App</h1>
+
+      <div class="flex justify-center w-full">
+        <!-- svelte-ignore a11y-missing-attribute -->
+        <img  width="400px" height="250px" src="/images/northwest_banner.png" />
+
+      </div>
+
     </main>
   </div>
 
-
-<a href="/stations/jss">JSS</a>

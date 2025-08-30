@@ -8,8 +8,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 enum StationCode {
+  BS1
+  BS2
+  BS3
+
   JSS
   PSS
+ 
   KEF
   // add more when needed
 }
