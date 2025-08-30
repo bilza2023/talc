@@ -7,13 +7,12 @@ let db;
 let talc;
 
 async function wipeDb() {
-  // FK-safe order: logs → talcDeposit (FK to oreTransport) → talcTransport → oreTransport → oreDeposit → supplier
-  await db.log.deleteMany({});
-  await db.talcDeposit.deleteMany({});
-  await db.talcTransport.deleteMany({});
-  await db.oreTransport.deleteMany({});
-  await db.oreDeposit.deleteMany({});
-  await db.supplier.deleteMany({});
+  await db.$transaction([
+    db.log.deleteMany({}),
+    db.talcDeposit.deleteMany({}),
+    db.talcTransport.deleteMany({}),
+    // intentionally not deleting oreTransport / oreDeposit / supplier to avoid cross-test races
+  ]);
 }
 
 beforeAll(async () => {
