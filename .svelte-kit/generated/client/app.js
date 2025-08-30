@@ -34,11 +34,11 @@ export const server_loads = [];
 
 export const dictionary = {
 		"/": [2],
-		"/dashboard/in-transit": [~3],
-		"/dashboard/ore": [~4],
-		"/dashboard/overview": [~5],
-		"/dashboard/talc": [~6],
-		"/dashboard/traceability": [~7],
+		"/dashboard/ore": [~3],
+		"/dashboard/overview": [~4],
+		"/dashboard/talc": [~5],
+		"/dashboard/traceability": [~6],
+		"/dashboard/transit": [~7],
 		"/dashboard/trucks": [~8],
 		"/logs": [9],
 		"/mines": [10],
