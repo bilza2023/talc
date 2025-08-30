@@ -1,19 +1,33 @@
-
 <script>
-  // Minimal props — all optional except title if you want one shown.
-  export let title = "";          // e.g. "Talc — Live Stock" or "Ore — Live Stock"
-  export let stationCode = "";    // e.g. "PSS" (shown as a small badge)
+  // Minimal, reusable dashboard card
+  export let title = "";          // "Talc — Live Stock"
+  export let stationCode = "";    // "PSS"
   export let deposits = 0;
   export let received = 0;
   export let inTransit = 0;
-  export let stock = 0;           // highlighted
-  export let unit = "t";          // "t" for tons; set "" to hide unit
-  export let accent = "#06b6d4";  // pick any color per material/card
+  export let stock = 0;
+  export let unit = "t";
+
+  // Accent still styles the header badge + subtle ring
+  export let accent = "#06b6d4";
+
+  // NEW: per-column colors (Deposits, Received, In Transit, Stock)
+  // Override per material if you like.
+  export let colors = ["#60a5fa", "#34d399", "#fbbf24", "#22d3ee"]; // blue, green, amber, cyan
 
   const fmt = (n) => `${n ?? 0}${unit ? ` ${unit}` : ""}`;
+
+  // Style variables for easy theming
+  $: styleVars = `
+    --accent:${accent};
+    --c1:${colors[0] ?? "#60a5fa"};
+    --c2:${colors[1] ?? "#34d399"};
+    --c3:${colors[2] ?? "#fbbf24"};
+    --c4:${colors[3] ?? "#22d3ee"};
+  `;
 </script>
 
-<article class="card" style={`--accent:${accent}`}>
+<article class="card" style={styleVars}>
   {#if title || stationCode}
     <header class="head">
       {#if title}<h3 class="title">{title}</h3>{/if}
@@ -22,22 +36,22 @@
   {/if}
 
   <div class="stats">
-    <div class="stat">
+    <div class="stat v1">
       <div class="label">Deposits</div>
       <div class="value">{fmt(deposits)}</div>
     </div>
 
-    <div class="stat">
+    <div class="stat v2">
       <div class="label">Received</div>
       <div class="value">{fmt(received)}</div>
     </div>
 
-    <div class="stat">
+    <div class="stat v3">
       <div class="label">In Transit</div>
       <div class="value">{fmt(inTransit)}</div>
     </div>
 
-    <div class="stat highlight">
+    <div class="stat v4 highlight">
       <div class="label">Stock</div>
       <div class="value">{fmt(stock)}</div>
     </div>
@@ -83,6 +97,7 @@
     letter-spacing: .3px;
     font-size: .8rem;
     white-space: nowrap;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent) inset;
   }
 
   .stats {
@@ -92,13 +107,43 @@
   }
 
   .stat {
-    background: color-mix(in oklab, var(--accent) 6%, #0c1118);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 12px;
     padding: 10px 12px;
     display: grid;
     gap: 4px;
     min-height: 64px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .stat:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  /* Per-column colors (v1..v4) */
+  .stat.v1 {
+    background:
+      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c1) 18%, transparent), transparent 70%),
+      color-mix(in oklab, var(--c1) 7%, #0c1118);
+    border-color: color-mix(in oklab, var(--c1) 35%, rgba(255,255,255,0.06));
+  }
+  .stat.v2 {
+    background:
+      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c2) 18%, transparent), transparent 70%),
+      color-mix(in oklab, var(--c2) 7%, #0c1118);
+    border-color: color-mix(in oklab, var(--c2) 35%, rgba(255,255,255,0.06));
+  }
+  .stat.v3 {
+    background:
+      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c3) 18%, transparent), transparent 70%),
+      color-mix(in oklab, var(--c3) 7%, #0c1118);
+    border-color: color-mix(in oklab, var(--c3) 35%, rgba(255,255,255,0.06));
+  }
+  .stat.v4 {
+    background:
+      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c4) 22%, transparent), transparent 70%),
+      color-mix(in oklab, var(--c4) 9%, #0c1118);
+    border-color: color-mix(in oklab, var(--c4) 45%, rgba(255,255,255,0.06));
   }
 
   .label {
@@ -113,12 +158,9 @@
     line-height: 1.2;
   }
 
-  .stat.highlight {
-    background:
-      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 70%),
-      color-mix(in oklab, var(--accent) 7%, #0c1118);
-    border-color: color-mix(in oklab, var(--accent) 40%, rgba(255,255,255,0.1));
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent);
+  .highlight .value {
+    /* subtle emphasis on Stock */
+    text-shadow: 0 0 14px color-mix(in oklab, var(--c4) 20%, transparent);
   }
 
   @media (max-width: 720px) {

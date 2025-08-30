@@ -2,6 +2,8 @@
   export let data;
   import StationStockCard from "../StationStockCard.svelte";
   const { stationCode, ore, talc, inbound } = data || {};
+
+  const talcPalette = ["#b72222", "#14b8a6", "#f59e0b", "#b72222"];
 </script>
 
 <div class="min-h-screen bg-[#0b1018] text-[#e6ebf1]">
@@ -18,7 +20,9 @@
     inTransit={talc.inTransit}
     stock={talc.stock}
     unit="t"
-    accent="#06b6d4"  
+    accent="#06b6d4"
+    {talcPalette}  
+    colors={talcPalette}
   />
 
     <!-- Quick Actions -->
