@@ -8,10 +8,11 @@ export async function load() {
   const ore  = createOreService(prisma);
   const talc = createTalcService(prisma);
 
-  const [oreIn, talcIn, talcStock] = await Promise.all([
+  const [oreIn, talcIn, talcStock, oreStock] = await Promise.all([
     ore.listInTransit(STATION),
     talc.listInTransit(STATION),
-    talc.getStationStock(STATION)
+    talc.getStationStock(STATION),
+    ore.getStationStock(STATION)         // ← NEW
   ]);
 
   const mapRow = (t, material) => ({
@@ -33,12 +34,15 @@ export async function load() {
     ...(talcIn || []).map((t) => mapRow(t, "talc"))
   ].sort((a, b) => new Date(b.dispatchedAt) - new Date(a.dispatchedAt));
 
-  console.log("[PSS talc stock]", talcStock);
+////////////////////////////////////////////
+  console.log("[PSS stocks]", { talcStock, oreStock });
+////////////////////////////////////////////
 
   return {
     stationCode: STATION,
-    talcStock,               // ✅ expose talc stock only
-    ore: {                   // keep your quick links as-is
+    talcStock,
+    oreStock, // ← add this line
+    ore: {
       depositUrl: `/ore/deposit?station=${encodeURIComponent(STATION)}`,
       dispatchUrl: `/ore/dispatch?station=${encodeURIComponent(STATION)}`
     },
@@ -48,4 +52,5 @@ export async function load() {
     },
     inbound
   };
+  
 }

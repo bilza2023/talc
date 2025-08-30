@@ -98,5 +98,39 @@ export default function createOreService(db) {
     return db.oreTransport.findUnique({ where: { id: Number(id) } });
   }
 
-  return { deposit, dispatch, unload, listInTransit, getTransport };
+// add this function inside createOreService(db), below helpers (or anywhere before the return)
+
+async function getStationStock(stationCode) {
+  const S = stationCode;
+
+  const [depositsAgg, receivedAgg, inTransitAgg] = await Promise.all([
+    // External inflow at this station
+    db.oreDeposit.aggregate({
+      _sum: { weightTon: true },
+      where: { stationCode: S }
+    }),
+
+    // Received transfers into this station
+    db.oreTransport.aggregate({
+      _sum: { receiveWeightTon: true },
+      where: { toStation: S, status: 'received' }
+    }),
+
+    // Outbound transfers still in transit (not yet received elsewhere)
+    db.oreTransport.aggregate({
+      _sum: { sendWeightTon: true },
+      where: { fromStation: S, status: 'in_transit' }
+    })
+  ]);
+
+  const deposits  = Number(depositsAgg._sum.weightTon || 0);
+  const received  = Number(receivedAgg._sum.receiveWeightTon || 0);
+  const inTransit = Number(inTransitAgg._sum.sendWeightTon || 0);
+
+  const stock = deposits + received - inTransit;
+  return { stationCode: S, deposits, received, inTransit, stock };
+}
+
+
+  return { deposit, dispatch, unload, listInTransit, getTransport,getStationStock };
 }
