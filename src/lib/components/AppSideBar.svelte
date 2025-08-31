@@ -27,7 +27,7 @@
 
 { title: 'Help', url: '/help/dashboard',   icon: '⚙️' },
 { title: 'Mines',  url: '/mines',    icon: '🏗️' },
-{ title: 'Settings', url: '/settings', icon: '⚙️' },
+{ title: 'Suppliers', url: '/suppliers', icon: '👨‍🎓' },
 { title: 'Settings', url: '/settings', icon: '⚙️' },
 
 

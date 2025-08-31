@@ -64,7 +64,7 @@ export default async function getStationDashboard(STATION) {
     },
     talc: {
       // talc “deposit” is the process step
-      depositUrl: `/talc/process?station=${encodeURIComponent(station)}`,
+      depositUrl: `/talc/deposit?station=${encodeURIComponent(station)}`,
       dispatchUrl: `/talc/dispatch?station=${encodeURIComponent(station)}`
     },
     inbound
