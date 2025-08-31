@@ -47,7 +47,7 @@ export const dictionary = {
 		"/mines": [12],
 		"/ore/deposit": [~13],
 		"/ore/dispatch": [~14],
-		"/ore/unload": [~15],
+		"/ore/receive": [~15],
 		"/settings": [16],
 		"/stations": [~17],
 		"/stations/abs": [~18],

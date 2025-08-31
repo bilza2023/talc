@@ -1,13 +1,13 @@
 // /src/routes/ore/deposit/+page.server.js
 import { error } from '@sveltejs/kit';
 import createOreService from '../../../lib/services/oreServices.js';
-import createSupplierService from '../../../lib/services/supplierService.js'; // ⬅️ change
+import createSupplierService from '../../../lib/services/supplierService.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
 import prisma from '../../../lib/server/prisma.js';
 
 const ore = createOreService(prisma);
-const suppliersSvc = createSupplierService(prisma);             // ⬅️ add
+const suppliersSvc = createSupplierService(prisma);
 const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
 
 export const load = async ({ url }) => {
@@ -17,7 +17,7 @@ export const load = async ({ url }) => {
 
   let suppliers = [];
   try {
-    suppliers = await suppliersSvc.list();                      // ⬅️ call factory method
+    suppliers = await suppliersSvc.list();
   } catch (e) {
     console.error('supplier list failed', e);
   }
@@ -29,12 +29,12 @@ export const actions = {
   deposit: makeAction({
     spec: {
       stationCode: R.str('stationCode', { upper: true, required: true }),
-      supplierId:  R.intId('supplierId', { required: true }),
-      weightTon:   R.num('weightTon',   { required: true, gt: 0 }),
-      truckNo:     R.str('truckNo',     { trim: true, required: true }),
-      gradeCode:   R.str('gradeCode',   { upper: true, required: true })
+      gradeCode:   R.str('gradeCode',   { upper: true, required: true }),
+      createdTon:  R.num('createdTon',  { required: true, gt: 0 }),
+      supplierId:  R.intId('supplierId', { required: false }),   // optional
+      depositedAt: R.str('depositedAt', { required: false, trim: true }) // optional ISO/date string
     },
     service: (v) => ore.deposit(v),
-    success: (row, v) => ({ success: true, station: v.stationCode, depositId: row?.id ?? null })
+    success: (row, v) => ({ success: true, station: v.stationCode, batchId: row?.id ?? null })
   })
 };

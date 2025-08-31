@@ -1,288 +1,247 @@
-// src/lib/services/oreServices.js
-
+// src/lib/services/oreService.js
 /**
- * Factory so you can inject a Prisma client (great for tests).
+ * Ore service — deposit → dispatch → receive (+ helpers)
  * @param {import('@prisma/client').PrismaClient} db
  */
 export default function createOreService(db) {
-  if (!db) {
-    throw Object.assign(new Error('Prisma client required'), { code: 'E_PRISMA_REQUIRED' });
-  }
+  if (!db) throw Object.assign(new Error('Prisma client required'), { code: 'E_PRISMA_REQUIRED' });
 
   const log = async (type, metadata) => {
-    try {
-      await db.log.create({ data: { type, metadata } });
-    } catch {
-      // don't fail main op due to logging
-    }
+    try { await db.log.create({ data: { type, metadata } }); } catch {}
   };
+  const upper = (s) => String(s ?? '').toUpperCase();
 
-  /**
-   * Create an OreDeposit (external inflow from supplier -> station).
-   * @param {{stationCode:string, supplierId:number, weightTon:number, gradeCode:string, truckNo:string}} v
-   */
-  async function deposit(v) {
+  /** Create an ore batch from external supplier (no edge). */
+  async function deposit({ stationCode, gradeCode, createdTon, supplierId = null, depositedAt = null }) {
+    if (!stationCode) throw Object.assign(new Error('stationCode required'), { code: 'E_MISSING' });
+    if (!(Number(createdTon) > 0)) throw Object.assign(new Error('createdTon > 0 required'), { code: 'E_BAD' });
+    if (!gradeCode) throw Object.assign(new Error('gradeCode required'), { code: 'E_MISSING' });
+
     const data = {
-      stationCode: v.stationCode,
-      supplierId:  Number(v.supplierId),
-      weightTon:   Number(v.weightTon),
-      gradeCode:   String(v.gradeCode).toUpperCase(),
-      truckNo:     String(v.truckNo)
-      // depositedAt via DB default now()
+      stationCode,
+      gradeCode: upper(gradeCode),
+      bornAs: 'deposit',
+      createdTon: Number(createdTon),
+      remainingTon: Number(createdTon),
+      supplierId: supplierId ? Number(supplierId) : null,
+      depositedAt: depositedAt ? new Date(depositedAt) : null,
     };
-    const row = await db.oreDeposit.create({ data });
-    await log('ORE_DEPOSIT', { id: row.id, ...data });
-    return row;
+
+    const batch = await db.oreBatch.create({ data });
+    await log('ORE_DEPOSIT', { batchId: batch.id, ...data });
+    return batch;
   }
 
-  /**
-   * Create an OreTransport as "in_transit" (dispatch between stations).
-   * @param {{stationCode:string, toStation:string, truckNo:string, weightTon:number, gradeCode:string, supplierId?:number}} v
-   */
-  async function dispatch(v) {
-    const data = {
-      fromStation:    v.stationCode,
-      toStation:      v.toStation,
-      truckNo:        String(v.truckNo),
-      sendWeightTon:  Number(v.weightTon),
-      sendGradeCode:  String(v.gradeCode).toUpperCase(),
-      status:         'in_transit',
-      ...(v.supplierId ? { supplierId: Number(v.supplierId) } : {})
-      // dispatchedAt via DB default now()
-    };
-    const row = await db.oreTransport.create({ data });
-    await log('ORE_DISPATCH', { id: row.id, ...data });
-    return row;
-  }
+  /** Dispatch ore from a parent batch: create in-transit edge (no child yet). */
+  async function dispatch({
+    parentBatchId, toStation, dispatchWeight, dispatchGrade,
+    truckNo = null, amount = null, dispatchedAt = null, dispatchedBy = null
+  }) {
+    const parentId = Number(parentBatchId);
+    const parent = await db.oreBatch.findUnique({ where: { id: parentId } });
+    if (!parent) throw Object.assign(new Error('Parent batch not found'), { code: 'E_NOT_FOUND' });
 
-  /**
-   * Mark an existing OreTransport as received (unload step).
-   * @param {{transportId:number, stationCode:string, receiveWeightTon:number, receiveGradeCode:string, receivedBy:string}} v
-   */
-  async function unload(v) {
-    const id = Number(v.transportId);
-    const transport = await db.oreTransport.findUnique({ where: { id } });
+    if (!toStation) throw Object.assign(new Error('toStation required'), { code: 'E_MISSING' });
+    const dWeight = Number(dispatchWeight);
+    if (!(dWeight > 0)) throw Object.assign(new Error('dispatchWeight > 0'), { code: 'E_BAD' });
+    const dGrade = upper(dispatchGrade);
+    if (!dGrade) throw Object.assign(new Error('dispatchGrade required'), { code: 'E_MISSING' });
 
-    if (!transport) {
-      const err = new Error('Transport not found'); err.code = 'E_NOT_FOUND'; throw err;
-    }
-    if (transport.status !== 'in_transit') {
-      const err = new Error('Transport not in transit'); err.code = 'E_BAD_STATUS'; throw err;
-    }
-    if (transport.toStation !== v.stationCode) {
-      const err = new Error('Receiving station mismatch'); err.code = 'E_STATION_MISMATCH'; throw err;
+    // Over-dispatch guard: sum of in-transit dispatchWeight + new dispatch ≤ remainingTon
+    const agg = await db.oreEdge.aggregate({
+      _sum: { dispatchWeight: true },
+      where: { parentBatchId: parentId, status: 'in_transit' }
+    });
+    const committed = Number(agg._sum.dispatchWeight || 0);
+    if (committed + dWeight > Number(parent.remainingTon)) {
+      throw Object.assign(new Error('Insufficient available ton on parent'), { code: 'E_OVERDISPATCH' });
     }
 
     const data = {
-      receiveWeightTon: Number(v.receiveWeightTon),
-      receiveGradeCode: String(v.receiveGradeCode).toUpperCase(),
-      receivedBy:       String(v.receivedBy),
-      receivedAt:       new Date(),
-      status:           'received'
+      status: 'in_transit',
+      fromStation: parent.stationCode,
+      toStation,
+      truckNo: truckNo ?? null,
+      amount: amount != null ? Number(amount) : null,
+      dispatchWeight: dWeight,
+      dispatchGrade: dGrade,
+      dispatchedAt: dispatchedAt ? new Date(dispatchedAt) : null,
+      dispatchedBy: dispatchedBy ?? null,
+      parentBatchId: parentId,
+      childBatchId: null
     };
 
-    const row = await db.oreTransport.update({ where: { id }, data });
-    await log('ORE_UNLOAD', { id, toStation: v.stationCode, ...data });
+    const edge = await db.oreEdge.create({ data });
+    await log('ORE_DISPATCH', { edgeId: edge.id, parentBatchId: parentId, ...data });
+    return edge;
+  }
+
+  /** Receive a dispatched edge: create child batch, complete edge, deduct parent. */
+  async function receive({ edgeId, receiveWeight, receiveGrade = null, receivedAt = null, receivedBy = null }) {
+    const id = Number(edgeId);
+    const edge = await db.oreEdge.findUnique({ where: { id } });
+    if (!edge) throw Object.assign(new Error('Edge not found'), { code: 'E_NOT_FOUND' });
+    if (edge.status !== 'in_transit') throw Object.assign(new Error('Edge not in transit'), { code: 'E_BAD_STATUS' });
+
+    const rWeight = Number(receiveWeight);
+    if (!(rWeight > 0)) throw Object.assign(new Error('receiveWeight > 0'), { code: 'E_BAD' });
+    if (rWeight > Number(edge.dispatchWeight)) {
+      throw Object.assign(new Error('receiveWeight cannot exceed dispatchWeight'), { code: 'E_EXCEEDS' });
+    }
+
+    const parent = await db.oreBatch.findUnique({ where: { id: edge.parentBatchId } });
+    if (!parent) throw Object.assign(new Error('Parent batch not found'), { code: 'E_NOT_FOUND' });
+
+    const rGrade = receiveGrade ? upper(receiveGrade) : edge.dispatchGrade;
+
+    const [updatedEdge, childBatch, updatedParent] = await db.$transaction(async (tx) => {
+      // Create child batch at destination
+      const child = await tx.oreBatch.create({
+        data: {
+          stationCode: edge.toStation,
+          gradeCode: rGrade,
+          bornAs: 'receive',
+          createdTon: rWeight,
+          remainingTon: rWeight
+        }
+      });
+
+      // Complete edge
+      const e = await tx.oreEdge.update({
+        where: { id },
+        data: {
+          status: 'received',
+          receiveWeight: rWeight,
+          receiveGrade: rGrade,
+          receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
+          receivedBy: receivedBy ?? null,
+          childBatchId: child.id
+        }
+      });
+
+      // Deduct from parent
+      const newRemain = Number(parent.remainingTon) - rWeight;
+      const p = await tx.oreBatch.update({
+        where: { id: parent.id },
+        data: { remainingTon: newRemain, ...(newRemain === 0 ? { closedAt: new Date() } : {}) }
+      });
+
+      return [e, child, p];
+    });
+
+    await log('ORE_RECEIVE', {
+      edgeId: updatedEdge.id, parentBatchId: parent.id, childBatchId: childBatch.id,
+      receiveWeight: rWeight, varianceTon: Number(edge.dispatchWeight) - rWeight
+    });
+
+    return { edge: updatedEdge, childBatch, parentBatch: updatedParent };
+  }
+
+  /** Cancel an in-transit edge (no stock effect). */
+  async function cancel({ edgeId, cancelledBy = null, reason = null }) {
+    const id = Number(edgeId);
+    const edge = await db.oreEdge.findUnique({ where: { id } });
+    if (!edge) throw Object.assign(new Error('Edge not found'), { code: 'E_NOT_FOUND' });
+    if (edge.status !== 'in_transit') throw Object.assign(new Error('Only in_transit can be cancelled'), { code: 'E_BAD_STATUS' });
+
+    const row = await db.oreEdge.update({ where: { id }, data: { status: 'cancelled' } });
+    await log('EDGE_CANCELLED', { material: 'ore', edgeId: id, cancelledBy, reason });
     return row;
   }
 
-  // Helpers
-  async function listInTransit(toStation) {
-    return db.oreTransport.findMany({
-      where: { status: 'in_transit', ...(toStation ? { toStation } : {}) },
-      orderBy: { dispatchedAt: 'desc' }
+  // ---------- Lookups ----------
+
+  async function getBatch(id) { return db.oreBatch.findUnique({ where: { id: Number(id) } }); }
+  async function getEdge(id)  { return db.oreEdge.findUnique({ where: { id: Number(id) } }); }
+
+  async function listIncomingEdges(toStation) {
+    return db.oreEdge.findMany({
+      where: { status: 'in_transit', toStation },
+      orderBy: { createdAt: 'desc' }
     });
   }
 
-  async function getTransport(id) {
-    return db.oreTransport.findUnique({ where: { id: Number(id) } });
-  }
-
-// add this function inside createOreService(db), below helpers (or anywhere before the return)
-
-async function getStationStock(stationCode) {
-  const S = stationCode;
-
-  const [depositsAgg, receivedAgg, inTransitAgg] = await Promise.all([
-    // External inflow at this station
-    db.oreDeposit.aggregate({
-      _sum: { weightTon: true },
-      where: { stationCode: S }
-    }),
-
-    // Received transfers into this station
-    db.oreTransport.aggregate({
-      _sum: { receiveWeightTon: true },
-      where: { toStation: S, status: 'received' }
-    }),
-
-    // Outbound transfers still in transit (not yet received elsewhere)
-    db.oreTransport.aggregate({
-      _sum: { sendWeightTon: true },
-      where: { fromStation: S, status: 'in_transit' }
-    })
-  ]);
-
-  const deposits  = Number(depositsAgg._sum.weightTon || 0);
-  const received  = Number(receivedAgg._sum.receiveWeightTon || 0);
-  const inTransit = Number(inTransitAgg._sum.sendWeightTon || 0);
-
-  const stock = deposits + received - inTransit;
-  return { stationCode: S, deposits, received, inTransit, stock };
-}
-
-// lib/services/talcServices.js (inside createTalcService(prisma))
-// inside createOreService(db)
-async function listOreByStation({ stationCode, onlyReceived = true, since = null, limit = 100, excludeLinked = false }) {
-  const where = {
-    toStation: stationCode,
-    ...(onlyReceived ? { status: 'received' } : {}),
-    ...(since ? { receivedAt: { gte: since } } : {})
-  };
-
-  const rows = await db.oreTransport.findMany({
-    where,
-    orderBy: [{ receivedAt: 'desc' }, { dispatchedAt: 'desc' }, { id: 'desc' }],
-    take: limit,
-    select: {
-      id: true,
-      truckNo: true,
-      fromStation: true,
-      toStation: true,
-      sendGradeCode: true,
-      sendWeightTon: true,
-      receiveGradeCode: true,
-      receiveWeightTon: true,
-      dispatchedAt: true,
-      receivedAt: true,
-      status: true
-    }
-  });
-
-  if (excludeLinked && rows.length) {
-    const ids = rows.map(r => r.id);
-    const linked = await db.talcDeposit.findMany({
-      where: { oreTransportId: { in: ids } },
-      select: { oreTransportId: true }
+  async function listOutgoingsByBatch(parentBatchId) {
+    return db.oreEdge.findMany({
+      where: { parentBatchId: Number(parentBatchId) },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
-    const linkedSet = new Set(linked.map(x => x.oreTransportId).filter(Boolean));
-    return rows.filter(r => !linkedSet.has(r.id));
   }
 
-  return rows;
-}
+  /** Station stock = sum of remainingTon from batches at station. */
+  async function getStationStock(stationCode) {
+    const agg = await db.oreBatch.aggregate({
+      _sum: { remainingTon: true },
+      where: { stationCode }
+    });
+    return { stationCode, remainingTon: Number(agg._sum.remainingTon || 0) };
+  }
 
-// Add inside createOreService(db)
-async function overview({ since = null } = {}) {
-  const depWhere  = since ? { depositedAt: { gte: since } } : {};
-  const recvWhere = since ? { status: 'received', receivedAt: { gte: since } } : { status: 'received' };
+  /** Quick overview for dashboards. */
+  async function overview() {
+    const [depAgg, recvAgg, inAgg] = await Promise.all([
+      db.oreBatch.aggregate({ _sum: { createdTon: true }, where: { bornAs: 'deposit' } }),
+      db.oreEdge.aggregate({ _sum: { receiveWeight: true }, where: { status: 'received' } }),
+      db.oreEdge.aggregate({ _sum: { dispatchWeight: true }, _count: { _all: true }, where: { status: 'in_transit' } })
+    ]);
+    return {
+      depositsTon:  Number(depAgg._sum.createdTon || 0),
+      receivedTon:  Number(recvAgg._sum.receiveWeight || 0),
+      inTransitTon: Number(inAgg._sum.dispatchWeight || 0),
+      inTransitCount: Number(inAgg._count?._all || 0)
+    };
+  }
 
-  const [depAgg, recvAgg, inAgg] = await Promise.all([
-    db.oreDeposit.aggregate({ _sum: { weightTon: true }, where: depWhere }),
-    db.oreTransport.aggregate({ _sum: { receiveWeightTon: true }, where: recvWhere }),
-    db.oreTransport.aggregate({ _sum: { sendWeightTon: true }, _count: { _all: true }, where: { status: 'in_transit' } })
-  ]);
+  /** Group in-transit/received by truck (ore edges). */
+  async function groupByTruck({ dateFrom = null, dateTo = null } = {}) {
+    const whereBase = {
+      truckNo: { not: null },
+      ...(dateFrom || dateTo
+        ? { dispatchedAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
+        : {})
+    };
+
+    const agg = await db.oreEdge.groupBy({
+      by: ['truckNo'],
+      where: whereBase,
+      _sum: { dispatchWeight: true, receiveWeight: true },
+      _count: { _all: true },
+      _max: { dispatchedAt: true }
+    });
+
+    const recvd = await db.oreEdge.findMany({
+      where: { ...whereBase, status: 'received' },
+      select: { truckNo: true, dispatchedAt: true, receivedAt: true }
+    });
+
+    const dur = new Map();
+    for (const r of recvd) {
+      if (!r.dispatchedAt || !r.receivedAt) continue;
+      const hrs = (new Date(r.receivedAt) - new Date(r.dispatchedAt)) / 3_600_000;
+      const cur = dur.get(r.truckNo) || { sumHrs: 0, n: 0 };
+      cur.sumHrs += hrs; cur.n += 1;
+      dur.set(r.truckNo, cur);
+    }
+
+    return agg.map((r) => {
+      const m = dur.get(r.truckNo) || { sumHrs: 0, n: 0 };
+      return {
+        material: 'ore',
+        truckNo: r.truckNo,
+        tripsCount: r._count?._all || 0,
+        totalDispatchTon: Number(r._sum?.dispatchWeight || 0),
+        totalReceiveTon: Number(r._sum?.receiveWeight || 0),
+        avgTurnaroundHrs_sum: m.sumHrs,
+        avgTurnaroundHrs_n: m.n,
+        lastTripAt: r._max?.dispatchedAt || null
+      };
+    });
+  }
 
   return {
-    depositsTonSince: Number(depAgg._sum.weightTon || 0),
-    receivedTonSince: Number(recvAgg._sum.receiveWeightTon || 0),
-    inTransitTon:     Number(inAgg._sum.sendWeightTon || 0),
-    inTransitCount:   Number((inAgg._count && inAgg._count._all) || 0)
+    // actions
+    deposit, dispatch, receive, cancel,
+    // lookups
+    getBatch, getEdge, listIncomingEdges, listOutgoingsByBatch, getStationStock, overview, groupByTruck
   };
-}
-
-
-// Inside createOreService(db)
-async function groupByTruck({ since = null, dateFrom = null, dateTo = null } = {}) {
-  const from = dateFrom || since || null;
-  const whereBase = {
-    truckNo: { not: null },
-    ...(from ? { dispatchedAt: { gte: from } } : {}),
-    ...(dateTo ? { dispatchedAt: { gte: from, lte: dateTo } } : {})
-  };
-
-  // Aggregates by truck
-  const agg = await db.oreTransport.groupBy({
-    by: ["truckNo"],
-    where: whereBase,
-    _sum: { sendWeightTon: true, receiveWeightTon: true },
-    _count: { _all: true },
-    _max: { dispatchedAt: true }
-  });
-
-  // For avg turnaround, read only received rows in window
-  const recvd = await db.oreTransport.findMany({
-    where: { ...whereBase, status: "received" },
-    select: { truckNo: true, dispatchedAt: true, receivedAt: true }
-  });
-
-  const durByTruck = new Map(); // truckNo -> { sumHrs, n }
-  for (const t of recvd) {
-    if (!t.receivedAt || !t.dispatchedAt) continue;
-    const hrs = (new Date(t.receivedAt).getTime() - new Date(t.dispatchedAt).getTime()) / 3600000;
-    const cur = durByTruck.get(t.truckNo) || { sumHrs: 0, n: 0 };
-    cur.sumHrs += hrs;
-    cur.n += 1;
-    durByTruck.set(t.truckNo, cur);
-  }
-
-  return agg.map((r) => {
-    const { sumHrs, n } = durByTruck.get(r.truckNo) || { sumHrs: 0, n: 0 };
-    return {
-      material: "ore",
-      truckNo: r.truckNo,
-      tripsCount: r._count?._all || 0,
-      totalSendTon: Number(r._sum?.sendWeightTon || 0),
-      totalReceiveTon: Number(r._sum?.receiveWeightTon || 0),
-      avgTurnaroundHrs_sum: sumHrs,
-      avgTurnaroundHrs_n: n,
-      lastTripAt: r._max?.dispatchedAt || null
-    };
-  });
-}
-
-// Inside createOreService(db)
-async function listTransports({
-  since = null,
-  dateFrom = null,
-  dateTo = null,
-  status = null,
-  fromStation = null,
-  toStation = null
-} = {}) {
-  const from = dateFrom || since || null;
-
-  const where = {
-    ...(from || dateTo
-      ? { dispatchedAt: { ...(from ? { gte: from } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
-      : {}),
-    ...(status ? { status } : {}),
-    ...(fromStation ? { fromStation } : {}),
-    ...(toStation ? { toStation } : {})
-  };
-
-  return db.oreTransport.findMany({
-    where,
-    select: {
-      id: true,
-      fromStation: true,
-      toStation: true,
-      sendWeightTon: true,
-      sendGradeCode: true,
-      dispatchedAt: true,
-      receivedAt: true,
-      status: true
-    },
-    orderBy: { dispatchedAt: 'desc' }
-  });
-}
-
-
-
-// Add to returned object:
-return {
-  deposit, dispatch, unload, listInTransit, getTransport, getStationStock, overview, groupByTruck,
-  listTransports
-};
-
 }

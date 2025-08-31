@@ -1,7 +1,7 @@
 <script>
- import { enhance } from '$app/forms';   
-export let data;
-  export let form; // ✅ receive action result
+  import { enhance } from '$app/forms';
+  export let data;
+  export let form; // action result
 
   let stationCode = data.stationCode;
   let suppliers   = data.suppliers || [];
@@ -22,7 +22,7 @@ export let data;
 
     {#if form?.success}
       <div class="mb-4 rounded-xl bg-green-600/20 text-green-200 px-4 py-3 ring-1 ring-green-700/40">
-        Saved. Deposit ID: {form.depositId} — Station {form.station}.
+        Saved. Deposit ID: {form.batchId} — Station {form.station}.
       </div>
     {:else if form && !form.success}
       <div class="mb-4 rounded-xl bg-red-600/20 text-red-200 px-4 py-3 ring-1 ring-red-700/40">
@@ -31,15 +31,13 @@ export let data;
     {/if}
 
     <form method="POST" action="?/deposit" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
-    <!-- <form method="post" action="?station={stationCode}&/deposit" class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]"> -->
-
       <input type="hidden" name="stationCode" value={stationCode} />
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="supplierId">Supplier</label>
-          <select id="supplierId" name="supplierId" class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" required>
-            <option value="" disabled selected>Choose a supplier…</option>
+          <label class="text-sm text-[#a9b3c2]" for="supplierId">Supplier (optional)</label>
+          <select id="supplierId" name="supplierId" class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="">No supplier</option>
             {#each suppliers as s}
               <option value={s.id}>{formatSupplier(s)}</option>
             {/each}
@@ -56,18 +54,30 @@ export let data;
           </select>
         </div>
 
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="weightTon">Weight (tons)</label>
-          <input id="weightTon" name="weightTon" type="number" step="0.01" min="0" placeholder="e.g. 88.50"
-            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" required />
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm text-[#a9b3c2]" for="createdTon">Weight (tons)</label>
+          <input
+            id="createdTon"
+            name="createdTon"
+            type="number"
+            step="0.001"
+            min="0.001"
+            placeholder="e.g. 88.500"
+            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400"
+            required
+          />
+          <p class="text-xs text-[#7f8aa3]">Must be &gt; 0 (backend validates this).</p>
         </div>
 
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="truckNo">Truck No.</label>
-          <input id="truckNo" name="truckNo" type="text" placeholder="e.g. LES-1234"
-            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" required />
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm text-[#a9b3c2]" for="depositedAt">Deposited at (optional)</label>
+          <input
+            id="depositedAt"
+            name="depositedAt"
+            type="datetime-local"
+            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400"
+          />
         </div>
-
       </div>
 
       <div class="pt-2">
