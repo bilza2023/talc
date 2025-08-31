@@ -1,29 +1,25 @@
+<!-- src/routes/stations/StationStockCard.svelte -->
 <script>
-  // Minimal, reusable dashboard card
-  export let title = "";          // "Talc — Live Stock"
-  export let stationCode = "";    // "PSS"
-  export let deposits = 0;
-  export let received = 0;
-  export let inTransit = 0;
-  export let stock = 0;
-  export let unit = "t";
+  // 3-metric station card (Batch & Edge)
+  export let title = '';
+  export let stationCode = '';
 
-  // Accent still styles the header badge + subtle ring
-  export let accent = "#06b6d4";
+  export let stock = 0;      // from batches (sum remainingTon)
+  export let inbound = 0;    // sum dispatchWeight of in_transit edges to this station
+  export let outbound = 0;   // sum dispatchWeight of in_transit edges from this station
+  export let unit = 't';
 
-  // NEW: per-column colors (Deposits, Received, In Transit, Stock)
-  // Override per material if you like.
-  export let colors = ["#60a5fa", "#34d399", "#fbbf24", "#22d3ee"]; // blue, green, amber, cyan
+  // Theme
+  export let accent = '#06b6d4';
+  export let colors = ['#22d3ee', '#34d399', '#60a5fa']; // stock, inbound, outbound
 
-  const fmt = (n) => `${n ?? 0}${unit ? ` ${unit}` : ""}`;
+  const fmt = (n) => `${Number(n ?? 0).toFixed(3)}${unit ? ` ${unit}` : ''}`;
 
-  // Style variables for easy theming
   $: styleVars = `
     --accent:${accent};
-    --c1:${colors[0] ?? "#60a5fa"};
-    --c2:${colors[1] ?? "#34d399"};
-    --c3:${colors[2] ?? "#fbbf24"};
-    --c4:${colors[3] ?? "#22d3ee"};
+    --c1:${colors[0] ?? '#22d3ee'};
+    --c2:${colors[1] ?? '#34d399'};
+    --c3:${colors[2] ?? '#60a5fa'};
   `;
 </script>
 
@@ -36,24 +32,19 @@
   {/if}
 
   <div class="stats">
-    <div class="stat v1">
-      <div class="label">Deposits</div>
-      <div class="value">{fmt(deposits)}</div>
+    <div class="stat v1 highlight">
+      <div class="label">Stock</div>
+      <div class="value">{fmt(stock)}</div>
     </div>
 
     <div class="stat v2">
-      <div class="label">Received</div>
-      <div class="value">{fmt(received)}</div>
+      <div class="label">In&nbsp;Bound</div>
+      <div class="value">{fmt(inbound)}</div>
     </div>
 
     <div class="stat v3">
-      <div class="label">Out Bound</div>
-      <div class="value">{fmt(inTransit)}</div>
-    </div>
-
-    <div class="stat v4 highlight">
-      <div class="label">Stock</div>
-      <div class="value">{fmt(stock)}</div>
+      <div class="label">Out&nbsp;Bound</div>
+      <div class="value">{fmt(outbound)}</div>
     </div>
   </div>
 </article>
@@ -74,53 +65,29 @@
   }
 
   .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    gap: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px;
   }
-
-  .title {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-    letter-spacing: .2px;
-  }
+  .title { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: .2px; }
 
   .badge {
     border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent);
     color: color-mix(in oklab, var(--accent) 90%, white);
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-weight: 600;
-    letter-spacing: .3px;
-    font-size: .8rem;
-    white-space: nowrap;
+    padding: 2px 8px; border-radius: 999px; font-weight: 600; letter-spacing: .3px; font-size: .8rem; white-space: nowrap;
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent) inset;
   }
 
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-  }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 
   .stat {
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 12px;
     padding: 10px 12px;
-    display: grid;
-    gap: 4px;
-    min-height: 64px;
+    display: grid; gap: 4px; min-height: 64px;
     transition: transform .15s ease, box-shadow .15s ease;
   }
-  .stat:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  }
+  .stat:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
 
-  /* Per-column colors (v1..v4) */
   .stat.v1 {
     background:
       radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c1) 18%, transparent), transparent 70%),
@@ -139,31 +106,10 @@
       color-mix(in oklab, var(--c3) 7%, #0c1118);
     border-color: color-mix(in oklab, var(--c3) 35%, rgba(255,255,255,0.06));
   }
-  .stat.v4 {
-    background:
-      radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c4) 22%, transparent), transparent 70%),
-      color-mix(in oklab, var(--c4) 9%, #0c1118);
-    border-color: color-mix(in oklab, var(--c4) 45%, rgba(255,255,255,0.06));
-  }
 
-  .label {
-    font-size: .75rem;
-    color: var(--muted);
-    letter-spacing: .3px;
-  }
+  .label { font-size: .75rem; color: var(--muted); letter-spacing: .3px; }
+  .value { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
+  .highlight .value { text-shadow: 0 0 14px color-mix(in oklab, var(--c1) 20%, transparent); }
 
-  .value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .highlight .value {
-    /* subtle emphasis on Stock */
-    text-shadow: 0 0 14px color-mix(in oklab, var(--c4) 20%, transparent);
-  }
-
-  @media (max-width: 720px) {
-    .stats { grid-template-columns: repeat(2, 1fr); }
-  }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 </style>
