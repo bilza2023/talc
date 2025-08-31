@@ -20,6 +20,7 @@
 { title: 'JSS', url: '/stations/jss', icon: '🚚' }, // logistics hub
 { title: 'PSS', url: '/stations/pss', icon: '🗺️' }, // regional station
 { title: 'KEF', url: '/stations/kef', icon: '📦' }, // export facility
+{ title: 'ABS', url: '/stations/abs', icon: '🗺️' }, // export facility
 
 
 
