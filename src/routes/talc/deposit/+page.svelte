@@ -1,125 +1,104 @@
-<!-- /src/routes/talc/deposit/+page.svelte -->
-<script lang="ts">
-  import { enhance } from "$app/forms";
-  export let data: {
-    stationCode: string;
-    grades: string[];
-    oreOptions: { id: number; label: string }[];
-  };
-  export let form: any;
+<script>
+  import { enhance } from '$app/forms';
+  export let data;
+  export let form;
+
+  const stationCode = data.stationCode;
+  const oreParents  = data.oreParents || [];
+  const grades      = data.grades || ['TL1','TL2','TL3','GL','GC','GF'];
+
+  const labelParent = (p) =>
+    `Ore #${p.id} · ${p.gradeCode} · rem ${(+p.remainingTon).toFixed(3)}t (created ${(+p.createdTon).toFixed(3)}t)`;
 </script>
 
-<div class="min-h-screen bg-[#0b1018] text-[#e6ebf1]">
-  <div class="mx-auto max-w-2xl p-6 space-y-6">
-    <header class="space-y-1">
-      <h1 class="text-2xl font-semibold tracking-tight">Talc — Deposit</h1>
-      <p class="text-sm text-[#9fb0c5]">
-        Station: <span class="font-medium text-[#e6ebf1]">{data.stationCode}</span>
+<div class="min-h-screen bg-gradient-to-b from-[#0a0d13] to-[#0b1018] text-[#e6ebf1]">
+  <div class="mx-auto max-w-3xl px-4 py-8">
+    <header class="mb-6">
+      <h1 class="text-2xl font-semibold">Talc — Process (Deposit)</h1>
+      <p class="text-sm text-[#a9b3c2] mt-1">
+        Current station: <span class="font-mono">{stationCode}</span>.
+        Change via <span class="font-mono">?station=JSS</span> (or PSS/KEF).
       </p>
     </header>
 
     {#if form?.success}
-      <div class="rounded-md border border-green-700/60 bg-green-900/20 p-3 text-green-200 text-sm">
-        Deposit recorded. ID: <strong class="text-green-100">{form.depositId}</strong>
+      <div class="mb-4 rounded-xl bg-green-600/20 text-green-200 px-4 py-3 ring-1 ring-green-700/40">
+        Processed. New talc batch ID: {form.talcBatchId}.
+      </div>
+    {:else if form && !form.success}
+      <div class="mb-4 rounded-xl bg-red-600/20 text-red-200 px-4 py-3 ring-1 ring-red-700/40">
+        {form?.message || 'Could not process talc.'}
       </div>
     {/if}
 
-    {#if form?.error}
-      <div class="rounded-md border border-red-700/60 bg-red-900/30 p-3 text-red-300 text-sm">
-        {form.error}
-      </div>
-    {/if}
+    <form method="POST" action="?/deposit" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
+      <input type="hidden" name="stationCode" value={stationCode} />
 
-    <form method="POST" action="?/deposit" use:enhance class="space-y-5">
-      <!-- Station provided by loader -->
-      <input type="hidden" name="stationCode" value={data.stationCode} />
-
-      <section class="rounded-xl border border-[#1c2433] bg-[#0f1521]/90 p-4 shadow-lg shadow-black/20">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Weight -->
-          <div class="grid gap-2">
-            <label class="text-sm text-[#9fb0c5]" for="weightTon">Weight (tons)</label>
-            <input
-              id="weightTon"
-              name="weightTon"
-              type="number"
-              step="0.01"
-              min="0.01"
-              required
-              class="w-full rounded-md border border-[#1c2433] bg-[#0f1521] px-3 py-2 text-[#e6ebf1] placeholder-[#9fb0c5] focus:outline-none focus:ring-2 focus:ring-[#23324a]"
-              placeholder="e.g. 12.50"
-              value={form?.values?.weightTon}
-            />
-            {#if form?.errors?.weightTon}
-              <p class="text-xs text-red-300">{form.errors.weightTon}</p>
-            {/if}
-          </div>
-
-          <!-- Grade -->
-          <div class="grid gap-2">
-            <label class="text-sm text-[#9fb0c5]" for="gradeCode">Grade</label>
-            <select
-              id="gradeCode"
-              name="gradeCode"
-              required
-              class="w-full rounded-md border border-[#1c2433] bg-[#0f1521] px-3 py-2 text-[#e6ebf1] focus:outline-none focus:ring-2 focus:ring-[#23324a]"
-            >
-              <option value="" disabled selected={!(form?.values?.gradeCode)}>
-                — select grade —
-              </option>
-              {#each data.grades as g}
-                <option value={g} selected={form?.values?.gradeCode === g}>{g}</option>
-              {/each}
-            </select>
-            {#if form?.errors?.gradeCode}
-              <p class="text-xs text-red-300">{form.errors.gradeCode}</p>
-            {/if}
-          </div>
-        </div>
-
-        <!-- Source Ore (optional) -->
-        <div class="mt-4 grid gap-2">
-          <div class="flex items-center justify-between">
-            <label class="text-sm text-[#9fb0c5]" for="oreTransportId">Source Ore Transport (optional)</label>
-            <span class="text-[11px] text-[#7f8ca1]">
-              Only received loads for {data.stationCode}
-            </span>
-          </div>
-
-          <select
-            id="oreTransportId"
-            name="oreTransportId"
-            class="w-full rounded-md border border-[#1c2433] bg-[#0f1521] px-3 py-2 text-[#e6ebf1] focus:outline-none focus:ring-2 focus:ring-[#23324a]"
-          >
-            <option value="">
-              — {data.oreOptions?.length ? 'select received transport' : 'no received transports available'} —
-            </option>
-            {#if data.oreOptions?.length}
-              {#each data.oreOptions as o}
-                <option value={o.id} selected={String(form?.values?.oreTransportId ?? '') === String(o.id)}>
-                  {o.label}
-                </option>
-              {/each}
-            {/if}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- Parent ore batch to consume -->
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm text-[#a9b3c2]" for="parentOreBatchId">Parent ore batch</label>
+          <select id="parentOreBatchId" name="parentOreBatchId" required
+                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="" disabled selected>Select ore batch…</option>
+            {#each oreParents as p}
+              <option value={p.id} disabled={(+p.remainingTon) <= 0}>{labelParent(p)}</option>
+            {/each}
           </select>
-
-          {#if form?.errors?.oreTransportId}
-            <p class="text-xs text-red-300">{form.errors.oreTransportId}</p>
-          {/if}
-
-          {#if !data.oreOptions?.length}
-            <p class="text-xs text-[#9fb0c5]">
-              Tip: Receive (unload) an in-transit ore first, then return to link it here.
-            </p>
-          {/if}
         </div>
-      </section>
 
-      <div class="pt-1">
-        <button
-          class="inline-flex items-center justify-center rounded-md bg-[#1a2a42] px-4 py-2 text-white transition hover:bg-[#23324a] focus:outline-none focus:ring-2 focus:ring-[#23324a]"
-        >
-          Deposit
+        <!-- Talc grade -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-[#a9b3c2]" for="gradeCode">Talc grade</label>
+          <select id="gradeCode" name="gradeCode" required
+                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="" disabled selected>Select grade…</option>
+            {#each grades as g}<option value={g}>{g}</option>{/each}
+          </select>
+        </div>
+
+        <!-- Ore consumed -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-[#a9b3c2]" for="oreDeltaTon">Ore consumed (tons)</label>
+          <input id="oreDeltaTon" name="oreDeltaTon" type="number" step="0.001" min="0.001" required
+                 placeholder="e.g. 12.500"
+                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        </div>
+
+        <!-- Talc created -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-[#a9b3c2]" for="talcCreatedTon">Talc created (tons)</label>
+          <input id="talcCreatedTon" name="talcCreatedTon" type="number" step="0.001" min="0.001" required
+                 placeholder="e.g. 7.350"
+                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        </div>
+
+        <!-- Optional: attribute portion to this run (for multi-input/output accounting) -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-[#a9b3c2]" for="talcDeltaTon">Attribute to this run (tons, optional)</label>
+          <input id="talcDeltaTon" name="talcDeltaTon" type="number" step="0.001" min="0"
+                 placeholder="leave blank if same as created"
+                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        </div>
+
+        <!-- Optional run metadata -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-[#a9b3c2]" for="runKey">Run key (optional)</label>
+          <input id="runKey" name="runKey" type="text" placeholder="e.g. RUN-2025-08-31-A"
+                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        </div>
+
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-sm text-[#a9b3c2]" for="processAt">Processed at (optional)</label>
+          <input id="processAt" name="processAt" type="datetime-local"
+                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button type="submit"
+          class="inline-flex items-center justify-center rounded-xl bg-sky-500/90 hover:bg-sky-400 px-5 py-2.5 font-medium text-black transition">
+          Save Talc Deposit (Process)
         </button>
       </div>
     </form>

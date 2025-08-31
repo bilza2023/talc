@@ -3,177 +3,175 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import createOreService from '../src/lib/services/oreServices.js';
 
-let db;
-let ore;
-let supplier; // seeded before each test
+describe.sequential('Ore Services', () => {
+  let db;
+  let ore;
 
-async function wipeDb() {
-  // FK-safe order (adjust model names if yours differ)
-  await db.log.deleteMany({});
-  await db.oreTransport.deleteMany({});
-  await db.oreDeposit.deleteMany({});
-  await db.supplier.deleteMany({});
-}
+  async function wipeDb() {
+    // FK-safe order
+    await db.$transaction([
+      db.log.deleteMany({}),
+      db.oreEdge.deleteMany({}),
+      db.talcEdge.deleteMany({}),
+      db.processEdge.deleteMany({}),
+      db.oreBatch.deleteMany({}),
+      db.talcBatch.deleteMany({}),
+      db.supplier.deleteMany({})
+    ]);
+  }
 
-beforeAll(async () => {
-  db = new PrismaClient();
-  ore = createOreService(db); // inject test DB
-});
+  beforeAll(async () => {
+    db = new PrismaClient();
+    ore = createOreService(db);
+  });
 
-afterAll(async () => {
-  await db.$disconnect();
-});
+  afterAll(async () => {
+    await db.$disconnect();
+  });
 
-beforeEach(async () => {
+  beforeEach(async () => {
     await wipeDb();
-    supplier = await db.supplier.create({
+  });
+
+  async function seedSupplier() {
+    return db.supplier.create({
       data: {
-        code: `SUP-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, // required + unique
+        code: `SUP-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: 'Test Supplier'
       }
     });
-  });
+  }
 
-describe('Ore Services', () => {
-  it('deposit: creates deposit row and writes a log', async () => {
+  it('deposit: creates oreBatch and logs ORE_DEPOSIT', async () => {
+    const sup = await seedSupplier();
+
     const row = await ore.deposit({
       stationCode: 'JSS',
-      supplierId: supplier.id,
-      weightTon: 88.5,
-      gradeCode: 'wc', // should normalize to WC
-      truckNo: 'TR-001'
+      gradeCode: 'wc', // normalized to WC
+      createdTon: 88.5,
+      supplierId: sup.id
     });
 
     expect(row).toBeTruthy();
     expect(row.stationCode).toBe('JSS');
-    expect(row.supplierId).toBe(supplier.id);
-    expect(Number(row.weightTon)).toBeCloseTo(88.5, 5);
     expect(row.gradeCode).toBe('WC');
-    expect(row.truckNo).toBe('TR-001');
-    expect(row.depositedAt instanceof Date).toBe(true);
+    expect(Number(row.createdTon)).toBeCloseTo(88.5, 5);
+    expect(Number(row.remainingTon)).toBeCloseTo(88.5, 5);
+    expect(row.bornAs).toBe('deposit');
+    expect(row.supplierId).toBe(sup.id);
 
     const logs = await db.log.findMany({ where: { type: 'ORE_DEPOSIT' } });
     expect(logs.length).toBe(1);
-    const meta = logs[0].metadata;
-    expect(meta.id).toBe(row.id);
-    expect(meta.stationCode).toBe('JSS');
+    expect(logs[0].metadata.batchId).toBe(row.id);
   });
 
-  it('dispatch: creates in_transit transport and writes a log', async () => {
-    const t = await ore.dispatch({
-      stationCode: 'JSS',
+  it('dispatch: creates in_transit oreEdge from a parent batch and logs ORE_DISPATCH', async () => {
+    const parent = await ore.deposit({ stationCode: 'JSS', gradeCode: 'GL', createdTon: 25 });
+
+    const edge = await ore.dispatch({
+      parentBatchId: parent.id,
       toStation: 'PSS',
-      truckNo: 'TR-777',
-      weightTon: 12,
-      gradeCode: 'GL',
-      supplierId: supplier.id
+      dispatchWeight: 12,
+      dispatchGrade: 'gl', // normalized to GL
+      truckNo: 'TR-777'
     });
 
-    expect(t).toBeTruthy();
-    expect(t.fromStation).toBe('JSS');
-    expect(t.toStation).toBe('PSS');
-    expect(t.truckNo).toBe('TR-777');
-    expect(Number(t.sendWeightTon)).toBe(12);
-    expect(t.sendGradeCode).toBe('GL');
-    expect(t.status).toBe('in_transit');
-    expect(t.dispatchedAt instanceof Date).toBe(true);
+    expect(edge).toBeTruthy();
+    expect(edge.status).toBe('in_transit');
+    expect(edge.fromStation).toBe('JSS');
+    expect(edge.toStation).toBe('PSS');
+    expect(edge.parentBatchId).toBe(parent.id);
+    expect(edge.childBatchId).toBeNull();
+    expect(edge.dispatchGrade).toBe('GL');
+    expect(Number(edge.dispatchWeight)).toBeCloseTo(12, 5);
 
     const logs = await db.log.findMany({ where: { type: 'ORE_DISPATCH' } });
     expect(logs.length).toBe(1);
-    expect(logs[0].metadata.id).toBe(t.id);
+    expect(logs[0].metadata.edgeId).toBe(edge.id);
   });
 
-  it('listInTransit: filters by toStation correctly', async () => {
+  it('listIncomingEdges: filters in-transit edges by destination station', async () => {
+    const parent = await ore.deposit({ stationCode: 'JSS', gradeCode: 'GL', createdTon: 40 });
     const a = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'T-A', weightTon: 5, gradeCode: 'WC'
+      parentBatchId: parent.id,
+      toStation: 'PSS',
+      dispatchWeight: 5,
+      dispatchGrade: 'GL',
+      truckNo: 'T-A'
     });
     const b = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'KEF', truckNo: 'T-B', weightTon: 6, gradeCode: 'WF'
+      parentBatchId: parent.id,
+      toStation: 'KEF',
+      dispatchWeight: 6,
+      dispatchGrade: 'GL',
+      truckNo: 'T-B'
     });
     expect(a && b).toBeTruthy();
 
-    const onlyPSS = await ore.listInTransit('PSS');
+    const onlyPSS = await ore.listIncomingEdges('PSS');
     expect(onlyPSS.length).toBe(1);
     expect(onlyPSS[0].id).toBe(a.id);
 
-    const all = await ore.listInTransit();
+    const all = await ore.listIncomingEdges();
     expect(all.length).toBe(2);
   });
 
-  it('unload: happy path updates status/fields and logs', async () => {
-    const t = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-999', weightTon: 14.2, gradeCode: 'WL'
+  it('receive: happy path creates child batch, completes edge, deducts parent, logs ORE_RECEIVE', async () => {
+    const parent = await ore.deposit({ stationCode: 'JSS', gradeCode: 'WL', createdTon: 20 });
+    const edge = await ore.dispatch({
+      parentBatchId: parent.id,
+      toStation: 'PSS',
+      dispatchWeight: 14.2,
+      dispatchGrade: 'WL',
+      truckNo: 'TR-999'
     });
 
-    const r = await ore.unload({
-      transportId: t.id,
-      stationCode: 'PSS',
-      receiveWeightTon: 14.0,
-      receiveGradeCode: 'wl', // normalize to WL
+    const res = await ore.receive({
+      edgeId: edge.id,
+      receiveWeight: 14.0,
+      receiveGrade: 'wl',
       receivedBy: 'Ali'
     });
 
-    expect(r.status).toBe('received');
-    expect(Number(r.receiveWeightTon)).toBeCloseTo(14.0, 5);
-    expect(r.receiveGradeCode).toBe('WL');
-    expect(r.receivedBy).toBe('Ali');
-    expect(r.receivedAt instanceof Date).toBe(true);
+    expect(res.edge.status).toBe('received');
+    expect(Number(res.edge.receiveWeight)).toBeCloseTo(14.0, 5);
+    expect(res.edge.receiveGrade).toBe('WL');
+    expect(res.childBatch.stationCode).toBe('PSS');
+    expect(res.childBatch.bornAs).toBe('receive');
+    expect(Number(res.childBatch.createdTon)).toBeCloseTo(14.0, 5);
+    expect(Number(res.parentBatch.remainingTon)).toBeCloseTo(6.0, 5);
 
-    const logs = await db.log.findMany({ where: { type: 'ORE_UNLOAD' } });
+    const logs = await db.log.findMany({ where: { type: 'ORE_RECEIVE' } });
     expect(logs.length).toBe(1);
-    const meta = logs[0].metadata;
-    expect(meta.id).toBe(t.id);
-    expect(meta.toStation).toBe('PSS');
-    expect(Number(meta.receiveWeightTon)).toBeCloseTo(14.0, 5);
-    expect(meta.receiveGradeCode).toBe('WL');
+    expect(logs[0].metadata.edgeId).toBe(edge.id);
+    expect(logs[0].metadata.childBatchId).toBe(res.childBatch.id);
   });
 
-  it('unload: throws E_NOT_FOUND if transport does not exist', async () => {
-    await expect(
-      ore.unload({
-        transportId: 999999,
-        stationCode: 'PSS',
-        receiveWeightTon: 1,
-        receiveGradeCode: 'WC',
-        receivedBy: 'X'
-      })
-    ).rejects.toMatchObject({ code: 'E_NOT_FOUND' });
+  it('receive: rejects if receiveWeight > dispatchWeight', async () => {
+    const parent = await ore.deposit({ stationCode: 'JSS', gradeCode: 'GF', createdTon: 10 });
+    const edge = await ore.dispatch({
+      parentBatchId: parent.id,
+      toStation: 'KEF',
+      dispatchWeight: 4,
+      dispatchGrade: 'GF'
+    });
+
+    await expect(ore.receive({ edgeId: edge.id, receiveWeight: 4.5 })).rejects.toMatchObject({
+      code: 'E_EXCEEDS'
+    });
   });
 
-  it('unload: throws E_BAD_STATUS if already received', async () => {
-    const t = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-123', weightTon: 3, gradeCode: 'GC'
-    });
-    await ore.unload({
-      transportId: t.id, stationCode: 'PSS', receiveWeightTon: 3, receiveGradeCode: 'GC', receivedBy: 'Z'
-    });
-
-    await expect(
-      ore.unload({
-        transportId: t.id, stationCode: 'PSS', receiveWeightTon: 2.9, receiveGradeCode: 'GC', receivedBy: 'Z'
-      })
-    ).rejects.toMatchObject({ code: 'E_BAD_STATUS' });
-  });
-
-  it('unload: throws E_STATION_MISMATCH on wrong receiving station', async () => {
-    const t = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'KEF', truckNo: 'TR-555', weightTon: 7, gradeCode: 'GF'
+  it('getEdge: returns the right row', async () => {
+    const parent = await ore.deposit({ stationCode: 'JSS', gradeCode: 'WF', createdTon: 9 });
+    const edge = await ore.dispatch({
+      parentBatchId: parent.id,
+      toStation: 'PSS',
+      dispatchWeight: 3,
+      dispatchGrade: 'WF'
     });
 
-    await expect(
-      ore.unload({
-        transportId: t.id, stationCode: 'PSS', receiveWeightTon: 7, receiveGradeCode: 'GF', receivedBy: 'Y'
-      })
-    ).rejects.toMatchObject({ code: 'E_STATION_MISMATCH' });
-  });
-
-  it('getTransport: returns the right row', async () => {
-    const t = await ore.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-404', weightTon: 9, gradeCode: 'WF'
-    });
-
-    const found = await ore.getTransport(t.id);
-    expect(found?.id).toBe(t.id);
+    const found = await ore.getEdge(edge.id);
+    expect(found?.id).toBe(edge.id);
     expect(found?.status).toBe('in_transit');
   });
 });

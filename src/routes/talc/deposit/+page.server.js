@@ -1,47 +1,46 @@
 // /src/routes/talc/deposit/+page.server.js
 import { error } from '@sveltejs/kit';
+import prisma from '../../../lib/server/prisma.js';
 import createTalcService from '../../../lib/services/talcServices.js';
-import createOreService  from '../../../lib/services/oreServices.js';
 import { R } from '../../../lib/formKit/readers.js';
 import { makeAction } from '../../../lib/formKit/actionFactory.js';
-import prisma from '../../../lib/server/prisma.js';
 
 const talc = createTalcService(prisma);
-const ore  = createOreService(prisma);
-
-const GRADES = ['WL', 'WC', 'WF', 'GL', 'GC', 'GF'];
+const GRADES = ['TL1','TL2','TL3','GL','GC','GF']; // adjust to your talc grades
 
 export const load = async ({ url }) => {
   const stationParam = url.searchParams.get('station');
   if (!stationParam) throw error(400, 'Station code is required in query (?station=XYZ)');
   const stationCode = String(stationParam).toUpperCase();
 
-  // Get all RECEIVED ore-transport lots for this station, newest first, excluding those already used by a talc deposit
-  const transports = await ore.listOreByStation({
-    stationCode,
-    onlyReceived: true,
-    excludeLinked: true,
-    limit: 200
+  // Ore batches at this station that have stock to process
+  const oreParents = await prisma.oreBatch.findMany({
+    where: { stationCode, remainingTon: { gt: 0 } },
+    select: { id: true, gradeCode: true, remainingTon: true, createdTon: true },
+    orderBy: { id: 'desc' }
   });
 
-  // Build compact labels for dropdown
-  const oreOptions = transports.map(r => ({
-    id: r.id,
-    label: `#${r.id} • ${r.fromStation}→${r.toStation} • ${r.truckNo} • ${r.receiveWeightTon ?? r.sendWeightTon}t`
-  }));
-
-  return { stationCode, grades: GRADES, oreOptions };
+  return { stationCode, grades: GRADES, oreParents };
 };
 
 export const actions = {
+  // We keep the action name "deposit" (UI compatibility), but it performs a process
   deposit: makeAction({
     spec: {
-      stationCode:    R.str('stationCode', { upper: true, required: true }),
-      weightTon:      R.num('weightTon',   { required: true, gt: 0 }),
-      gradeCode:      R.str('gradeCode',   { upper: true, required: true }),
-      oreTransportId: R.intId('oreTransportId') // optional link for traceability
+      stationCode:     R.str('stationCode',     { upper: true, required: true }),
+      parentOreBatchId:R.intId('parentOreBatchId', { required: true }),
+      gradeCode:       R.str('gradeCode',       { upper: true, required: true }), // TALC grade
+      oreDeltaTon:     R.num('oreDeltaTon',     { required: true, gt: 0 }),
+      talcCreatedTon:  R.num('talcCreatedTon',  { required: true, gt: 0 }),
+      talcDeltaTon:    R.num('talcDeltaTon',    { required: false, gte: 0 }),
+      runKey:          R.str('runKey',          { required: false, trim: true }),
+      processAt:       R.str('processAt',       { required: false, trim: true })
     },
-    service: (v) => talc.deposit(v),
-    success: (row, v) => ({ success: true, station: v.stationCode, depositId: row?.id ?? null })
+    service: (v) => talc.process(v),
+    success: (result, v) => ({
+      success: true,
+      station: v.stationCode,
+      talcBatchId: result?.talcBatch?.id ?? null
+    })
   })
 };

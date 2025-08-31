@@ -1,190 +1,197 @@
 // tests/talcServices.test.js
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
+import createOreService from '../src/lib/services/oreServices.js';
 import createTalcService from '../src/lib/services/talcServices.js';
 
-let db;
-let talc;
+describe.sequential('Talc Services', () => {
+  let db;
+  let ore;
+  let talc;
 
-async function wipeDb() {
-  await db.$transaction([
-    db.log.deleteMany({}),
-    db.talcDeposit.deleteMany({}),
-    db.talcTransport.deleteMany({}),
-    // intentionally not deleting oreTransport / oreDeposit / supplier to avoid cross-test races
-  ]);
-}
+  async function wipeDb() {
+    await db.$transaction([
+      db.log.deleteMany({}),
+      db.oreEdge.deleteMany({}),
+      db.talcEdge.deleteMany({}),
+      db.processEdge.deleteMany({}),
+      db.oreBatch.deleteMany({}),
+      db.talcBatch.deleteMany({})
+    ]);
+  }
 
-beforeAll(async () => {
-  db = new PrismaClient();
-  talc = createTalcService(db);
-});
-
-afterAll(async () => {
-  await db.$disconnect();
-});
-
-beforeEach(async () => {
-  await wipeDb();
-});
-
-describe('Talc Services', () => {
-  it('deposit: creates talcDeposit and writes a TALC_DEPOSIT log (no link)', async () => {
-    const row = await talc.deposit({
-      stationCode: 'JSS',
-      weightTon: 7.25,
-      gradeCode: 'tl' // should normalize to TL
-    });
-
-    expect(row).toBeTruthy();
-    expect(row.stationCode).toBe('JSS');
-    expect(Number(row.weightTon)).toBeCloseTo(7.25, 5);
-    expect(row.gradeCode).toBe('TL');
-    expect(row.depositedAt instanceof Date).toBe(true);
-
-    const logs = await db.log.findMany({ where: { type: 'TALC_DEPOSIT' } });
-    expect(logs.length).toBe(1);
-    expect(logs[0].metadata.id).toBe(row.id);
+  beforeAll(async () => {
+    db = new PrismaClient();
+    ore = createOreService(db);
+    talc = createTalcService(db);
   });
 
-  it('deposit: can link to an OreTransport via oreTransportId (traceability)', async () => {
-    // minimal ore transport to satisfy FK
-    const ot = await db.oreTransport.create({
-      data: {
-        fromStation: 'JSS',
-        toStation: 'PSS',
-        sendWeightTon: 10,
-        sendGradeCode: 'GL'
-        // status defaults to in_transit; no business rule enforced here
-      }
-    });
-
-    const row = await talc.deposit({
-      stationCode: 'PSS',
-      weightTon: 3.5,
-      gradeCode: 'wf',      // -> WF
-      oreTransportId: ot.id // FK link
-    });
-
-    expect(row.oreTransportId).toBe(ot.id);
-    expect(row.gradeCode).toBe('WF');
-
-    const logs = await db.log.findMany({ where: { type: 'TALC_DEPOSIT' } });
-    expect(logs.length).toBe(1);
-    expect(logs[0].metadata.oreTransportId).toBe(ot.id);
+  afterAll(async () => {
+    await db.$disconnect();
   });
 
-  it('dispatch: creates talcTransport in in_transit and logs TALC_DISPATCH', async () => {
-    const t = await talc.dispatch({
+  beforeEach(async () => {
+    await wipeDb();
+  });
+
+  async function seedOreAt(stationCode, createdTon = 20, gradeCode = 'GL') {
+    return ore.deposit({ stationCode, gradeCode, createdTon });
+  }
+
+  it('process: creates talcBatch, writes processEdge, deducts ore', async () => {
+    const parentOre = await seedOreAt('JSS', 20, 'GL');
+
+    const res = await talc.process({
+      parentOreBatchId: parentOre.id,
       stationCode: 'JSS',
+      gradeCode: 'tl1',
+      oreDeltaTon: 10,
+      talcCreatedTon: 6.5,
+      runKey: 'RUN-1'
+    });
+
+    expect(res.talcBatch).toBeTruthy();
+    expect(res.talcBatch.stationCode).toBe('JSS');
+    expect(res.talcBatch.gradeCode).toBe('TL1');
+    expect(res.talcBatch.bornAs).toBe('process');
+    expect(Number(res.talcBatch.createdTon)).toBeCloseTo(6.5, 5);
+
+    expect(res.processEdge.parentOreBatchId).toBe(parentOre.id);
+    expect(Number(res.processEdge.oreDeltaTon)).toBeCloseTo(10, 5);
+
+    expect(Number(res.parentOreBatch.remainingTon)).toBeCloseTo(10, 5);
+
+    const logs = await db.log.findMany({ where: { type: 'TALC_PROCESS' } });
+    expect(logs.length).toBe(1);
+    expect(logs[0].metadata.parentOreBatchId).toBe(parentOre.id);
+  });
+
+  it('dispatch: creates in_transit talcEdge from a parent talc batch', async () => {
+    const parentOre = await seedOreAt('JSS', 15, 'GL');
+    const { talcBatch } = await talc.process({
+      parentOreBatchId: parentOre.id,
+      stationCode: 'JSS',
+      gradeCode: 'TL2',
+      oreDeltaTon: 8,
+      talcCreatedTon: 4.2
+    });
+
+    const edge = await talc.dispatch({
+      parentBatchId: talcBatch.id,
       toStation: 'PSS',
-      truckNo: 'TR-777',
-      weightTon: 4.2,
-      gradeCode: 'gl'
+      dispatchWeight: 3.5,
+      dispatchGrade: 'tl2',
+      truckNo: 'TR-123'
     });
 
-    expect(t).toBeTruthy();
-    expect(t.fromStation).toBe('JSS');
-    expect(t.toStation).toBe('PSS');
-    expect(t.truckNo).toBe('TR-777');
-    expect(Number(t.sendWeightTon)).toBeCloseTo(4.2, 5);
-    expect(t.sendGradeCode).toBe('GL');
-    expect(t.status).toBe('in_transit');
-    expect(t.dispatchedAt instanceof Date).toBe(true);
-
-    const logs = await db.log.findMany({ where: { type: 'TALC_DISPATCH' } });
-    expect(logs.length).toBe(1);
-    expect(logs[0].metadata.id).toBe(t.id);
+    expect(edge.status).toBe('in_transit');
+    expect(edge.fromStation).toBe('JSS');
+    expect(edge.toStation).toBe('PSS');
+    expect(edge.dispatchGrade).toBe('TL2');
+    expect(Number(edge.dispatchWeight)).toBeCloseTo(3.5, 5);
   });
 
-  it('listInTransit: filters by toStation correctly', async () => {
+  it('listIncomingEdges: filters by destination station', async () => {
+    const parentOre = await seedOreAt('JSS', 15, 'GL');
+    const { talcBatch } = await talc.process({
+      parentOreBatchId: parentOre.id,
+      stationCode: 'JSS',
+      gradeCode: 'TL3',
+      oreDeltaTon: 8,
+      talcCreatedTon: 5
+    });
+
     const a = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'T-A', weightTon: 1, gradeCode: 'WC'
+      parentBatchId: talcBatch.id,
+      toStation: 'PSS',
+      dispatchWeight: 2,
+      dispatchGrade: 'TL3'
     });
     const b = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'KEF', truckNo: 'T-B', weightTon: 2, gradeCode: 'WF'
+      parentBatchId: talcBatch.id,
+      toStation: 'KEF',
+      dispatchWeight: 1.5,
+      dispatchGrade: 'TL3'
     });
     expect(a && b).toBeTruthy();
 
-    const onlyPSS = await talc.listInTransit('PSS');
+    const onlyPSS = await talc.listIncomingEdges('PSS');
     expect(onlyPSS.length).toBe(1);
     expect(onlyPSS[0].id).toBe(a.id);
 
-    const all = await talc.listInTransit();
+    const all = await talc.listIncomingEdges();
     expect(all.length).toBe(2);
   });
 
-  it('unload: happy path updates status/fields and logs TALC_UNLOAD', async () => {
-    const t = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-999', weightTon: 5.6, gradeCode: 'WL'
+  it('receive: completes talc edge, creates child batch, deducts parent', async () => {
+    const parentOre = await seedOreAt('JSS', 20, 'GL');
+    const { talcBatch } = await talc.process({
+      parentOreBatchId: parentOre.id,
+      stationCode: 'JSS',
+      gradeCode: 'TL1',
+      oreDeltaTon: 10,
+      talcCreatedTon: 6
+    });
+    const edge = await talc.dispatch({
+      parentBatchId: talcBatch.id,
+      toStation: 'KEF',
+      dispatchWeight: 2.5,
+      dispatchGrade: 'TL1'
     });
 
-    const r = await talc.unload({
-      transportId: t.id,
-      stationCode: 'PSS',
-      receiveWeightTon: 5.5,
-      receiveGradeCode: 'wl', // -> WL
-      receivedBy: 'Ali'
+    const res = await talc.receive({
+      edgeId: edge.id,
+      receiveWeight: 2.4,
+      receiveGrade: 'tl1',
+      receivedBy: 'Sara'
     });
 
-    expect(r.status).toBe('received');
-    expect(Number(r.receiveWeightTon)).toBeCloseTo(5.5, 5);
-    expect(r.receiveGradeCode).toBe('WL');
-    expect(r.receivedBy).toBe('Ali');
-    expect(r.receivedAt instanceof Date).toBe(true);
-
-    const logs = await db.log.findMany({ where: { type: 'TALC_UNLOAD' } });
-    expect(logs.length).toBe(1);
-    expect(logs[0].metadata.id).toBe(t.id);
-    expect(logs[0].metadata.toStation).toBe('PSS');
+    expect(res.edge.status).toBe('received');
+    expect(Number(res.edge.receiveWeight)).toBeCloseTo(2.4, 5);
+    expect(res.childBatch.stationCode).toBe('KEF');
+    expect(res.childBatch.bornAs).toBe('receive');
+    expect(Number(res.parentBatch.remainingTon)).toBeCloseTo(3.6, 5); // 6 - 2.4
   });
 
-  it('unload: throws E_NOT_FOUND if transport does not exist', async () => {
-    await expect(
-      talc.unload({
-        transportId: 999999,
-        stationCode: 'PSS',
-        receiveWeightTon: 1,
-        receiveGradeCode: 'WC',
-        receivedBy: 'X'
-      })
-    ).rejects.toMatchObject({ code: 'E_NOT_FOUND' });
+  it('receive: rejects if receiveWeight > dispatchWeight', async () => {
+    const parentOre = await seedOreAt('JSS', 10, 'GL');
+    const { talcBatch } = await talc.process({
+      parentOreBatchId: parentOre.id,
+      stationCode: 'JSS',
+      gradeCode: 'TL1',
+      oreDeltaTon: 5,
+      talcCreatedTon: 3
+    });
+    const edge = await talc.dispatch({
+      parentBatchId: talcBatch.id,
+      toStation: 'PSS',
+      dispatchWeight: 2,
+      dispatchGrade: 'TL1'
+    });
+
+    await expect(talc.receive({ edgeId: edge.id, receiveWeight: 3 })).rejects.toMatchObject({
+      code: 'E_EXCEEDS'
+    });
   });
 
-  it('unload: throws E_BAD_STATUS if already received', async () => {
-    const t = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-123', weightTon: 3, gradeCode: 'GC'
+  it('getEdge: returns the right talc edge', async () => {
+    const parentOre = await seedOreAt('JSS', 10, 'GL');
+    const { talcBatch } = await talc.process({
+      parentOreBatchId: parentOre.id,
+      stationCode: 'JSS',
+      gradeCode: 'TL1',
+      oreDeltaTon: 5,
+      talcCreatedTon: 3
     });
-    await talc.unload({
-      transportId: t.id, stationCode: 'PSS', receiveWeightTon: 3, receiveGradeCode: 'GC', receivedBy: 'Z'
-    });
-
-    await expect(
-      talc.unload({
-        transportId: t.id, stationCode: 'PSS', receiveWeightTon: 2.9, receiveGradeCode: 'GC', receivedBy: 'Z'
-      })
-    ).rejects.toMatchObject({ code: 'E_BAD_STATUS' });
-  });
-
-  it('unload: throws E_STATION_MISMATCH on wrong receiving station', async () => {
-    const t = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'KEF', truckNo: 'TR-555', weightTon: 7, gradeCode: 'GF'
+    const edge = await talc.dispatch({
+      parentBatchId: talcBatch.id,
+      toStation: 'PSS',
+      dispatchWeight: 1,
+      dispatchGrade: 'TL1'
     });
 
-    await expect(
-      talc.unload({
-        transportId: t.id, stationCode: 'PSS', receiveWeightTon: 7, receiveGradeCode: 'GF', receivedBy: 'Y'
-      })
-    ).rejects.toMatchObject({ code: 'E_STATION_MISMATCH' });
-  });
-
-  it('getTransport: returns the right row', async () => {
-    const t = await talc.dispatch({
-      stationCode: 'JSS', toStation: 'PSS', truckNo: 'TR-404', weightTon: 2.2, gradeCode: 'WF'
-    });
-
-    const found = await talc.getTransport(t.id);
-    expect(found?.id).toBe(t.id);
+    const found = await talc.getEdge(edge.id);
+    expect(found?.id).toBe(edge.id);
     expect(found?.status).toBe('in_transit');
   });
 });

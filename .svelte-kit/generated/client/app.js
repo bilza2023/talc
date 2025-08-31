@@ -60,7 +60,7 @@ export const dictionary = {
 		"/suppliers": [~25],
 		"/talc/deposit": [~26],
 		"/talc/dispatch": [~27],
-		"/talc/unload": [~28]
+		"/talc/receive": [~28]
 	};
 
 export const hooks = {
