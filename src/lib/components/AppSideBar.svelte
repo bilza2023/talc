@@ -4,12 +4,10 @@
 
 
 { type: 'heading', title: 'Dashboard' },
-{ title: 'Overview',     url: '/dashboard/overview',     icon: '🗒️' },
 { title: 'Ore',     url: '/dashboard/ore',     icon: '🪨' },
 { title: 'Talc',     url: '/dashboard/talc',     icon: '🧼' },
-{ title: 'Traceability',     url: '/dashboard/traceability',     icon: '🧼' },
-{ title: 'Transit',     url: '/dashboard/transit',     icon: '🧼' },
-{ title: 'Trucks',     url: '/dashboard/trucks',     icon: '🧼' },
+{ title: 'Transportation',     url: '/dashboard/transportation',     icon: '🧼' },
+{ title: 'Ore Batches',     url: '/dashboard/ore_batches',     icon: '🧼' },
 
 
 
