@@ -39,6 +39,14 @@
             loading="lazy"
             decoding="async"
           />
+          <br>
+          <img
+            src="/images/batch_n_edge.png"
+            alt="North-West Transportation banner"
+            class="w-full max-h-[32rem] md:max-h-[40rem] object-contain rounded-2xl ring-1 ring-white/10 shadow-lg bg-black/20"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       </section>
     </main>

@@ -55,8 +55,7 @@ model oreBatch {
 
   // Optional deposit metadata (since we dropped OreDeposit table)
   supplierId    Int?
-  truckNo       String?
-  amount        Int?
+ 
   depositedAt   DateTime?   // if bornAs = "deposit"
 
   // Timestamps (you can rely on remainingTon <= eps to infer closed)
@@ -79,6 +78,9 @@ model oreEdge {
   event          OreEdgeEvent  // dispatch OR unload
   createdAt      DateTime      @default(now())
 
+ truckNo       String?
+  amount        Int?
+  
   // Graph endpoints (parent → child)
   parentBatchId  Int           // required for both events
   parentBatch    oreBatch      @relation("EdgeParent", fields: [parentBatchId], references: [id])
@@ -135,6 +137,8 @@ model talcEdge {
   event          TalcEdgeEvent  // dispatch OR unload
   createdAt      DateTime       @default(now())
 
+ truckNo       String?
+  amount        Int?
   // Graph endpoints (parent → child)
   parentBatchId  Int            // required for both events
   parentBatch    talcBatch      @relation("TalcEdgeParent", fields: [parentBatchId], references: [id])
