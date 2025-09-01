@@ -281,10 +281,23 @@ export default function createTalcService(db) {
     });
   }
 
+  async function listStationBatches(stationCode, { openOnly = true } = {}) {
+    return db.talcBatch.findMany({
+      where: { stationCode, ...(openOnly ? { remainingTon: { gt: 0 } } : {}) },
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true, stationCode: true, gradeCode: true,
+        createdTon: true, remainingTon: true,
+        createdAt: true // talc “process/receive” don’t use depositedAt
+      }
+    });
+  }
+
   return {
     // actions
     process, dispatch, receive, cancel,
     // lookups
-    getBatch, getEdge, listIncomingEdges, listOutgoingsByBatch, getStationStock, overview, groupByTruck
+    getBatch, getEdge, listIncomingEdges, listOutgoingsByBatch, getStationStock, overview, groupByTruck,
+    listStationBatches
   };
 }

@@ -10,6 +10,12 @@ export default async function getStationDashboard(STATION) {
   const ore = createOreService(prisma);
   const talc = createTalcService(prisma);
 
+
+// NEW: open batches at this station (ore + talc)
+const [oreBatches, talcBatches] = await Promise.all([
+  ore.listStationBatches(station),
+  talc.listStationBatches(station)
+]);
   // Grade summaries (optional for chips/tables)
   const [oreStockRaw, talcStockRaw] = await Promise.all([
     prisma.oreBatch.groupBy({
@@ -115,11 +121,11 @@ export default async function getStationDashboard(STATION) {
       receiveUrl: `/ore/receive?station=${encodeURIComponent(station)}`
     },
     talc: {
-      depositUrl: `/talc/process?station=${encodeURIComponent(station)}`, // talc "deposit" == process
+      depositUrl: `/talc/deposit?station=${encodeURIComponent(station)}`, // talc "deposit" == process
       dispatchUrl: `/talc/dispatch?station=${encodeURIComponent(station)}`,
       receiveUrl: `/talc/receive?station=${encodeURIComponent(station)}`
     }
   };
 
-  return { stationCode: station, oreCard, talcCard, oreStock, talcStock, inbound, ...links };
+  return { stationCode: station, oreCard, talcCard, oreStock, talcStock, inbound,oreBatches, talcBatches, ...links };
 }

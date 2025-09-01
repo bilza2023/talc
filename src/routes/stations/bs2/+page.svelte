@@ -2,8 +2,10 @@
 
   export let data;
   import StationStockCard from "../StationStockCard.svelte";
+  import BatchDetails from "../BatchDetails.svelte";
   import InboundList from "../InboundList.svelte";
   import StaHeader from "../StaHeader.svelte";
+  
   const { stationCode, inbound } = data || {};
 
   const talcPalette = ["#b72222", "#14b8a6", "#f59e0b", "#b72222"];
@@ -17,7 +19,6 @@
     stationCode={data.stationCode}
     description="Peshawar Supply Station"
   />
-
   
   <div class="flex justify-center  flex-col w-full gap-6 mb-8">
     <StationStockCard
@@ -30,6 +31,9 @@
     accent="#0ea5e9"
     colors={["#22d3ee", "#34d399", "#60a5fa"]}
   />
+
+  <BatchDetails title="Ore — Batch Details"  rows={data.oreBatches} />
+
   <StationStockCard
     title="Talc — Overview"
     stationCode={data.station}
@@ -40,22 +44,23 @@
     accent="#10b981"
     colors={["#2dd4bf", "#34d399", "#60a5fa"]}
   />
+  <BatchDetails title="Ore — Batch Details"  rows={data.talcBatches}  />
   </div>
   
-    <!-- Quick Actions -->
-    <section>
-      <h2 class="text-xl mb-3">Actions</h2>
-      
-      <div class="actions">
-        <a class="btn cyan"  href={data.talc.depositUrl}   >Deposit Talc</a>
-        <a class="btn cyan"  href={data.talc.dispatchUrl}  >Dispatch Talc</a>
-        <a class="btn amber" href={data.ore.depositUrl}    >Deposit Ore</a>
-        <a class="btn amber" href={data.ore.dispatchUrl}   >Dispatch Ore</a>
-      </div>
-      
 
-      
-    </section>
+
+  <hr/>
+      <!-- Quick Actions -->
+      <section>
+        <h2 class="text-xl mb-3">Actions</h2>
+        <div class="flex justify-center w-full border-2 border-gray-200 p-8 m-8  actions rounded-3xl">
+          <a class="btn cyan"  href={data.talc.depositUrl}   >Deposit Talc</a>
+          <a class="btn cyan"  href={data.talc.dispatchUrl}  >Dispatch Talc</a>
+          <a class="btn amber" href={data.ore.depositUrl}    >Deposit Ore</a>
+          <a class="btn amber" href={data.ore.dispatchUrl}   >Dispatch Ore</a>
+        </div>
+      </section>
+
 
     <InboundList items={data.inbound} stationCode={data.stationCode} />
   

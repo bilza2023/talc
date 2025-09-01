@@ -238,10 +238,26 @@ export default function createOreService(db) {
     });
   }
 
+  async function listStationBatches(stationCode, { openOnly = true } = {}) {
+    return db.oreBatch.findMany({
+      where: { stationCode, ...(openOnly ? { remainingTon: { gt: 0 } } : {}) },
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true, stationCode: true, gradeCode: true,
+        createdTon: true, remainingTon: true,
+        depositedAt: true, createdAt: true
+      }
+    });
+  }
+  
+  
+
   return {
     // actions
     deposit, dispatch, receive, cancel,
     // lookups
-    getBatch, getEdge, listIncomingEdges, listOutgoingsByBatch, getStationStock, overview, groupByTruck
+    getBatch, getEdge, listIncomingEdges, listOutgoingsByBatch, getStationStock, overview, groupByTruck,
+    
+    listStationBatches
   };
 }
