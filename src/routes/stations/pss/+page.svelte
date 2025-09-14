@@ -44,7 +44,7 @@
     accent="#10b981"
     colors={["#2dd4bf", "#34d399", "#60a5fa"]}
   />
-  <BatchDetails title="Ore — Batch Details"  rows={data.talcBatches}  />
+  <BatchDetails title="Talc — Batch Details"  rows={data.talcBatches}  />
   </div>
   
 

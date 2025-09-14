@@ -22,7 +22,7 @@
         <!-- Title block (top) -->
         <header class="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur text-center">
           <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">
-            North-West Transportation App
+            Northwest Minerals 
           </h1>
           <p class="mt-2 text-sm text-[#9fb0c5]">
             Operations &amp; Dashboards
