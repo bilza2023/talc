@@ -1,0 +1,72 @@
+/* --- Utilities: tiny, reusable classes --- */
+
+/* Flex & alignment */
+.u-flex { display: flex; }
+.u-inline-flex { display: inline-flex; }
+.u-col { display: flex; flex-direction: column; }
+.u-center { display:flex; align-items:center; justify-content:center; }
+.u-between { display:flex; justify-content: space-between; align-items:center; }
+.u-wrap { flex-wrap: wrap; }
+.u-gap-1 { gap: var(--space-1); }
+.u-gap-2 { gap: var(--space-2); }
+.u-gap-3 { gap: var(--space-3); }
+.u-gap-4 { gap: var(--space-4); }
+.u-gap-5 { gap: var(--space-5); }
+.u-gap-6 { gap: var(--space-6); }
+
+/* Spacing (margin/padding) */
+.u-m-0 { margin: var(--space-0); }
+.u-m-1 { margin: var(--space-1); }
+.u-m-2 { margin: var(--space-2); }
+.u-m-3 { margin: var(--space-3); }
+.u-m-4 { margin: var(--space-4); }
+.u-m-5 { margin: var(--space-5); }
+.u-m-6 { margin: var(--space-6); }
+
+.u-p-0 { padding: var(--space-0); }
+.u-p-1 { padding: var(--space-1); }
+.u-p-2 { padding: var(--space-2); }
+.u-p-3 { padding: var(--space-3); }
+.u-p-4 { padding: var(--space-4); }
+.u-p-5 { padding: var(--space-5); }
+.u-p-6 { padding: var(--space-6); }
+
+/* Axis-specific */
+.u-mt-1 { margin-top: var(--space-1); } .u-mt-2 { margin-top: var(--space-2); }
+.u-mt-3 { margin-top: var(--space-3); } .u-mt-4 { margin-top: var(--space-4); }
+.u-mt-5 { margin-top: var(--space-5); } .u-mt-6 { margin-top: var(--space-6); }
+.u-mb-1 { margin-bottom: var(--space-1); } .u-mb-2 { margin-bottom: var(--space-2); }
+.u-mb-3 { margin-bottom: var(--space-3); } .u-mb-4 { margin-bottom: var(--space-4); }
+.u-mb-5 { margin-bottom: var(--space-5); } .u-mb-6 { margin-bottom: var(--space-6); }
+.u-ml-1 { margin-left: var(--space-1); } .u-mr-1 { margin-right: var(--space-1); }
+/* Add more axes if you actually need them; keep set small. */
+
+/* Text */
+.u-muted { color: var(--muted); }
+.u-strong { font-weight: 600; }
+.u-small  { font-size: 0.9em; }
+.u-large  { font-size: 1.125em; }
+.u-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Surfaces & borders */
+.u-surface   { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-2); }
+.u-surface-2 { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-2); }
+.u-border { border: 1px solid var(--border); border-radius: var(--radius-1); }
+
+/* Buttons (utility-flavored) */
+.u-btn {
+  display:inline-flex; align-items:center; gap:var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border:1px solid var(--border); border-radius: var(--radius-2);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.u-btn:hover { border-color: var(--accent); }
+.u-btn--primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.u-btn--ghost   { background: transparent; border-color: var(--border); }
+
+/* Visibility */
+.visually-hidden {
+  position:absolute!important; width:1px!important; height:1px!important;
+  padding:0!important; margin:-1px!important; overflow:hidden!important;
+  clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important;
+}

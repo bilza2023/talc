@@ -1,0 +1,17 @@
+
+/* Dark is default. If you later add light, keep :root as light and override here. */
+[data-theme="dark"] {
+    --bg:         #111827;
+    --surface:    #1f2937;
+    --surface-2:  #0f172a;
+    --text:       #E8D7BD;
+    --muted:      #C4A77F;
+    --brand:      #0a9396;
+    --accent:     #C4A77F;
+    --border:     #2d3748;
+  
+    --success:    #b7ffc2;
+    --warn:       #ffd89a;
+    --error:      #ffb3b3;
+  }
+  

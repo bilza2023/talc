@@ -1,0 +1,196 @@
+/* notes.css — responsive, scoped, token-aware, optimized for educational content */
+
+/* Base styles for .notes container */
+.notes {
+  /* Layout + scale */
+  --page-margin: clamp(1rem, 4vw, 2rem); /* Responsive side margins */
+  --measure: none; /* Remove line length restriction for educational content */
+
+  /* Spacing */
+  --s-1: 0.75rem;
+  --s-2: 1.25rem;
+  --s-3: 2rem;
+  --s-4: 2.5rem;
+
+  /* Colors (hooks into tokens.css if present, with fallbacks) */
+  --text: var(--fg-1, var(--color-text, hsl(0 0% 96%)));
+  --muted: var(--fg-3, hsl(0 0% 70%));
+  --border: var(--border-1, hsl(0 0% 25%));
+  --surface: var(--panel-1, hsl(220 10% 16%));
+  --surface-2: var(--panel-2, hsl(220 10% 22%));
+  --accent: var(--accent-1, hsl(200 90% 60%));
+
+  color: var(--text);
+  background: transparent;
+  margin: 0 var(--page-margin); /* Responsive margins on sides */
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.notes * { box-sizing: border-box; }
+
+/* Typography */
+.notes p,
+.notes ul,
+.notes ol,
+.notes blockquote,
+.notes pre {
+  max-width: none; /* Remove width restriction for full-width content */
+}
+
+.notes p {
+  font-size: clamp(1.2rem, 0.6vw + 1.1rem, 1.5rem); /* Readable paragraph font */
+  line-height: 1.7; /* Improved line spacing */
+  margin: var(--s-2) 0;
+}
+
+.notes h1,
+.notes h2,
+.notes h3,
+.notes h4,
+.notes h5,
+.notes h6 {
+  line-height: 1.3;
+  margin: var(--s-3) 0 var(--s-2);
+  font-weight: 800; /* Bolder for emphasis in educational content */
+}
+
+.notes h1 { font-size: clamp(2.2rem, 3.2vw + 1.3rem, 3.4rem); }
+.notes h2 { font-size: clamp(1.9rem, 2.7vw + 1.1rem, 2.8rem); }
+.notes h3 { font-size: clamp(1.6rem, 2.2vw + 1rem, 2.2rem); }
+.notes h4 { font-size: clamp(1.3rem, 1.7vw + 0.9rem, 1.8rem); }
+
+.notes a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.notes ul,
+.notes ol {
+  margin: var(--s-2) 0 var(--s-2) 1.5rem;
+  padding: 0;
+  font-size: clamp(1.2rem, 0.6vw + 1.1rem, 1.5rem); /* Larger list font */
+  line-height: 1.8; /* More readable line spacing */
+}
+
+.notes li { margin: 0.6rem 0; } /* Increased spacing for list items */
+
+/* Media */
+.notes img,
+.notes svg,
+.notes video,
+.notes canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--s-2) auto;
+  max-height: 80vh; /* Prevent overly large images */
+}
+
+.notes figure { margin: var(--s-3) 0; }
+.notes figcaption {
+  color: var(--muted);
+  font-size: clamp(1rem, 0.5vw + 0.95rem, 1.25rem); /* Larger caption */
+  text-align: center;
+  margin-top: var(--s-1);
+}
+
+/* Optional: full-bleed visual */
+.notes .full-bleed {
+  width: 100%;
+  max-width: none;
+  margin-left: calc(-1 * var(--page-margin));
+  margin-right: calc(-1 * var(--page-margin));
+}
+
+/* Tables */
+.notes table {
+  border-collapse: collapse;
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+  margin: var(--s-3) 0;
+  font-size: clamp(1.2rem, 0.6vw + 1.1rem, 1.5rem); /* Larger table font */
+}
+
+.notes th,
+.notes td {
+  border: 1px solid var(--border);
+  padding: 0.85rem; /* Increased padding for better readability */
+  text-align: left;
+  vertical-align: top;
+  font-size: clamp(1.2rem, 0.6vw + 1.1rem, 1.5rem); /* Explicitly larger font */
+}
+
+.notes thead th {
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+}
+
+/* Blocks */
+.notes blockquote {
+  border-inline-start: 4px solid var(--accent);
+  padding: var(--s-1) var(--s-2);
+  margin: var(--s-3) 0;
+  color: var(--muted);
+  font-size: clamp(1.1rem, 0.6vw + 1rem, 1.4rem);
+}
+
+.notes code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: clamp(1rem, 0.5vw + 0.9rem, 1.25rem); /* Larger code font */
+}
+
+.notes pre {
+  overflow: auto;
+  padding: var(--s-2);
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  font-size: clamp(1rem, 0.5vw + 0.9rem, 1.25rem); /* Match code font */
+}
+
+.notes hr {
+  border: 0;
+  height: 1px;
+  background: var(--border);
+  margin: var(--s-3) 0;
+}
+
+/* Math (KaTeX) */
+.notes .katex { font-size: 1.2em; } /* Slightly larger math */
+.notes .katex-display { overflow-x: auto; }
+
+/* Small screens */
+@media (max-width: 520px) {
+  .notes { padding: 1rem; }
+  .notes p,
+  .notes ul,
+  .notes ol,
+  .notes blockquote,
+  .notes table,
+  .notes th,
+  .notes td,
+  .notes pre,
+  .notes code {
+    font-size: clamp(1.1rem, 0.5vw + 1rem, 1.3rem); /* Consistent readable font on small screens */
+  }
+  .notes img,
+  .notes svg,
+  .notes video,
+  .notes canvas {
+    max-height: 60vh; /* Smaller max height for mobile */
+  }
+}
+
+/* Print */
+@media print {
+  .notes {
+    color: #000;
+    background: #fff;
+    margin: 0 1rem;
+  }
+  .notes a { color: #000; text-decoration: none; }
+  .notes table { page-break-inside: avoid; }
+}

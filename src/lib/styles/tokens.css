@@ -1,0 +1,96 @@
+/* ONE FILE. EIGHT TOKENS. LIGHT + DARK SCOPES. */
+
+/* Light (default) */
+:root,
+.theme-light{
+  --backgroundColor:#ffffff;   /* canvas.default */
+  --surfaceColor:#f6f8fa;      /* canvas.subtle/inset */
+  --borderColor:#d0d7de;       /* border.default */
+
+  --primaryColor:#0969da;      /* accent.fg (links/buttons) */
+  --secondaryColor:#1a7f37;    /* success.fg */
+  --accentColor:#bf3989;       /* sponsors/magenta accent */
+
+  --primaryText:#24292f;       /* fg.default */
+  --secondaryText:#57606a;     /* fg.muted */
+}
+
+.theme-dark{
+  --backgroundColor:#0d1117;   /* canvas.default */
+  --surfaceColor:#2b3440;      /* canvas.overlay/subtle */
+  --borderColor:#34393f;       /* border.default */
+
+  --primaryColor:#58a6ff;      /* accent.fg */
+  --secondaryColor:#3fb950;    /* success.fg */
+  --accentColor:#d2a8ff;       /* accent/purple for highlights */
+
+  --primaryText:#c9d1d9;       /* fg.default */
+  --secondaryText:#8b949e;     /* fg.muted */
+}
+
+
+.theme-dracula{
+  --backgroundColor:#282a36;
+  --surfaceColor:#44475a;
+  --borderColor:#44475a;
+  --primaryColor:#bd93f9;    /* action */
+  --secondaryColor:#8be9fd;  /* secondary */
+  --accentColor:#ffb86c;     /* highlight */
+  --primaryText:#f8f8f2;
+  --secondaryText:#6272a4;
+}
+
+.theme-nord{
+  --backgroundColor:#2e3440; /* nord0 */
+  --surfaceColor:#3b4252;    /* nord1 */
+  --borderColor:#4c566a;     /* nord3 */
+  --primaryColor:#81a1c1;    /* nord9 (Frost blue) */
+  --secondaryColor:#a3be8c;  /* nord14 (Aurora green) */
+  --accentColor:#b48ead;     /* nord15 (Aurora purple) */
+  --primaryText:#e5e9f0;     /* nord5 */
+  --secondaryText:#d8dee9;   /* nord4 */
+}
+
+.theme-github-dim{
+  --backgroundColor:#22272e;
+  --surfaceColor:#2d333b;
+  --borderColor:#444c56;
+  --primaryColor:#539bf5;   /* link/action */
+  --secondaryColor:#6cb6ff; /* lighter blue */
+  --accentColor:#b083f0;    /* magenta/purple accent */
+  --primaryText:#adbac7;
+  --secondaryText:#768390;
+}
+
+.theme-gruvbox-dark{
+  --backgroundColor:#282828; /* medium bg */
+  --surfaceColor:#3c3836;
+  --borderColor:#504945;
+  --primaryColor:#458588;    /* blue */
+  --secondaryColor:#8ec07c;  /* aqua/green */
+  --accentColor:#d79921;     /* yellow/orange */
+  --primaryText:#ebdbb2;
+  --secondaryText:#d5c4a1;
+}
+
+.theme-solarized-light{
+  --backgroundColor:#fdf6e3; /* base3 */
+  --surfaceColor:#eee8d5;    /* base2 */
+  --borderColor:#93a1a1;     /* base1 */
+  --primaryColor:#268bd2;    /* blue */
+  --secondaryColor:#2aa198;  /* cyan */
+  --accentColor:#cb4b16;     /* orange */
+  --primaryText:#586e75;     /* base01 */
+  --secondaryText:#657b83;   /* base00 */
+}
+
+.theme-latte{
+  --backgroundColor:#eff1f5; /* base */
+  --surfaceColor:#e6e9ef;    /* mantle */
+  --borderColor:#ccd0da;     /* surface0 */
+  --primaryColor:#1e66f5;    /* blue */
+  --secondaryColor:#40a02b;  /* green */
+  --accentColor:#fe640b;     /* peach */
+  --primaryText:#4c4f69;     /* text */
+  --secondaryText:#6c6f85;   /* subtext0 */
+}

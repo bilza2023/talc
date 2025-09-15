@@ -1,0 +1,108 @@
+
+/* --- Base reset & element defaults --- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-3);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img, svg, video, canvas, audio, iframe {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--space-5) 0;
+}
+
+code, kbd, pre, samp {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Form basics */
+input, textarea, select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
+
+button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+
+/* Tables */
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+
+/* Guard: prevent link hovers from changing page bg via rogue globals */
+:root, html, body { background: var(--bg); }
+
+
+/* utilities.css — universal “bare” card that removes frame/padding */
+.card--bare {
+  border: 0 !important;
+  padding: 0 !important;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  box-shadow: var(--elevation-2, 0 8px 8px rgba(45,44,44,0.8));
+}
+
+/* common inner bits for media cards */
+.card--bare .thumb {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+
+.card--bare .title {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  color: var(--text-on-accent, #d5bd9b);
+  background: var(--card-accent, #2E1C02); /* we’ll set this inline via a CSS var */
+}
+
+.card--bare:focus-visible {
+  outline: 2px solid var(--card-accent, #2E1C02);
+  outline-offset: 2px;
+}

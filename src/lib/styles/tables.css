@@ -1,0 +1,77 @@
+/* $lib/styles/tables.css — token aligned */
+
+/* Derive table colors from the 8 tokens. Because these vars use other vars,
+   they automatically react to theme class changes (theme-*) at runtime. */
+   :root {
+    --tbl-bg:        var(--surfaceColor);
+    --tbl-text:      var(--primaryText);
+    --tbl-line:      var(--borderColor);
+    --tbl-hover:     color-mix(in oklab, var(--primaryColor) 6%,  var(--surfaceColor));
+    --tbl-head-bg:   color-mix(in oklab, var(--primaryColor) 12%, var(--surfaceColor));
+    --tbl-head-text: var(--primaryText);
+  }
+  
+  /* Wrapper */
+  .taleemTableWrap {
+    width: 100%;
+    max-width: 1100px;
+    margin: 24px auto;
+    overflow: auto;
+  }
+  
+  /* Table */
+  .taleemTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  
+    background: var(--tbl-bg);
+    color: var(--tbl-text);
+  
+    border: 1px solid var(--tbl-line);
+    border-radius: 12px;
+    overflow: hidden; /* keep rounded corners when sticky header is used */
+  }
+  
+  .taleemTable th,
+  .taleemTable td {
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  
+    border-bottom: 1px solid var(--tbl-line);
+  }
+  
+  /* Sticky header with token tint */
+  .taleemTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  
+    background: var(--tbl-head-bg);
+    color: var(--tbl-head-text);
+    font-weight: 600;
+  }
+  
+  /* Hover */
+  .taleemTable tr:hover td {
+    background: var(--tbl-hover);
+  }
+  
+  /* Actions cell never clips buttons */
+  .taleemTable .actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .taleemTable th:last-child,
+  .taleemTable td.actions {
+    width: 220px;
+  }
+  

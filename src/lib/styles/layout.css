@@ -1,0 +1,73 @@
+
+/* --- Global layout primitives and shared components --- */
+
+/* App shell */
+.app-shell {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background: var(--bg);
+    color: var(--text);
+  }
+  
+  /* Page containers */
+  .page {
+    padding: var(--space-5);
+  }
+  .container {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  
+  /* Header / Navbar */
+  .navbar {
+    display: flex;
+    gap: var(--space-5);
+    padding: var(--space-4) var(--space-6);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-link {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: var(--font-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-1);
+  }
+  .nav-link:hover {
+    background: rgba(255,255,255,0.04);
+    text-decoration: none;
+  }
+  
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2);
+    box-shadow: var(--shadow-1);
+    padding: var(--space-4);
+  }
+  .card--hover:hover { box-shadow: var(--shadow-2); }
+  
+  /* Footer */
+  .footer {
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+  }
+  
+  /* Grids (lightweight) */
+  .grid-2 { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--space-5); }
+  .grid-3 { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--space-5); }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+  
+  /* Make nav theming self-contained (prevents global hover side-effects) */
+  .navbar { isolation: isolate; }
+  
