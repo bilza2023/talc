@@ -2,6 +2,7 @@
   import '$lib/styles/tokens.css';
   import HomeNav from '$lib/components/HomeNav.svelte';
   import Card from '$lib/components/Card.svelte';
+  const iconMap = { dashboards:'🚀', stations:'🏗️', admin:'⚙️' };
 
   export const entries = [
     // dashboards
@@ -34,7 +35,12 @@
 </script>
 
 <div class="wrap">
-  <HomeNav items={categories} value={selected} on:change={handleChange} />
+ 
+  <div class="flex justify-center">
+    <HomeNav items={categories} iconMap={iconMap} value={selected} on:change={(e)=>selected=e.detail} />
+  </div>
+ 
+ 
   <div class="cards">
     {#each visible as it}
       <Card icon={it.icon} label={it.title} href={it.url} />
