@@ -21,7 +21,7 @@
   $: if (browser) applyTheme(theme); // runs only in browser when theme changes
 </script>
 <div class="app">
-  <Nav title="Northwest Minerals" bind:theme />
+  <Nav title="Northwest Transport" bind:theme />
   <slot />
 </div>
 

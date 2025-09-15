@@ -45,18 +45,20 @@
     outline-offset: 3px;
   }
 
+  /* Bigger icon */
   .icon {
-    font-size: clamp(2rem, 7vw, 2.6rem);
+    font-size: clamp(2.1rem, 8.5vw, 3rem);
     line-height: 1;
     margin-bottom: var(--spaceXs, 6px);
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,.2));
   }
+
+  /* Brighter label using theme accent */
   .label {
-    font-size: clamp(.72rem, 2.8vw, .9rem);
+    font-size: clamp(1rem, 3vw, .95rem);
     text-align: center;
-    color: var(--secondaryText, #cfe0f5);
+    color: var(--primaryColor, #0969da);
+    font-weight: 600;
     letter-spacing: .2px;
-  }
-  .card:hover .label {
-    color: var(--primaryText, #e6ebf1);
   }
 </style>

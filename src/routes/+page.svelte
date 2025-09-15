@@ -2,15 +2,11 @@
   import '$lib/styles/tokens.css';
   import HomeNav from '$lib/components/HomeNav.svelte';
   import Card from '$lib/components/Card.svelte';
-  const iconMap = { dashboards:'🚀', stations:'🏗️', admin:'⚙️' };
+  const iconMap = { stations:'🏗️',tables:'📅',dashboards:'🚀',  admin:'⚙️' };
 
   export const entries = [
     // dashboards
-    { title: 'Ore',            url: '/dashboard/ore',            icon: '🪨', category: 'dashboards' },
-    { title: 'Talc',           url: '/dashboard/talc',           icon: '🧼', category: 'dashboards' },
-    { title: 'Transportation', url: '/dashboard/transportation', icon: '🚚', category: 'dashboards' },
-    { title: 'Ore Batches',    url: '/dashboard/ore_batches',    icon: '📦', category: 'dashboards' },
-
+   
     // stations
     { title: 'BS1', url: '/stations/bs1', icon: '🏗️1', category: 'stations' },
     { title: 'BS2', url: '/stations/bs2', icon: '🏗️2', category: 'stations' },
@@ -19,6 +15,15 @@
     { title: 'PSS', url: '/stations/pss', icon: '🗺️',  category: 'stations' },
     { title: 'KEF', url: '/stations/kef', icon: '📦',  category: 'stations' },
     { title: 'ABS', url: '/stations/abs', icon: '🗺️',  category: 'stations' },
+
+
+    { title: 'Ore',            url: '/dashboard/ore',            icon: '🪨', category: 'dashboards' },
+    { title: 'Talc',           url: '/dashboard/talc',           icon: '🧼', category: 'dashboards' },
+    { title: 'Transportation', url: '/dashboard/transportation', icon: '🚚', category: 'dashboards' },
+    { title: 'Ore Batches',    url: '/dashboard/ore_batches',    icon: '📦', category: 'dashboards' },
+
+    { title: 'Tables',    url: '/dashboard/ore_batches',    icon: '📦', category: 'tables' },
+
 
     // admin
     { title: 'Help',      url: '/help/dashboard', icon: '❓', category: 'admin' },
