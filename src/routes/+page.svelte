@@ -34,9 +34,8 @@
   function handleChange(e) { selected = e.detail; }
 </script>
 
-<div class="wrap">
  
-  <div class="flex justify-center">
+  <div class="home-nav">
     <HomeNav items={categories} iconMap={iconMap} value={selected} on:change={(e)=>selected=e.detail} />
   </div>
  
@@ -46,15 +45,9 @@
       <Card icon={it.icon} label={it.title} href={it.url} />
     {/each}
   </div>
-</div>
 
 <style>
-  .wrap {
-    margin-inline: auto;
-    padding: .75rem;
-    width: min(95vw, 1100px);
-  }
-
+ 
   .cards {
     display: flex;
     flex-wrap: wrap;
@@ -62,7 +55,8 @@
     align-content: flex-start;
     gap: var(--spaceSm, 12px) var(--spaceMd, 16px);
     padding: var(--spaceMd, 16px);
-    margin: 0 auto;
+    padding: 5%;
+    margin: 0 5%;
 
     border: 1px solid var(--borderColor, #2b3a36);
     border-radius: var(--radiusXl, 16px);
@@ -73,5 +67,16 @@
     backdrop-filter: blur(var(--blurSm, 6px)) saturate(115%);
     -webkit-backdrop-filter: blur(var(--blurSm, 6px)) saturate(115%);
   }
+  .home-nav {
+  display: flex;
+  gap: var(--spaceSm, 12px);
+  padding: var(--spaceSm, 12px);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+
+  justify-content: center;   /* <-- add */
+  margin-inline: auto;       /* <-- add */
+}
 
 </style>
