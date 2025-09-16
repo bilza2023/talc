@@ -1,91 +1,87 @@
 <script>
-  import { enhance } from '$app/forms';
+  import FormUi from '$lib/formUi/FormUi.svelte';
   export let data;
-  export let form; // action result
 
-  let stationCode = data.stationCode;
-  let suppliers   = data.suppliers || [];
-  let grades      = data.grades    || ['WL','WC','WF','GL','GC','GF'];
+  // From loader: { stationCode, suppliers, grades }
+  const { stationCode, suppliers = [], grades = [] } = data;
 
-  const formatSupplier = (s) => (s?.code ? `${s.code} — ${s.name}` : s?.name ?? '');
+  // Map options
+  const gradeOptions = grades.map(g => ({ value: g, label: g }));
+  const supplierOptions = suppliers.map(s => ({
+    value: String(s.id),
+    label: `${s.code} — ${s.name}`
+  }));
+
+  // FormUi config: everything the action needs
+  const config = {
+    id: 'oreDepositForm',
+    title: 'Deposit Ore',
+    action: '?/deposit', // matches actions.deposit
+    initial: {
+      stationCode,
+      gradeCode: '',
+      createdTon: '',
+      supplierId: '',
+      depositedAt: '' // optional ISO/date string
+    },
+    items: [
+      // 1) Hidden station code (from ?station=XYZ)
+      { type: 'hidden', name: 'stationCode', value: stationCode },
+
+      // 2) Grade (required)
+      {
+        type: 'select',
+        name: 'gradeCode',
+        label: 'Grade',
+        required: true,
+        options: () => [{ value: '', label: 'Select grade' }, ...gradeOptions]
+      },
+
+      // 3) Quantity in tons (required, > 0)
+      {
+        type: 'number',
+        name: 'createdTon',
+        label: 'Quantity (t)',
+        required: true,
+        placeholder: 'e.g. 12.500',
+        inputAttrs: { min: '0.001', step: '0.001', inputmode: 'decimal' }
+      },
+
+      // 4) Supplier (optional)
+      {
+        type: 'select',
+        name: 'supplierId',
+        label: 'Supplier (optional)',
+        options: () => [{ value: '', label: '— None —' }, ...supplierOptions]
+      },
+
+      // 5) Deposited at (optional)
+      // Your action accepts a string, so we send a local datetime string.
+      {
+        type: 'input',
+        name: 'depositedAt',
+        label: 'Deposited at (optional)',
+        placeholder: 'YYYY-MM-DDTHH:mm',
+        inputAttrs: { type: 'datetime-local' }
+      }
+    ],
+
+    // Disable submit until required fields ready
+    submit: {
+      label: 'Save Deposit',
+      disabledWhen: v => !(v?.gradeCode && Number(v?.createdTon) > 0)
+    }
+  };
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-[#0a0d13] to-[#0b1018] text-[#e6ebf1]">
-  <div class="mx-auto max-w-3xl px-4 py-8">
-    <header class="mb-6">
-      <h1 class="text-2xl font-semibold">Deposit Ore</h1>
-      <p class="text-sm text-[#a9b3c2] mt-1">
-        Current station: <span class="font-mono">{stationCode}</span>.
-        Change via <span class="font-mono">?station=JSS</span> (or PSS/KEF).
-      </p>
-    </header>
+<section class="wrap">
+  <FormUi {config}/>
+</section>
 
-    {#if form?.success}
-      <div class="mb-4 rounded-xl bg-green-600/20 text-green-200 px-4 py-3 ring-1 ring-green-700/40">
-        Saved. Deposit ID: {form.batchId} — Station {form.station}.
-      </div>
-    {:else if form && !form.success}
-      <div class="mb-4 rounded-xl bg-red-600/20 text-red-200 px-4 py-3 ring-1 ring-red-700/40">
-        {form?.message || 'Could not save deposit.'}
-      </div>
-    {/if}
-
-    <form method="POST" action="?/deposit" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
-      <input type="hidden" name="stationCode" value={stationCode} />
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="supplierId">Supplier (optional)</label>
-          <select id="supplierId" name="supplierId" class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <option value="">No supplier</option>
-            {#each suppliers as s}
-              <option value={s.id}>{formatSupplier(s)}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="gradeCode">Grade</label>
-          <select id="gradeCode" name="gradeCode" class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" required>
-            <option value="" disabled selected>Select grade…</option>
-            {#each grades as g}
-              <option value={g}>{g}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="createdTon">Weight (tons)</label>
-          <input
-            id="createdTon"
-            name="createdTon"
-            type="number"
-            step="0.001"
-            min="0.001"
-            placeholder="e.g. 88.500"
-            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400"
-            required
-          />
-          <p class="text-xs text-[#7f8aa3]">Must be &gt; 0 (backend validates this).</p>
-        </div>
-
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="depositedAt">Deposited at (optional)</label>
-          <input
-            id="depositedAt"
-            name="depositedAt"
-            type="datetime-local"
-            class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400"
-          />
-        </div>
-      </div>
-
-      <div class="pt-2">
-        <button type="submit"
-          class="inline-flex items-center justify-center rounded-xl bg-sky-500/90 hover:bg-sky-400 px-5 py-2.5 font-medium text-black transition">
-          Save Deposit
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+<style>
+  .wrap {
+    margin-inline: auto;
+    width: min(92vw, 720px);
+    padding: 1rem;
+  }
+</style>

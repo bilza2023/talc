@@ -7,7 +7,8 @@
   import StaHeader from "../StaHeader.svelte";
 import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
 
- 
+ console.log("data.talc.depositUrl" , data.talc.depositUrl);
+
 </script>
 
 <div class="min-h-screen bg-[#0b1018] text-[#e6ebf1]">
@@ -17,7 +18,8 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
     description="Peshawar Supply Station"
   />
   <div class="btn-center">
-    <RoundIconBtn icon="🪨📥" label="Deposit Ore" href={data.ore.depositUrl} size="lg" variant="solid" />
+    <!-- <a href="/talc/deposit?station=PSS">station=PSS</a> -->
+    <RoundIconBtn icon="🪨📥" label="Deposit Ore" href="/ore/deposit?station=PSS" size="lg" variant="solid" />
 
     <RoundIconBtn icon="🪨🚚" label="Dispatch Ore" href={data.ore.dispatchUrl} size="lg" variant="solid" />
   </div>
@@ -50,6 +52,10 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
     accent="#10b981"
     colors={["#2dd4bf", "#34d399", "#60a5fa"]}
   />
+  <BatchDetails title="Ore — Batch Details"  rows={data.oreBatches}  />
+  
+  <!-- <hr/> -->
+
   <BatchDetails title="Talc — Batch Details"  rows={data.talcBatches}  />
   </div>
   

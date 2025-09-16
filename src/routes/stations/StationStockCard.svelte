@@ -48,19 +48,15 @@
   </div>
 </article>
 
+
 <style>
   .card {
-    --bg: linear-gradient(180deg, #0b1018, #0a0d13);
-    --border: rgba(255,255,255,0.06);
-    --text: #e6ebf1;
-    --muted: #9aa3af;
-
-    background: var(--bg);
-    border: 1px solid var(--border);
+    background: var(--backgroundColor);
+    border: 1px solid var(--borderColor);
     border-radius: 16px;
     padding: 16px;
-    color: var(--text);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    color: var(--primaryText);
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--primaryText) 25%, transparent);
   }
 
   .head {
@@ -79,7 +75,7 @@
 
   .badge {
     border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent);
-    color: color-mix(in oklab, var(--accent) 90%, white);
+    color: color-mix(in oklab, var(--accent) 90%, var(--primaryText));
     padding: 3px 10px;
     border-radius: 999px;
     font-weight: 600;
@@ -102,7 +98,7 @@
   }
 
   .stat {
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--borderColor);
     border-radius: 12px;
     padding: 12px;
     display: grid;
@@ -112,7 +108,7 @@
   }
   .stat:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    box-shadow: 0 8px 24px color-mix(in oklab, var(--primaryText) 25%, transparent);
   }
 
   .stat.stock {
@@ -122,25 +118,25 @@
   .stat.v1 {
     background:
       radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c1) 18%, transparent), transparent 70%),
-      color-mix(in oklab, var(--c1) 7%, #0c1118);
-    border-color: color-mix(in oklab, var(--c1) 35%, rgba(255,255,255,0.06));
+      color-mix(in oklab, var(--c1) 7%, var(--surfaceColor));
+    border-color: color-mix(in oklab, var(--c1) 35%, var(--borderColor));
   }
   .stat.v2 {
     background:
       radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c2) 18%, transparent), transparent 70%),
-      color-mix(in oklab, var(--c2) 7%, #0c1118);
-    border-color: color-mix(in oklab, var(--c2) 35%, rgba(255,255,255,0.06));
+      color-mix(in oklab, var(--c2) 7%, var(--surfaceColor));
+    border-color: color-mix(in oklab, var(--c2) 35%, var(--borderColor));
   }
   .stat.v3 {
     background:
       radial-gradient(60% 120% at 20% 0%, color-mix(in oklab, var(--c3) 18%, transparent), transparent 70%),
-      color-mix(in oklab, var(--c3) 7%, #0c1118);
-    border-color: color-mix(in oklab, var(--c3) 35%, rgba(255,255,255,0.06));
+      color-mix(in oklab, var(--c3) 7%, var(--surfaceColor));
+    border-color: color-mix(in oklab, var(--c3) 35%, var(--borderColor));
   }
 
   .label {
     font-size: 0.85rem;
-    color: var(--muted);
+    color: var(--secondaryText);
     letter-spacing: 0.3px;
   }
   .value {
