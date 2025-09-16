@@ -18,6 +18,7 @@ export const load = async ({ url }) => {
   let suppliers = [];
   try {
     suppliers = await suppliersSvc.list();
+    // console.log("suppliers" , suppliers);
   } catch (e) {
     console.error('supplier list failed', e);
   }
@@ -31,10 +32,11 @@ export const actions = {
       stationCode: R.str('stationCode', { upper: true, required: true }),
       gradeCode:   R.str('gradeCode',   { upper: true, required: true }),
       createdTon:  R.num('createdTon',  { required: true, gt: 0 }),
-      supplierId:  R.intId('supplierId', { required: false }),   // optional
-      depositedAt: R.str('depositedAt', { required: false, trim: true }) // optional ISO/date string
+      supplierId:  R.intId('supplierId', { required: false }),     // optional
+      amount:      R.num('amount',      { required: false, gt: 0 }), // NEW (optional, > 0 if sent)
+      depositedAt: R.str('depositedAt', { required: false, trim: true }) // optional
     },
-    service: (v) => ore.deposit(v),
+    service: (v) => ore.deposit(v), // ore service can ignore fields it doesn't persist
     success: (row, v) => ({ success: true, station: v.stationCode, batchId: row?.id ?? null })
   })
 };
