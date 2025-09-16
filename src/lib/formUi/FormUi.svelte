@@ -1,296 +1,427 @@
-<script>
 
+<script>
   import { enhance } from '$app/forms';
   import { createEventDispatcher } from 'svelte';
 
-  export let config;
+  // Public API: <FormUi {config} />
+  export let config = {
+    id: 'form',
+    title: '',
+    description: '',
+    action: '',
+    method: 'post',
+    encType: undefined,
+    layout: 'stack',          // 'stack' | 'grid-2'
+    labelPosition: 'top',     // 'top' | 'left'
+    initial: {},
+    items: [],                // [{ type, name, label, ... }]
+    submit: { label: 'Save', disabledWhen: null },
+    clearOnSuccess: false,    // true | function() => initialValues
+    showErrorsList: false
+  };
 
   const dispatch = createEventDispatcher();
 
-  let formResult = null;
-  let values = {};
+  // Local state
+  let values = { ...(config.initial || {}) };
+  let isSubmitting = false;
+  let serverMessage = '';
+  let serverErrors = [];
 
-  $: actionHref = (config && config.action) || '';
-  if (!actionHref) console.warn('[Form] Missing config.action');
-
-  function initValuesFromConfig() {
-    const init = { ...(config?.initial ?? {}) };
-    const items = Array.isArray(config?.items) ? config.items : [];
-    for (const item of items) {
-      if (!item) continue;
-      if (item.type === 'note') continue;
-      if (item.type === 'hidden' && !item.name) continue;
-      const k = item.name;
-      if (!k) continue;
-      if (init[k] === undefined) {
-        if (item.value !== undefined) init[k] = item.value;
-        else init[k] = item.type === 'checkbox' ? false : '';
-      }
+  // Helpers
+  const fid = (n) => `${config.id || 'form'}__${n}`;
+  const isDisabled = () => {
+    try {
+      return !!(config.submit?.disabledWhen && config.submit.disabledWhen(values));
+    } catch {
+      return false;
     }
-    return init;
-  }
-
-  $: values = initValuesFromConfig();
-
-  const isFn = (v) => typeof v === 'function';
-  const itemVisible = (item) => (item?.visible === undefined ? true : (isFn(item.visible) ? !!item.visible(values) : !!item.visible));
-  const itemDisabled = (item) => (item?.disabled === undefined ? false : (isFn(item.disabled) ? !!item.disabled(values) : !!item.disabled));
-  const getOptions = (item) => {
-    const base = item?.options ?? [];
-    return isFn(base) ? (base(values) || []) : base;
   };
+  const optsOf = (item) => {
+    const raw = typeof item.options === 'function' ? item.options() : (item.options || []);
+    return Array.isArray(raw) ? raw : [];
+  };
+  const val = (name, def = '') => (values[name] ?? def);
 
-  $: submitDisabled = isFn(config?.submit?.disabledWhen) ? !!config.submit.disabledWhen(values) : false;
-
-  function fid(id, name, i) {
-    const base = id || 'form';
-    const key = name || `f${i}`;
-    return `${base}-${key}`;
+  function update(e, item) {
+    const t = e?.target;
+    if (!t || !item?.name) return;
+    if (t.type === 'checkbox') values[item.name] = !!t.checked;
+    else values[item.name] = t.value;
   }
 
-  function handleEnhance() {
-    return ({ result }) => {
+  function clearAfterSuccess() {
+    if (typeof config.clearOnSuccess === 'function') {
+      values = config.clearOnSuccess();
+    } else if (config.clearOnSuccess) {
+      values = { ...(config.initial || {}) };
+    }
+  }
+
+  // SvelteKit enhance handler
+  function onEnhance() {
+    return async ({ result }) => {
+      isSubmitting = false;
+      serverErrors = [];
+      serverMessage = '';
+
       if (result.type === 'failure') {
-        formResult = result.data;
-        if (formResult?.values) values = { ...values, ...formResult.values };
-        dispatch('failure', formResult);
+        // result.data shape may vary across actions; handle common keys
+        const data = result.data || {};
+        serverMessage = data.message || 'Failed to save. Please fix the errors and try again.';
+        serverErrors = Array.isArray(data.errors) ? data.errors : [];
+        // If action returns sticky values, prefer them; otherwise keep existing
+        if (data.values && typeof data.values === 'object') {
+          values = { ...values, ...data.values };
+        }
+        dispatch('failure', data);
         return;
       }
-      if (result.type === 'success') {
-        formResult = result.data;
-        dispatch('success', formResult);
-        const clear = config?.clearOnSuccess;
-        if (clear === true) {
-          values = initValuesFromConfig();
-        } else if (isFn(clear)) {
-          const patch = clear();
-          values = { ...values, ...(patch || {}) };
-        }
-      }
+
+      // success
+      const data = result.data || {};
+      serverMessage = data.message || '';
+      dispatch('success', data);
+
+      if (config.clearOnSuccess) clearAfterSuccess();
     };
+  }
+
+  // Form submit start (to set submitting state early)
+  function onSubmitStart() {
+    isSubmitting = true;
+    serverMessage = '';
+    serverErrors = [];
   }
 </script>
 
-<form
-  method={config?.method ?? 'post'}
-  action={actionHref}
-  enctype={config?.encType}
-  use:enhance={handleEnhance}
-  class={`f-wrap ${config?.layout === 'grid-2' ? 'grid2' : 'stack'} ${config?.labelPosition === 'left' ? 'label-left' : 'label-top'}`}
-  autocomplete="off"
->
-  {#if config?.title || config?.description}
-    <header class="f-head">
-      {#if config?.title}<h2 class="f-title">{config.title}</h2>{/if}
-      {#if config?.description}<p class="f-desc">{config.description}</p>{/if}
-    </header>
-  {/if}
+{#if config.title || config.description}
+  <header class="fu-header">
+    {#if config.title}<h2>{config.title}</h2>{/if}
+    {#if config.description}<p class="desc">{config.description}</p>{/if}
+  </header>
+{/if}
 
-  {#if formResult?.message}
-    <div class={formResult.ok ? 'msg ok' : 'msg warn'}>
-      {formResult.message}
-    </div>
-  {/if}
-
-  {#if !formResult?.ok && config?.showErrorsList && Array.isArray(formResult?.errors) && formResult.errors.length}
-    <ul class="errors">
-      {#each formResult.errors as e}
-        <li>{e}</li>
-      {/each}
-    </ul>
-  {/if}
-
-  <div class="f-body">
-    {#each (config?.items ?? []) as item, i (item?.name ?? i)}
-      {#if item && itemVisible(item)}
-        {#if item.type === 'note'}
-          <div class="f-note">{item.text}</div>
-
-        {:else if item.type === 'hidden'}
-          {#if item.name}
-            <input type="hidden" name={item.name} value={values[item.name] ?? item.value ?? ''} />
-          {/if}
-
-        {:else}
-          <div class="f-row {item?.type}">
-            {#if item.label}
-              <label class="f-label" for={fid(config?.id, item.name, i)}>
-                {item.label}{item.required ? ' *' : ''}
-              </label>
-            {/if}
-
-            {#if item.type === 'textarea'}
-              <textarea
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                rows={item.rows ?? 4}
-                class="f-input"
-                placeholder={item.placeholder}
-                bind:value={values[item.name]}
-                disabled={itemDisabled(item)}
-              />
-
-            {:else if item.type === 'select'}
-              <select
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                class="f-input"
-                bind:value={values[item.name]}
-                disabled={itemDisabled(item)}
-                on:change={() => dispatch('change', { name: item.name, value: values[item.name] })}
-              >
-                {#each getOptions(item) as opt}
-                  <option value={opt.value} disabled={opt.disabled}>{opt.label}</option>
-                {/each}
-              </select>
-
-            {:else if item.type === 'number'}
-              <input
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                type="number"
-                class="f-input"
-                placeholder={item.placeholder}
-                min={item.min}
-                max={item.max}
-                step={item.step}
-                bind:value={values[item.name]}
-                disabled={itemDisabled(item)}
-              />
-
-            {:else if item.type === 'password'}
-              <input
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                type="password"
-                class="f-input"
-                placeholder={item.placeholder}
-                bind:value={values[item.name]}
-                disabled={itemDisabled(item)}
-              />
-
-            {:else if item.type === 'checkbox'}
-              <div class="f-check">
-                <input
-                  id={fid(config?.id, item.name, i)}
-                  name={item.name}
-                  type="checkbox"
-                  class="f-input"
-                  bind:checked={values[item.name]}
-                  disabled={itemDisabled(item)}
-                />
-                {#if item.placeholder}<span class="check-label">{item.placeholder}</span>{/if}
-              </div>
-
-            {:else if item.type === 'file'}
-              <input
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                type="file"
-                class="f-input"
-                disabled={itemDisabled(item)}
-              />
-
-            {:else}
-              <input
-                id={fid(config?.id, item.name, i)}
-                name={item.name}
-                type="text"
-                class="f-input"
-                placeholder={item.placeholder}
-                bind:value={values[item.name]}
-                disabled={itemDisabled(item)}
-              />
-            {/if}
-
-            {#if item.hint}
-              <div class="f-hint">{item.hint}</div>
-            {/if}
-          </div>
-        {/if}
-      {/if}
+{#if serverMessage}
+  <div class="fu-alert fu-alert--error" role="alert">{serverMessage}</div>
+{/if}
+{#if config.showErrorsList && serverErrors.length}
+  <ul class="fu-errors">
+    {#each serverErrors as err}
+      <li>{err}</li>
     {/each}
-  </div>
+  </ul>
+{/if}
 
-  <div class="f-actions">
-    <button type="submit" class="btn" disabled={submitDisabled} aria-disabled={submitDisabled}>
-      {config?.submit?.label ?? 'Save'}
+<form
+  method={config.method || 'post'}
+  action={config.action}
+  enctype={config.encType}
+  class="fu-form {config.layout === 'grid-2' ? 'fu-grid2' : 'fu-stack'} {config.labelPosition === 'left' ? 'fu-label-left' : 'fu-label-top'}"
+  use:enhance={onEnhance}
+  on:submit={onSubmitStart}
+>
+  {#each config.items as item (item.name ?? item.label ?? item.type)}
+    {#if item.type === 'hidden'}
+      <input
+        id={fid(item.name || 'hidden')}
+        name={item.name}
+        type="hidden"
+        value={item.value ?? val(item.name, '')}
+      />
+    {:else if item.type === 'note'}
+      <div class="fu-note">{item.text}</div>
+
+    {:else}
+      <div class="fu-field">
+        {#if item.label}
+          <label class="fu-label" for={fid(item.name)}>{item.label}</label>
+        {/if}
+
+        <!-- TEXT -->
+        {#if item.type === 'text'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="text"
+            placeholder={item.placeholder}
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- NUMBER -->
+        {:else if item.type === 'number'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="number"
+            min={item.min}
+            max={item.max}
+            step={item.step}
+            placeholder={item.placeholder}
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- PASSWORD -->
+        {:else if item.type === 'password'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="password"
+            placeholder={item.placeholder}
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- TEXTAREA -->
+        {:else if item.type === 'textarea'}
+          <textarea
+            id={fid(item.name)}
+            name={item.name}
+            rows={item.rows ?? 4}
+            placeholder={item.placeholder}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          >{val(item.name, '')}</textarea>
+
+        <!-- SELECT -->
+        {:else if item.type === 'select'}
+          <select
+            id={fid(item.name)}
+            name={item.name}
+            required={item.required}
+            on:change={(e)=>update(e,item)}
+            {...(item.props || {})}
+          >
+            {#if item.placeholder}
+              <option value="" disabled selected={val(item.name, '') === ''}>{item.placeholder}</option>
+            {/if}
+            {#each optsOf(item) as opt}
+              <option value={opt.value} selected={String(val(item.name, '')) === String(opt.value)}>{opt.label}</option>
+            {/each}
+          </select>
+
+        <!-- CHECKBOX -->
+        {:else if item.type === 'checkbox'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="checkbox"
+            checked={!!val(item.name, false)}
+            on:change={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- FILE -->
+        {:else if item.type === 'file'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="file"
+            accept={item.accept}
+            required={item.required}
+            {...(item.props || {})}
+          />
+
+        <!-- NEW: DATE -->
+        {:else if item.type === 'date'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="date"
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- NEW: DATETIME-LOCAL -->
+        {:else if item.type === 'datetime-local'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="datetime-local"
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- NEW: TIME -->
+        {:else if item.type === 'time'}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="time"
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+
+        <!-- FALLBACK (treat unknown as text) -->
+        {:else}
+          <input
+            id={fid(item.name)}
+            name={item.name}
+            type="text"
+            placeholder={item.placeholder}
+            value={val(item.name, '')}
+            required={item.required}
+            on:input={(e)=>update(e,item)}
+            {...(item.props || {})}
+          />
+        {/if}
+
+        {#if item.help}
+          <div class="fu-help">{item.help}</div>
+        {/if}
+      </div>
+    {/if}
+  {/each}
+
+  <div class="fu-actions">
+    <button
+      type="submit"
+      class="fu-btn"
+      disabled={isSubmitting || isDisabled()}
+      aria-busy={isSubmitting}
+    >
+      {config.submit?.label ?? 'Save'}
     </button>
   </div>
 </form>
 
 <style>
-  .f-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-    background: var(--surfaceColor);
+  /* container */
+  .fu-header { margin-bottom: .75rem; }
+  .fu-header h2 {
+    margin: 0 0 .25rem 0;
+    font-size: 1.125rem;
+    color: var(--primaryText);
+  }
+  .fu-header .desc {
+    margin: 0;
+    color: var(--secondaryText);
+    font-size: .95rem;
+  }
+
+  .fu-alert {
+    margin: .5rem 0;
+    padding: .6rem .75rem;
+    border-radius: 10px;
+    border: 1px solid var(--borderColor);
+    background: color-mix(in oklab, var(--accentColor) 20%, var(--surfaceColor));
+    color: var(--primaryText);
+  }
+  .fu-alert--error {
+    background: color-mix(in oklab, #ff4d4f 24%, var(--surfaceColor));
+    color: var(--primaryText);
+  }
+
+  .fu-errors {
+    margin: .5rem 0;
+    padding-left: 1rem;
+    color: var(--secondaryText);
+  }
+  .fu-errors li { margin: .15rem 0; }
+
+  form.fu-form {
+    width: 100%;
+    padding: .75rem;
     border: 1px solid var(--borderColor);
     border-radius: 14px;
-    padding: 1.1rem;
-    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    background: var(--surfaceColor);
   }
-  .f-head { display: grid; gap: .25rem; }
-  .f-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--primaryText); }
-  .f-desc  { margin: 0; font-size: .9rem; color: var(--secondaryText); }
 
-  .msg { padding: .55rem .7rem; border-radius: 10px; font-size: .9rem; }
-  .ok   { background: var(--secondaryColor); color: var(--backgroundColor); }
-  .warn { background: var(--accentColor); color: var(--backgroundColor); }
+  .fu-stack { display: grid; gap: .9rem; }
+  .fu-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem;
+  }
+  @media (max-width: 720px) {
+    .fu-grid2 { grid-template-columns: 1fr; }
+  }
 
-  ul.errors { margin: 0; padding-left: 1rem; color: var(--accentColor); }
-  ul.errors li { margin: .15rem 0; }
-
-  .f-body { display: grid; gap: .75rem; }
-  .stack .f-row { display: grid; gap: .35rem; }
-  .grid2 .f-body { grid-template-columns: 1fr 1fr; }
-  .grid2 .f-row { display: grid; gap: .35rem; }
-
-  .label-top .f-row { grid-template-columns: 1fr; }
-  .label-left .f-row {
+  .fu-field {
+    display: grid;
+    gap: .35rem;
+  }
+  .fu-label-top .fu-field { grid-template-columns: 1fr; }
+  .fu-label-left .fu-field {
     grid-template-columns: 180px 1fr;
     align-items: center;
   }
+  @media (max-width: 720px) {
+    .fu-label-left .fu-field { grid-template-columns: 1fr; }
+  }
 
-  .f-label { font-size: .9rem; color: var(--secondaryText); }
-  .f-input {
+  .fu-label {
+    color: var(--secondaryText);
+    font-size: .92rem;
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="file"],
+  select,
+  textarea {
     width: 100%;
-    padding: .6rem .8rem;
+    box-sizing: border-box;
+    border: 1px solid var(--borderColor);
     background: var(--backgroundColor);
     color: var(--primaryText);
-    border: 1px solid var(--borderColor);
     border-radius: 10px;
+    padding: .55rem .7rem;
+    font: inherit;
+    outline: none;
   }
-  .f-input:focus {
-    outline: 2px solid var(--primaryColor);
-    outline-offset: 1px;
-  }
+  textarea { resize: vertical; }
 
-  .f-check { display: flex; align-items: center; gap: .6rem; }
-  .check-label { color: var(--secondaryText); font-size: .9rem; }
-
-  .f-hint { font-size: .8rem; color: var(--secondaryText); }
-
-  .f-note {
-    background: var(--surfaceColor);
-    border: 1px dashed var(--borderColor);
+  .fu-help {
     color: var(--secondaryText);
-    padding: .6rem .8rem;
-    border-radius: 10px;
-    font-size: .9rem;
+    font-size: .85rem;
   }
 
-  .f-actions { display: flex; justify-content: flex-end; margin-top: .2rem; }
-  .btn {
-    appearance: none;
-    border: 0;
+  .fu-note {
+    padding: .6rem .75rem;
+    border: 1px dashed var(--borderColor);
     border-radius: 10px;
-    padding: .6rem .9rem;
-    font-weight: 700;
-    color: var(--backgroundColor);
+    background: var(--backgroundColor);
+    color: var(--secondaryText);
+    font-size: .92rem;
+  }
+
+  .fu-actions {
+    margin-top: .6rem;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .fu-btn {
+    padding: .55rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--borderColor);
     background: var(--primaryColor);
+    color: #0b0f14;
+    font-weight: 600;
     cursor: pointer;
   }
-  .btn:hover { opacity: 0.9; }
-  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+  .fu-btn[disabled] {
+    opacity: .6;
+    cursor: not-allowed;
+  }
 </style>

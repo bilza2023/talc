@@ -37,6 +37,7 @@ export const actions = {
       depositedAt: R.str('depositedAt', { required: false, trim: true }) // optional
     },
     service: (v) => ore.deposit(v), // ore service can ignore fields it doesn't persist
-    success: (row, v) => ({ success: true, station: v.stationCode, batchId: row?.id ?? null })
+    success: (row, v) => ({ success: true, station: v.stationCode, batchId: row?.id ?? null }),
+    fail: (errors) => ({ success: false, errors }) // keep errors inline
   })
 };
