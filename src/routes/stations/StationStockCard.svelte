@@ -1,4 +1,3 @@
-<!-- src/routes/stations/StationStockCard.svelte -->
 <script>
   // 3-metric station card (Batch & Edge)
   export let title = '';
@@ -32,19 +31,19 @@
   {/if}
 
   <div class="stats">
-    <div class="stat v1 highlight">
+    <div class="stat v1 highlight stock">
       <div class="label">Stock</div>
       <div class="value">{fmt(stock)}</div>
     </div>
-
-    <div class="stat v2">
-      <div class="label">In&nbsp;Bound</div>
-      <div class="value">{fmt(inbound)}</div>
-    </div>
-
-    <div class="stat v3">
-      <div class="label">Out&nbsp;Bound</div>
-      <div class="value">{fmt(outbound)}</div>
+    <div class="sub-stats">
+      <div class="stat v2">
+        <div class="label">In&nbsp;Bound</div>
+        <div class="value">{fmt(inbound)}</div>
+      </div>
+      <div class="stat v3">
+        <div class="label">Out&nbsp;Bound</div>
+        <div class="value">{fmt(outbound)}</div>
+      </div>
     </div>
   </div>
 </article>
@@ -59,34 +58,66 @@
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 14px 16px;
+    padding: 16px;
     color: var(--text);
     box-shadow: 0 10px 30px rgba(0,0,0,0.25);
   }
 
   .head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px; gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
   }
-  .title { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: .2px; }
+  .title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
 
   .badge {
     border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent);
     color: color-mix(in oklab, var(--accent) 90%, white);
-    padding: 2px 8px; border-radius: 999px; font-weight: 600; letter-spacing: .3px; font-size: .8rem; white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    font-size: 0.9rem;
+    white-space: nowrap;
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent) inset;
   }
 
-  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sub-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
 
   .stat {
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 12px;
-    padding: 10px 12px;
-    display: grid; gap: 4px; min-height: 64px;
-    transition: transform .15s ease, box-shadow .15s ease;
+    padding: 12px;
+    display: grid;
+    text-align: center;
+    gap: 6px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .stat:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .stat:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  .stat.stock {
+    min-height: 80px;
+  }
 
   .stat.v1 {
     background:
@@ -107,9 +138,21 @@
     border-color: color-mix(in oklab, var(--c3) 35%, rgba(255,255,255,0.06));
   }
 
-  .label { font-size: .75rem; color: var(--muted); letter-spacing: .3px; }
-  .value { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
-  .highlight .value { text-shadow: 0 0 14px color-mix(in oklab, var(--c1) 20%, transparent); }
-
-  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+  .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .stock .value {
+    font-size: 1.8rem;
+    text-align: center;
+  }
+  .highlight .value {
+    text-shadow: 0 0 14px color-mix(in oklab, var(--c1) 20%, transparent);
+  }
 </style>
