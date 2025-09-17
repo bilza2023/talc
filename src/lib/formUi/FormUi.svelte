@@ -95,16 +95,16 @@
   }
 </script>
 
-{#if config.title || config.description}
-  <header class="fu-header">
-    {#if config.title}<h2>{config.title}</h2>{/if}
-    {#if config.description}<p class="desc">{config.description}</p>{/if}
-  </header>
+<!-- REPLACE lines 98–114 with this -->
+{#if serverMessage}
+  <div
+    class="fu-alert {serverErrors.length ? 'fu-alert--error' : 'fu-alert--success'}"
+    role={serverErrors.length ? 'alert' : 'status'}
+  >
+    {serverMessage}
+  </div>
 {/if}
 
-{#if serverMessage}
-  <div class="fu-alert fu-alert--error" role="alert">{serverMessage}</div>
-{/if}
 {#if config.showErrorsList && serverErrors.length}
   <ul class="fu-errors">
     {#each serverErrors as err}
@@ -112,6 +112,7 @@
     {/each}
   </ul>
 {/if}
+
 
 <form
   method={config.method || 'post'}
@@ -301,18 +302,19 @@
 </form>
 
 <style>
+  .fu-alert{
+  margin:.5rem 0 1rem;
+  padding:.75rem 1rem;
+  border-radius:12px;
+  font-weight:600;
+}
+.fu-alert--success{ background: var(--secondaryColor); color:#fff; } /* green */
+.fu-alert--error{   background: var(--accentColor);    color:#fff; } /* red/magenta */
+
   /* container */
   .fu-header { margin-bottom: .75rem; }
-  .fu-header h2 {
-    margin: 0 0 .25rem 0;
-    font-size: 1.125rem;
-    color: var(--primaryText);
-  }
-  .fu-header .desc {
-    margin: 0;
-    color: var(--secondaryText);
-    font-size: .95rem;
-  }
+
+  
 
   .fu-alert {
     margin: .5rem 0;

@@ -48,21 +48,31 @@ export const load = async ({ url }) => {
   return { stationCode, grades: GRADES, toStations, parents };
 };
 
+
 export const actions = {
   dispatch: makeAction({
     spec: {
-      stationCode:    R.str('stationCode',    { upper: true, required: true }), // from hidden field
+      stationCode:    R.str('stationCode',    { upper: true, required: true }),
       parentBatchId:  R.intId('parentBatchId', { required: true }),
       toStation:      R.str('toStation',      { upper: true, required: true }),
       dispatchWeight: R.num('dispatchWeight', { required: true, gt: 0 }),
       dispatchGrade:  R.str('dispatchGrade',  { upper: true, required: true }),
-      truckNo:        R.str('truckNo',        { trim: true, required: false }),
-      amount:         R.num('amount',         { required: false, min: 0 }),
-      dispatchedAt:   R.str('dispatchedAt',   { required: false, trim: true })
+      truckNo:        R.str('truckNo',        { trim: true }),
+      amount:         R.num('amount',         { gte: 0 }),              // ← was {min:0}
+      dispatchedAt:   R.str('dispatchedAt',   { trim: true })
+    },
+    prepare: (v) => {
+      // Optional → null, and normalize names if your service expects gradeCode
+      return {
+        ...v, // keep dispatchGrade as-is (do NOT rename)
+        amount: v.amount === '' || v.amount == null ? null : Math.trunc(Number(v.amount)),
+        dispatchedAt: v.dispatchedAt?.trim() ? v.dispatchedAt : null
+      };
     },
     service: (v) => ore.dispatch(v),
     success: (edge, v) => ({
       success: true,
+      message: `Dispatch created from ${v.stationCode} → ${v.toStation}`, // ← add message
       station: v.stationCode,
       toStation: v.toStation,
       edgeId: edge?.id ?? null
