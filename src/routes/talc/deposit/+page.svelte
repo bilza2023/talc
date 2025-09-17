@@ -1,106 +1,91 @@
 <script>
-  import { enhance } from '$app/forms';
+  import FormUi from '$lib/formUi/FormUi.svelte';
+
+  // data from +page.server.js load()
   export let data;
-  export let form;
+  const { stationCode, grades = [], oreParents = [] } = data;
 
-  const stationCode = data.stationCode;
-  const oreParents  = data.oreParents || [];
-  const grades      = data.grades || ['TL1','TL2','TL3','GL','GC','GF'];
+  // Parent Ore options: show grade + remaining
+  function parentOptions() {
+    return oreParents.map((p) => ({
+      value: String(p.id),
+      label: `Ore #${p.id} · ${p.gradeCode} · rem ${Number(p.remainingTon).toFixed(3)} t`
+    }));
+  }
 
-  const labelParent = (p) =>
-    `Ore #${p.id} · ${p.gradeCode} · rem ${(+p.remainingTon).toFixed(3)}t (created ${(+p.createdTon).toFixed(3)}t)`;
+  const config = {
+    id: 'talcProcess',
+    title: `Process Talc at ${stationCode}`,
+    description: 'Convert ore into talc; records delta movements and the created talc batch.',
+    action: '?/deposit', // same-page named action
+    initial: {
+      stationCode,           // hidden
+      parentOreBatchId: '',  // select
+      gradeCode: grades[0] ?? 'TL1', // talc grade
+      oreDeltaTon: '',       // ore consumed (+) or entered as delta
+      talcCreatedTon: '',    // talc produced
+      talcDeltaTon: '',      // optional additional talc delta (waste/adjust)
+      runKey: '',            // optional operator/batch run id
+      processAt: ''          // "YYYY-MM-DDTHH:MM"
+    },
+    items: [
+      { type:'note', text:`Station: ${stationCode}. Pick an ore parent with remaining stock.` },
+      { type:'hidden', name:'stationCode', value: stationCode },
+
+      { type:'select', name:'parentOreBatchId', label:'Parent Ore Batch', required:true, options: parentOptions },
+
+      { type:'select', name:'gradeCode', label:'Talc Grade', required:true,
+        options: () => grades.map(g => ({ value:g, label:g })) },
+
+      { type:'number', name:'oreDeltaTon', label:'Ore Used (t)', required:true, min:0.001, step:0.001, placeholder:'e.g. 5.000' },
+
+      { type:'number', name:'talcCreatedTon', label:'Talc Created (t)', required:true, min:0.001, step:0.001, placeholder:'e.g. 4.200' },
+
+      { type:'number', name:'talcDeltaTon', label:'Talc Δ (optional, t)', min:0, step:0.001, placeholder:'e.g. 0.050' },
+
+      { type:'text', name:'runKey', label:'Run Key (optional)', placeholder:'e.g. SHIFT-A/2025-09-17' },
+
+      { type:'datetime', name:'processAt', label:'Process Time', step:60 }
+    ],
+    submit: {
+      label: 'Save Process',
+      disabledWhen: (v) =>
+        !v.parentOreBatchId ||
+        !v.gradeCode ||
+        !(Number(v.oreDeltaTon) > 0) ||
+        !(Number(v.talcCreatedTon) > 0)
+    },
+    clearOnSuccess: () => ({
+      stationCode,
+      parentOreBatchId: '',
+      gradeCode: grades[0] ?? 'TL1',
+      oreDeltaTon: '',
+      talcCreatedTon: '',
+      talcDeltaTon: '',
+      runKey: '',
+      processAt: ''
+    }),
+    showErrorsList: true
+  };
+
+  function handleSuccess(ev){
+    // { success:true, station, talcBatchId }
+    console.info('Talc process success:', ev.detail);
+  }
+  function handleFailure(ev){
+    console.warn('Talc process failed:', ev.detail);
+  }
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-[#0a0d13] to-[#0b1018] text-[#e6ebf1]">
-  <div class="mx-auto max-w-3xl px-4 py-8">
-    <header class="mb-6">
-      <h1 class="text-2xl font-semibold">Talc — Process (Deposit)</h1>
-      <p class="text-sm text-[#a9b3c2] mt-1">
-        Current station: <span class="font-mono">{stationCode}</span>.
-        Change via <span class="font-mono">?station=JSS</span> (or PSS/KEF).
-      </p>
-    </header>
+<section class="wrap">
+  <FormUi {config} on:success={handleSuccess} on:failure={handleFailure}/>
+</section>
 
-    {#if form?.success}
-      <div class="mb-4 rounded-xl bg-green-600/20 text-green-200 px-4 py-3 ring-1 ring-green-700/40">
-        Processed. New talc batch ID: {form.talcBatchId}.
-      </div>
-    {:else if form && !form.success}
-      <div class="mb-4 rounded-xl bg-red-600/20 text-red-200 px-4 py-3 ring-1 ring-red-700/40">
-        {form?.message || 'Could not process talc.'}
-      </div>
-    {/if}
-
-    <form method="POST" action="?/deposit" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
-      <input type="hidden" name="stationCode" value={stationCode} />
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <!-- Parent ore batch to consume -->
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="parentOreBatchId">Parent ore batch</label>
-          <select id="parentOreBatchId" name="parentOreBatchId" required
-                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <option value="" disabled selected>Select ore batch…</option>
-            {#each oreParents as p}
-              <option value={p.id} disabled={(+p.remainingTon) <= 0}>{labelParent(p)}</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Talc grade -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="gradeCode">Talc grade</label>
-          <select id="gradeCode" name="gradeCode" required
-                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <option value="" disabled selected>Select grade…</option>
-            {#each grades as g}<option value={g}>{g}</option>{/each}
-          </select>
-        </div>
-
-        <!-- Ore consumed -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="oreDeltaTon">Ore consumed (tons)</label>
-          <input id="oreDeltaTon" name="oreDeltaTon" type="number" step="0.001" min="0.001" required
-                 placeholder="e.g. 12.500"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-
-        <!-- Talc created -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="talcCreatedTon">Talc created (tons)</label>
-          <input id="talcCreatedTon" name="talcCreatedTon" type="number" step="0.001" min="0.001" required
-                 placeholder="e.g. 7.350"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-
-        <!-- Optional: attribute portion to this run (for multi-input/output accounting) -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="talcDeltaTon">Attribute to this run (tons, optional)</label>
-          <input id="talcDeltaTon" name="talcDeltaTon" type="number" step="0.001" min="0"
-                 placeholder="leave blank if same as created"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-
-        <!-- Optional run metadata -->
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="runKey">Run key (optional)</label>
-          <input id="runKey" name="runKey" type="text" placeholder="e.g. RUN-2025-08-31-A"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="processAt">Processed at (optional)</label>
-          <input id="processAt" name="processAt" type="datetime-local"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-      </div>
-
-      <div class="pt-2">
-        <button type="submit"
-          class="inline-flex items-center justify-center rounded-xl bg-sky-500/90 hover:bg-sky-400 px-5 py-2.5 font-medium text-black transition">
-          Save Talc Deposit (Process)
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+<style>
+  .wrap{
+    margin-inline:auto;
+    width:min(92vw, 720px);
+    padding: var(--space, 1rem);
+    color: var(--primaryText);
+  }
+</style>

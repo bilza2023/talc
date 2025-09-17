@@ -1,89 +1,85 @@
 <script>
-  import { enhance } from '$app/forms';
+  import FormUi from '$lib/formUi/FormUi.svelte';
+
+  // from +page.server.js load()
   export let data;
-  export let form;
+  const { stationCode, grades = [], incomingEdges = [] } = data;
 
-  const stationCode   = data.stationCode;
-  const incomingEdges = data.incomingEdges || [];
-  const grades        = data.grades || ['WL','WC','WF','GL','GC','GF'];
+  // Build <select> options for inbound edges (show origin, weight, grade, truck, time)
+  function edgeOptions() {
+    return incomingEdges.map((e) => ({
+      value: String(e.id),
+      label:
+        `#${e.id} · ${e.fromStation} → ${e.toStation}` +
+        ` · ${Number(e.dispatchWeight ?? 0).toFixed(3)} t` +
+        (e.dispatchGrade ? ` · ${e.dispatchGrade}` : '') +
+        (e.truckNo ? ` · 🚚 ${e.truckNo}` : '') +
+        (e.createdAt ? ` · ${new Date(e.createdAt).toISOString().slice(0,16).replace('T',' ')}` : '')
+    }));
+  }
 
-  const labelEdge = (e) =>
-    `#${e.id} · from ${e.fromStation} → ${e.toStation} · ${e.dispatchWeight.toFixed(3)}t @ ${e.dispatchGrade}` +
-    (e.truckNo ? ` · truck ${e.truckNo}` : '');
+  // FormUi config (receive)
+  const config = {
+    id: 'oreReceive',
+    title: `Receive at ${stationCode}`,
+    description: 'Close an incoming edge by receiving all/part of the dispatched weight.',
+    action: '?/receive', // same-page named action
+    initial: {
+      stationCode,     // hidden
+      edgeId: '',      // select
+      receiveWeight: '',
+      receiveGrade: '', // optional override/confirm
+      receivedAt: '',   // "YYYY-MM-DDTHH:MM"
+      receivedBy: ''    // optional
+    },
+    items: [
+      { type:'note', text:`Station: ${stationCode}. Select an incoming edge currently in transit.` },
+      { type:'hidden', name:'stationCode', value: stationCode },
+
+      // Pick the edge to receive
+      { type:'select', name:'edgeId', label:'Incoming Edge', required:true, options: edgeOptions },
+
+      // Weight & grade
+      { type:'number', name:'receiveWeight', label:'Receive Weight (t)', required:true, min:0.001, step:0.001, placeholder:'e.g. 8.750' },
+      { type:'select', name:'receiveGrade',  label:'Receive Grade (optional)', options: () => [{ value:'', label:'— keep as dispatched —' }, ...grades.map(g => ({ value:g, label:g }))] },
+
+      // When & who
+      { type:'datetime', name:'receivedAt', label:'Received At', step:60 },
+      { type:'text',     name:'receivedBy', label:'Received By (optional)', placeholder:'Operator name / badge' }
+    ],
+    submit: {
+      label: 'Receive',
+      disabledWhen: (v) => !v.edgeId || !(Number(v.receiveWeight) > 0)
+    },
+    clearOnSuccess: () => ({
+      stationCode,
+      edgeId: '',
+      receiveWeight: '',
+      receiveGrade: '',
+      receivedAt: '',
+      receivedBy: ''
+    }),
+    showErrorsList: true
+  };
+
+  function handleSuccess(ev){
+    // { success:true, station, edgeId, childBatchId } from server success()
+    console.info('Receive success:', ev.detail);
+  }
+  function handleFailure(ev){
+    console.warn('Receive failed:', ev.detail);
+  }
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-[#0a0d13] to-[#0b1018] text-[#e6ebf1]">
-  <div class="mx-auto max-w-3xl px-4 py-8">
-    <header class="mb-6">
-      <h1 class="text-2xl font-semibold">Receive Ore</h1>
-      <p class="text-sm text-[#a9b3c2] mt-1">
-        Current station: <span class="font-mono">{stationCode}</span>.
-        Change via <span class="font-mono">?station=JSS</span> (or PSS/KEF).
-      </p>
-    </header>
+<section class="wrap">
+  <FormUi {config} on:success={handleSuccess} on:failure={handleFailure}/>
+</section>
 
-    {#if form?.success}
-      <div class="mb-4 rounded-xl bg-green-600/20 text-green-200 px-4 py-3 ring-1 ring-green-700/40">
-        Received. Edge #{form.edgeId}. New child batch: {form.childBatchId}.
-      </div>
-    {:else if form && !form.success}
-      <div class="mb-4 rounded-xl bg-red-600/20 text-red-200 px-4 py-3 ring-1 ring-red-700/40">
-        {form?.message || 'Could not receive.'}
-      </div>
-    {/if}
-
-    <form method="POST" action="?/receive" use:enhance class="space-y-6 bg-[#101721] rounded-2xl p-6 shadow-lg ring-1 ring-[#0f1724]">
-      <input type="hidden" name="stationCode" value={stationCode} />
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="edgeId">Incoming edge</label>
-          <select id="edgeId" name="edgeId" required
-                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <option value="" disabled selected>Select incoming…</option>
-            {#each incomingEdges as e}
-              <option value={e.id}>{labelEdge(e)}</option>
-            {/each}
-          </select>
-          <p class="text-xs text-[#7f8aa3]">These are edges with status <span class="font-mono">in_transit</span> to this station.</p>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="receiveWeight">Received weight (tons)</label>
-          <input id="receiveWeight" name="receiveWeight" type="number" step="0.001" min="0.001" required
-                 placeholder="e.g. 19.750"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-          <p class="text-xs text-[#7f8aa3]">Must be ≤ the dispatched weight for the selected edge.</p>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="receiveGrade">Grade (optional)</label>
-          <select id="receiveGrade" name="receiveGrade"
-                  class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <option value="">Same as dispatch grade</option>
-            {#each grades as g}<option value={g}>{g}</option>{/each}
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="text-sm text-[#a9b3c2]" for="receivedBy">Received by (optional)</label>
-          <input id="receivedBy" name="receivedBy" type="text" placeholder="Supervisor name"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-
-        <div class="flex flex-col gap-2 md:col-span-2">
-          <label class="text-sm text-[#a9b3c2]" for="receivedAt">Received at (optional)</label>
-          <input id="receivedAt" name="receivedAt" type="datetime-local"
-                 class="w-full rounded-xl bg-[#0f1621] px-3 py-2 ring-1 ring-[#0f1724] focus:outline-none focus:ring-2 focus:ring-sky-400" />
-        </div>
-      </div>
-
-      <div class="pt-2">
-        <button type="submit"
-          class="inline-flex items-center justify-center rounded-xl bg-sky-500/90 hover:bg-sky-400 px-5 py-2.5 font-medium text-black transition">
-          Complete Receive
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+<style>
+  .wrap{
+    margin-inline:auto;
+    width:min(92vw, 720px);
+    padding: var(--space, 1rem);
+    color: var(--primaryText);
+  }
+</style>

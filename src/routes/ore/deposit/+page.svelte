@@ -1,22 +1,18 @@
+<!-- /src/routes/ore/deposit/+page.svelte -->
 <script>
   import FormUi from '$lib/formUi/FormUi.svelte';
-  export let data;
 
-  // From loader: { stationCode, suppliers, grades }
+  export let data;
   const { stationCode, suppliers = [], grades = [] } = data;
 
-  const gradeOptions = grades.map(g => ({ value: g, label: g }));
-
-  const supplierOptions = suppliers.map(s => ({
-    value: String(s.id),
-    label: `${s.code} — ${s.name}`
-  }));
+  // quick client-side debug so you can see *something* when you click
+  console.log('[ore/deposit] boot', { stationCode, suppliersCount: suppliers.length, grades });
 
   const config = {
     id: 'oreDepositForm',
-    title: 'Deposit Ore',
+    title: `Deposit Ore — ${stationCode}`,
     action: '?/deposit',
-    method: 'POST',
+    method: 'post',
     initial: {
       stationCode,
       gradeCode: '',
@@ -33,50 +29,61 @@
         name: 'gradeCode',
         label: 'Grade',
         required: true,
-        options: () => [{ value: '', label: 'Select grade' }, ...gradeOptions]
+        options: () => (grades ?? []).map(g => ({ value: g, label: g }))
       },
 
       {
         type: 'number',
         name: 'createdTon',
-        label: 'Quantity (t)',
+        label: 'Tons',
         required: true,
-        placeholder: 'e.g. 12.500',
-        inputAttrs: { min: '0.001', step: '0.001', inputmode: 'decimal' }
+        min: 0.001,
+        step: 0.001,
+        placeholder: '0.000'
       },
 
       {
         type: 'select',
         name: 'supplierId',
-        label: 'Supplier (optional)',
-        options: () => [{ value: '', label: '— None —' }, ...supplierOptions]
+        label: 'Supplier',
+        options: () => (suppliers ?? []).map(s => ({ value: String(s.id), label: s.name || `#${s.id}` }))
       },
 
-      {
-        type: 'number',
-        name: 'amount',
-        label: 'Amount (optional)',
-        placeholder: 'e.g. 25000.00',
-        inputAttrs: { min: '0.01', step: '0.01', inputmode: 'decimal' }
-      },
+      { type: 'number', name: 'amount', label: 'Amount (PKR)', min: 1, step: 1 },
 
-      {
-        type: 'date',          // this will render <input type="date">
-        name: 'depositedAt',
-        label: 'Deposited At',
-        required: false
-      }
-
+      // keep native calendar/date input
+      { type: 'date', name: 'depositedAt', label: 'Deposit Date' }
     ],
+
+    // keep button enabled; server validates
     submit: {
-      label: 'Save Deposit',
-      disabledWhen: v => !(v?.gradeCode && Number(v?.createdTon) > 0)
-    }
+      label: 'Deposit',
+      disabledWhen: () => false
+    },
+
+    showErrorsList: true,
+
+    clearOnSuccess: () => ({
+      stationCode,
+      gradeCode: '',
+      createdTon: '',
+      supplierId: '',
+      amount: '',
+      depositedAt: ''
+    })
   };
+
+  function handleSuccess(ev) {
+    console.log('[ore/deposit] SUCCESS', ev?.detail);
+  }
+
+  function handleFailure(ev) {
+    console.log('[ore/deposit] FAILURE', ev?.detail);
+  }
 </script>
 
 <section class="wrap">
-  <FormUi {config}/>
+  <FormUi {config} on:success={handleSuccess} on:failure={handleFailure} />
 </section>
 
 <style>
