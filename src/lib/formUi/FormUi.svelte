@@ -1,4 +1,4 @@
-
+<!-- src/lib/formUi/FormUi.svelte -->
 <script>
   import { enhance } from '$app/forms';
   import { createEventDispatcher } from 'svelte';
@@ -16,8 +16,8 @@
     initial: {},
     items: [],                // [{ type, name, label, ... }]
     submit: { label: 'Save', disabledWhen: null },
-    clearOnSuccess: false,    // true | function() => initialValues
-    showErrorsList: false
+    clearOnSuccess: false     // true | function() => initialValues
+    // (no messaging flags here; page handles response UI)
   };
 
   const dispatch = createEventDispatcher();
@@ -25,17 +25,12 @@
   // Local state
   let values = { ...(config.initial || {}) };
   let isSubmitting = false;
-  let serverMessage = '';
-  let serverErrors = [];
 
   // Helpers
   const fid = (n) => `${config.id || 'form'}__${n}`;
   const isDisabled = () => {
-    try {
-      return !!(config.submit?.disabledWhen && config.submit.disabledWhen(values));
-    } catch {
-      return false;
-    }
+    try { return !!(config.submit?.disabledWhen && config.submit.disabledWhen(values)); }
+    catch { return false; }
   };
   const optsOf = (item) => {
     const raw = typeof item.options === 'function' ? item.options() : (item.options || []);
@@ -58,19 +53,14 @@
     }
   }
 
-  // SvelteKit enhance handler
+  // SvelteKit enhance handler — stays on the same page
   function onEnhance() {
     return async ({ result }) => {
       isSubmitting = false;
-      serverErrors = [];
-      serverMessage = '';
 
       if (result.type === 'failure') {
-        // result.data shape may vary across actions; handle common keys
+        // Keep sticky values if server sends them back
         const data = result.data || {};
-        serverMessage = data.message || 'Failed to save. Please fix the errors and try again.';
-        serverErrors = Array.isArray(data.errors) ? data.errors : [];
-        // If action returns sticky values, prefer them; otherwise keep existing
         if (data.values && typeof data.values === 'object') {
           values = { ...values, ...data.values };
         }
@@ -80,39 +70,16 @@
 
       // success
       const data = result.data || {};
-      serverMessage = data.message || '';
       dispatch('success', data);
-
       if (config.clearOnSuccess) clearAfterSuccess();
     };
   }
 
-  // Form submit start (to set submitting state early)
+  // Set submitting state early
   function onSubmitStart() {
     isSubmitting = true;
-    serverMessage = '';
-    serverErrors = [];
   }
 </script>
-
-<!-- REPLACE lines 98–114 with this -->
-{#if serverMessage}
-  <div
-    class="fu-alert {serverErrors.length ? 'fu-alert--error' : 'fu-alert--success'}"
-    role={serverErrors.length ? 'alert' : 'status'}
-  >
-    {serverMessage}
-  </div>
-{/if}
-
-{#if config.showErrorsList && serverErrors.length}
-  <ul class="fu-errors">
-    {#each serverErrors as err}
-      <li>{err}</li>
-    {/each}
-  </ul>
-{/if}
-
 
 <form
   method={config.method || 'post'}
@@ -130,6 +97,7 @@
         type="hidden"
         value={item.value ?? val(item.name, '')}
       />
+
     {:else if item.type === 'note'}
       <div class="fu-note">{item.text}</div>
 
@@ -232,7 +200,7 @@
             {...(item.props || {})}
           />
 
-        <!-- NEW: DATE -->
+        <!-- DATE -->
         {:else if item.type === 'date'}
           <input
             id={fid(item.name)}
@@ -244,7 +212,7 @@
             {...(item.props || {})}
           />
 
-        <!-- NEW: DATETIME-LOCAL -->
+        <!-- DATETIME-LOCAL -->
         {:else if item.type === 'datetime-local'}
           <input
             id={fid(item.name)}
@@ -256,7 +224,7 @@
             {...(item.props || {})}
           />
 
-        <!-- NEW: TIME -->
+        <!-- TIME -->
         {:else if item.type === 'time'}
           <input
             id={fid(item.name)}
@@ -302,40 +270,7 @@
 </form>
 
 <style>
-  .fu-alert{
-  margin:.5rem 0 1rem;
-  padding:.75rem 1rem;
-  border-radius:12px;
-  font-weight:600;
-}
-.fu-alert--success{ background: var(--secondaryColor); color:#fff; } /* green */
-.fu-alert--error{   background: var(--accentColor);    color:#fff; } /* red/magenta */
-
   /* container */
-  .fu-header { margin-bottom: .75rem; }
-
-  
-
-  .fu-alert {
-    margin: .5rem 0;
-    padding: .6rem .75rem;
-    border-radius: 10px;
-    border: 1px solid var(--borderColor);
-    background: color-mix(in oklab, var(--accentColor) 20%, var(--surfaceColor));
-    color: var(--primaryText);
-  }
-  .fu-alert--error {
-    background: color-mix(in oklab, #ff4d4f 24%, var(--surfaceColor));
-    color: var(--primaryText);
-  }
-
-  .fu-errors {
-    margin: .5rem 0;
-    padding-left: 1rem;
-    color: var(--secondaryText);
-  }
-  .fu-errors li { margin: .15rem 0; }
-
   form.fu-form {
     width: 100%;
     padding: .75rem;
@@ -354,11 +289,10 @@
     .fu-grid2 { grid-template-columns: 1fr; }
   }
 
-  .fu-field {
-    display: grid;
-    gap: .35rem;
-  }
+  .fu-field { display: grid; gap: .35rem; }
+
   .fu-label-top .fu-field { grid-template-columns: 1fr; }
+
   .fu-label-left .fu-field {
     grid-template-columns: 180px 1fr;
     align-items: center;
