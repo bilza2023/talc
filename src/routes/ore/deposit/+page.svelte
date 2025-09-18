@@ -1,114 +1,173 @@
-<!-- /src/routes/ore/deposit/+page.svelte -->
 <script>
-  import FormUi from '$lib/formUi/FormUi.svelte';
+  import { enhance } from '$app/forms';
+  import { TextInput, SelectInput, DateTimeInput, SubmitButton } from '$lib/formComponenets';
 
+  // from +page.server.js load()
   export let data;
-  const { stationCode, suppliers = [], grades = [] } = data;
-  let flash = { type: '', message: '' };
 
-function handleSuccess(ev) {
-  // ev.detail is whatever your action returned
-  flash = { type: 'success', message: ev?.detail?.message ?? 'Saved successfully.' };
-  scrollTo({ top: 0, behavior: 'smooth' });
-}
+  const stationCode = data.stationCode ?? '';
+  const grades = data.grades ?? [];
+  const suppliers = data.suppliers ?? [];
 
-function handleFailure(ev) {
-  const msg = ev?.detail?.message || 'Could not save. Please check the fields below.';
-  flash = { type: 'error', message: msg };
-  scrollTo({ top: 0, behavior: 'smooth' });
-}
+  // top-level UI state
+  let loading = false;
+  let message = '';
+  let messageType = ''; // 'success' | 'error'
+  let serverErrors = [];
 
-  // quick client-side debug so you can see *something* when you click
-  // console.log('[ore/deposit] boot', { stationCode, suppliersCount: suppliers.length, grades });
-
-  const config = {
-    id: 'oreDepositForm',
-    title: `Deposit Ore — ${stationCode}`,
-    action: '?/deposit',
-    method: 'post',
-    initial: {
-      stationCode,
-      gradeCode: '',
-      createdTon: '',
-      supplierId: '',
-      amount: '',
-      depositedAt: ''
-    },
-    items: [
-      { type: 'hidden', name: 'stationCode', value: stationCode },
-
-      {
-        type: 'select',
-        name: 'supplierId',
-        label: 'Supplier',
-        options: () => (suppliers ?? []).map(s => ({ value: String(s.id), label: s.name || `#${s.id}` }))
-      },
-      {
-        type: 'select',
-        name: 'gradeCode',
-        label: 'Grade',
-        required: true,
-        options: () => (grades ?? []).map(g => ({ value: g, label: g }))
-      },
-
-      {
-        type: 'number',
-        name: 'createdTon',
-        label: 'Tons',
-        required: true,
-        min: 0.001,
-        step: 0.001,
-        placeholder: '0.000'
-      },
-
-      { type: 'number', name: 'amount', label: 'Amount (PKR)', min: 1, step: 1 },
-
-      // keep native calendar/date input
-      { type: 'date', name: 'depositedAt', label: 'Deposit Date' }
-    ],
-
-    // keep button enabled; server validates
-    submit: {
-      label: 'Deposit',
-      disabledWhen: () => false
-    },
-
-    showErrorsList: true,
-
-    clearOnSuccess: () => ({
-      stationCode,
-      gradeCode: '',
-      createdTon: '',
-      supplierId: '',
-      amount: '',
-      depositedAt: ''
-    })
+  // form values
+  let values = {
+    stationCode,
+    gradeCode: '',
+    createdTon: '',
+    supplierId: '',
+    amount: '',
+    depositedAt: ''
   };
 
-  
+  // normalize suppliers -> { value, label }
+  $: supplierOptions = (suppliers ?? []).map((s) => {
+    const val = s?.id ?? s?.value ?? '';
+    const lab = s?.name ?? s?.label ?? s?.companyName ?? (val ? `Supplier #${val}` : 'Unknown');
+    return { value: String(val), label: String(lab) };
+  });
+
+  function handleEnhance() {
+    loading = true;
+    return async ({ result, update }) => {
+      loading = false;
+
+      if (result.type === 'success') {
+        const d = result.data ?? {};
+        messageType = 'success';
+        message = d.message ?? (d.batchId ? `Deposit created (batch #${d.batchId})` : 'Deposit created');
+        serverErrors = [];
+
+        // clear (keep station)
+        values = { ...values, gradeCode: '', createdTon: '', supplierId: '', amount: '', depositedAt: '' };
+        scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (result.type === 'failure') {
+        const d = result.data ?? {};
+        messageType = 'error';
+        message = d.message || 'Submission failed';
+        serverErrors = Array.isArray(d.errors) ? d.errors : [];
+        setTimeout(() => {
+          const el = document.querySelector('form [name].input, form select.input');
+          el && el.focus();
+        }, 0);
+      } else if (result.type === 'redirect') {
+        update();
+      } else {
+        messageType = 'error';
+        message = 'Server error';
+        serverErrors = [];
+      }
+    };
+  }
 </script>
-{#if flash.message}
-  <div class="flash {flash.type}" role="status">{flash.message}</div>
+
+<!-- Top-level page messages -->
+{#if message}
+  <div class="alert {messageType === 'success' ? 'alert--success' : 'alert--error'}" role="status">
+    {message}
+  </div>
 {/if}
-<section class="wrap">
-  <FormUi {config} on:success={handleSuccess} on:failure={handleFailure} />
-</section>
+
+{#if serverErrors.length}
+  <ul class="errors">
+    {#each serverErrors as err}<li>{err}</li>{/each}
+  </ul>
+{/if}
+
+<form method="POST" action="?/deposit" use:enhance={handleEnhance} class="form">
+  <!-- Hidden station code -->
+  <input type="hidden" name="stationCode" value={values.stationCode} />
+
+  <!-- 1) Supplier on top (optional) -->
+  <SelectInput
+    name="supplierId"
+    label="Supplier (optional)"
+    placeholder="No supplier"
+    options={supplierOptions}
+    bind:value={values.supplierId}
+  />
+
+  <!-- 2) Grade -->
+  <SelectInput
+    name="gradeCode"
+    label="Grade"
+    placeholder="Pick grade…"
+    options={grades}
+    bind:value={values.gradeCode}
+    required
+  />
+
+  <!-- 3) Created Tons -->
+  <TextInput
+    name="createdTon"
+    label="Created Tons"
+    type="number"
+    inputmode="decimal"
+    step="0.001"
+    min="0"
+    placeholder="e.g., 12.500"
+    bind:value={values.createdTon}
+    required
+  />
+
+  <!-- Amount (optional) -->
+  <TextInput
+    name="amount"
+    label="Amount (optional)"
+    type="number"
+    inputmode="decimal"
+    step="0.01"
+    min="0"
+    placeholder="e.g., 25000"
+    bind:value={values.amount}
+  />
+
+  <!-- Deposited At (optional) -->
+  <DateTimeInput
+    name="depositedAt"
+    label="Deposited At (optional)"
+    bind:value={values.depositedAt}
+    step="60"
+  />
+
+  <div class="actions">
+    <SubmitButton label="Create Deposit" {loading} />
+  </div>
+</form>
 
 <style>
-  .wrap {
-    margin-inline: auto;
-    width: min(92vw, 720px);
-    padding: 1rem;
-  }
-  .flash{
-    margin:.5rem 0 1rem;
-    padding:.75rem 1rem;
+  .form { display:flex; flex-direction:column; gap:.75rem; }
+  .actions { margin-top:.5rem; }
+
+  /* Clear success=green, error=red */
+  .alert{
+    margin:.5rem 0 .75rem;
+    padding:.6rem .8rem;
     border:1px solid var(--borderColor);
-    border-radius:12px;
-    background:var(--surfaceColor);
+    border-radius:10px;
+    background:var(--backgroundColor);
     color:var(--primaryText);
-    font-weight:600;
   }
-  .flash.success{ border-color: var(--secondaryColor); }
-  .flash.error{   border-color: var(--accentColor); }
+  .alert--success{
+    border-color: var(--successColor, #16a34a);
+    background: color-mix(in oklab, var(--successColor, #16a34a) 12%, transparent);
+    color: var(--successText, #d8e6dd);
+  }
+  .alert--error{
+    border-color: var(--dangerColor, #dc2626);
+    background: color-mix(in oklab, var(--dangerColor, #dc2626) 12%, transparent);
+    color: var(--dangerText, #7f1d1d);
+  }
+
+  .errors{
+    margin:.25rem 0 .75rem;
+    padding-left:1.25rem;
+    color: var(--dangerText, #7f1d1d);
+  }
+  .errors li{ margin:.15rem 0; }
 </style>
