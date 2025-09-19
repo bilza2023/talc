@@ -1,85 +1,166 @@
 <script>
-  import FormUi from '$lib/formUi/FormUi.svelte';
+  import { enhance } from '$app/forms';
+  import {
+    TextInput,
+    SelectInput,
+    DateTimeInput,
+    SubmitButton
+  } from '$lib/formComponenets';
 
-  // from +page.server.js load()
   export let data;
-  const { stationCode, grades = [], incomingEdges = [] } = data;
 
-  // Build <select> options for inbound edges (show origin, weight, grade, truck, time)
-  function edgeOptions() {
-    return incomingEdges.map((e) => ({
-      value: String(e.id),
-      label:
-        `#${e.id} · ${e.fromStation} → ${e.toStation}` +
-        ` · ${Number(e.dispatchWeight ?? 0).toFixed(3)} t` +
-        (e.dispatchGrade ? ` · ${e.dispatchGrade}` : '') +
-        (e.truckNo ? ` · 🚚 ${e.truckNo}` : '') +
-        (e.createdAt ? ` · ${new Date(e.createdAt).toISOString().slice(0,16).replace('T',' ')}` : '')
-    }));
-  }
+  const stationCode   = data.stationCode ?? '';
+  const incomingEdges = data.incomingEdges ?? [];
+  const grades        = data.grades ?? [];
 
-  // FormUi config (receive)
-  const config = {
-    id: 'oreReceive',
-    title: `Receive at ${stationCode}`,
-    description: 'Close an incoming edge by receiving all/part of the dispatched weight.',
-    action: '?/receive', // same-page named action
-    initial: {
-      stationCode,     // hidden
-      edgeId: '',      // select
-      receiveWeight: '',
-      receiveGrade: '', // optional override/confirm
-      receivedAt: '',   // "YYYY-MM-DDTHH:MM"
-      receivedBy: ''    // optional
-    },
-    items: [
-      { type:'note', text:`Station: ${stationCode}. Select an incoming edge currently in transit.` },
-      { type:'hidden', name:'stationCode', value: stationCode },
+  let loading = false;
+  let message = '';
+  let messageType = ''; // 'success' | 'error'
+  let serverErrors = [];
 
-      // Pick the edge to receive
-      { type:'select', name:'edgeId', label:'Incoming Edge', required:true, options: edgeOptions },
-
-      // Weight & grade
-      { type:'number', name:'receiveWeight', label:'Receive Weight (t)', required:true, min:0.001, step:0.001, placeholder:'e.g. 8.750' },
-      { type:'select', name:'receiveGrade',  label:'Receive Grade (optional)', options: () => [{ value:'', label:'— keep as dispatched —' }, ...grades.map(g => ({ value:g, label:g }))] },
-
-      // When & who
-      { type:'datetime', name:'receivedAt', label:'Received At', step:60 },
-      { type:'text',     name:'receivedBy', label:'Received By (optional)', placeholder:'Operator name / badge' }
-    ],
-    submit: {
-      label: 'Receive',
-      disabledWhen: (v) => !v.edgeId || !(Number(v.receiveWeight) > 0)
-    },
-    clearOnSuccess: () => ({
-      stationCode,
-      edgeId: '',
-      receiveWeight: '',
-      receiveGrade: '',
-      receivedAt: '',
-      receivedBy: ''
-    }),
-    showErrorsList: true
+  let values = {
+    stationCode,
+    edgeId: '',
+    receiveWeight: '',
+    receiveGrade: '',
+    receivedAt: '',
+    receivedBy: ''
   };
 
-  function handleSuccess(ev){
-    // { success:true, station, edgeId, childBatchId } from server success()
-    console.info('Receive success:', ev.detail);
-  }
-  function handleFailure(ev){
-    console.warn('Receive failed:', ev.detail);
+  // Build dropdowns
+  $: edgeOptions = (incomingEdges ?? []).map((e) => {
+    const id = String(e.id);
+    const w  = Number(e.dispatchWeight ?? 0).toFixed(3);
+    const g  = e.dispatchGrade ?? '-';
+    const from = e.fromStation ?? '?';
+    // Example: "#123 — WL 12.500t from JSS"
+    return { value: id, label: `#${id} — ${g} ${w}t from ${from}` };
+  });
+
+  $: gradeOptions = (grades ?? []).map((g) => ({ value: g, label: g }));
+
+  function handleEnhance() {
+    loading = true;
+    return async ({ result, update }) => {
+      loading = false;
+
+      if (result.type === 'success') {
+        const d = result.data ?? {};
+        messageType = 'success';
+        const tail = d.childBatchId ? ` → batch #${d.childBatchId}` : '';
+        message = d.message ?? `Received edge #${d.edgeId ?? values.edgeId}${tail}`;
+        serverErrors = [];
+
+        // clear (keep station code)
+        values = {
+          ...values,
+          edgeId: '',
+          receiveWeight: '',
+          receiveGrade: '',
+          receivedAt: '',
+          receivedBy: ''
+        };
+        scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (result.type === 'failure') {
+        const d = result.data ?? {};
+        messageType = 'error';
+        message = d.message || 'Submission failed';
+        serverErrors = Array.isArray(d.errors) ? d.errors : [];
+      } else if (result.type === 'redirect') {
+        update();
+      } else {
+        messageType = 'error';
+        message = 'Server error';
+        serverErrors = [];
+      }
+    };
   }
 </script>
 
-<section class="wrap">
-  <FormUi {config} on:success={handleSuccess} on:failure={handleFailure}/>
-</section>
+{#if message}
+  <div class="alert {messageType === 'success' ? 'alert--success' : 'alert--error'}">{message}</div>
+{/if}
+{#if serverErrors.length}
+  <ul class="errors">{#each serverErrors as e}<li>{e}</li>{/each}</ul>
+{/if}
+
+<form method="POST" action="?/receive" use:enhance={handleEnhance} class="form">
+  <!-- Hidden station code -->
+  <input type="hidden" name="stationCode" value={values.stationCode} />
+
+  <!-- Incoming edge -->
+  <SelectInput
+    name="edgeId"
+    label="Incoming Dispatch"
+    placeholder="Pick incoming dispatch…"
+    options={edgeOptions}
+    bind:value={values.edgeId}
+    required
+  />
+
+  <!-- Received weight -->
+  <TextInput
+    name="receiveWeight"
+    label="Received Weight"
+    type="number"
+    step="0.001"
+    min="0"
+    bind:value={values.receiveWeight}
+    required
+  />
+
+  <!-- Received grade (optional; choose to override) -->
+  <SelectInput
+    name="receiveGrade"
+    label="Received Grade (optional)"
+    placeholder="Same as dispatched"
+    options={gradeOptions}
+    bind:value={values.receiveGrade}
+  />
+
+  <!-- Received at (optional) -->
+  <DateTimeInput
+    name="receivedAt"
+    label="Received At (optional)"
+    bind:value={values.receivedAt}
+    step="60"
+  />
+
+  <!-- Received by (optional) -->
+  <TextInput
+    name="receivedBy"
+    label="Received By (optional)"
+    bind:value={values.receivedBy}
+  />
+
+  <div class="actions">
+    <SubmitButton label="Confirm Receive" {loading} />
+  </div>
+</form>
 
 <style>
-  .wrap{
-    margin-inline:auto;
-    width:min(92vw, 720px);
-    padding: var(--space, 1rem);
-    color: var(--primaryText);
+  .form { display:flex; flex-direction:column; gap:.75rem; }
+  .actions { margin-top:.5rem; }
+
+  .alert{
+    margin:.5rem 0 .75rem;
+    padding:.6rem .8rem;
+    border:1px solid var(--borderColor);
+    border-radius:10px;
+  }
+  .alert--success{
+    border-color: var(--successColor, #16a34a);
+    background: color-mix(in oklab, var(--successColor, #16a34a) 12%, transparent);
+    color: #fff; /* keep success text white on green */
+  }
+  .alert--error{
+    border-color: var(--dangerColor, #dc2626);
+    background: color-mix(in oklab, var(--dangerColor, #dc2626) 12%, transparent);
+    color: var(--dangerText, #7f1d1d);
+  }
+  .errors{
+    margin:.25rem 0 .75rem;
+    padding-left:1.25rem;
+    color: var(--dangerText, #7f1d1d);
   }
 </style>

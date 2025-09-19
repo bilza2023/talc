@@ -7,7 +7,12 @@
   import StaHeader from "../StaHeader.svelte";
 import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
 
- console.log("data.talc.depositUrl" , data.talc.depositUrl);
+const { stationCode, inbound } = data;
+
+// counts: filter the mixed inbound array by material
+$: oreIncomingCount  = (inbound ?? []).filter(e => e.material === 'ore').length;
+$: talcIncomingCount = (inbound ?? []).filter(e => e.material === 'talc').length;
+//  console.log("data.talc.depositUrl" , data.talc.depositUrl);
 
 </script>
 
@@ -15,23 +20,18 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
   <div class="mx-auto max-w-6xl p-6 space-y-8">
     <StaHeader
     stationCode={data.stationCode}
-    description="Peshawar Supply Station"
+    description="Peshawar Sorting Station"
   />
-  <div class="btn-center">
-    <!-- <a href="/talc/deposit?station=PSS">station=PSS</a> -->
-    <RoundIconBtn icon="🪨📥" label="Deposit Ore" href="/ore/deposit?station=PSS" size="lg" variant="solid" />
-
-    <RoundIconBtn icon="🪨🚚" label="Dispatch Ore" href={data.ore.dispatchUrl} size="lg" variant="solid" />
-  </div>
-  
-  <div class="btn-center">
-    <RoundIconBtn icon="🧼📥" label="Process Talc" href={data.talc.depositUrl} size="lg" variant="solid" />
-    <RoundIconBtn icon="🧼🚚" label="Dispatch Talc" href={data.talc.dispatchUrl} size="lg" variant="solid" />
-  </div>
+ 
+<!-- 
+  <section class="receive-actions">
+    <InboundList station={stationCode} count={oreIncomingCount}  hrefBase="/ore/receive"  />
+    <InboundList station={stationCode} count={talcIncomingCount} hrefBase="/talc/receive" />
+  </section> -->
 
   <div class="flex justify-center  flex-col w-full gap-6 mb-8">
     <StationStockCard
-    title="Ore — Overview"
+    title="Unsorted Raw Material"
     stationCode={data.station}
     stock={data.oreCard.stock}
     inbound={data.oreCard.inbound}
@@ -43,7 +43,7 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
 
   
   <StationStockCard
-    title="Talc — Overview"
+    title="Sorted Material"
     stationCode={data.station}
     stock={data.talcCard.stock}
     inbound={data.talcCard.inbound}
@@ -52,6 +52,29 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
     accent="#10b981"
     colors={["#2dd4bf", "#34d399", "#60a5fa"]}
   />
+
+
+
+
+
+  <div class="btn-center">
+    <!-- <a href="/talc/deposit?station=PSS">station=PSS</a> -->
+    <RoundIconBtn icon="🪨📥" label="Deposit Raw Material" href="/ore/deposit?station=PSS" size="lg" variant="solid" />
+
+    <RoundIconBtn icon="🪨🚚" label="Dispatch Ore" href={data.ore.dispatchUrl} size="lg" variant="solid" />
+
+    <InboundList station={stationCode} count={oreIncomingCount}  hrefBase="/ore/receive"  />
+  </div>
+  
+  <div class="btn-center">
+    <RoundIconBtn icon="🧼📥" label="Process Talc" href={data.talc.depositUrl} size="lg" variant="solid" />
+    <RoundIconBtn icon="🧼🚚" label="Dispatch Talc" href={data.talc.dispatchUrl} size="lg" variant="solid" />
+
+    <InboundList station={stationCode} count={talcIncomingCount} hrefBase="/talc/receive" />
+  </div>
+
+
+
   <BatchDetails title="Ore — Batch Details"  rows={data.oreBatches}  />
   
   <!-- <hr/> -->
@@ -59,7 +82,6 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
   <BatchDetails title="Talc — Batch Details"  rows={data.talcBatches}  />
   </div>
   
-
 
 
     <!-- <InboundList items={data.inbound} stationCode={data.stationCode} /> -->
@@ -70,6 +92,12 @@ import RoundIconBtn from "../../../lib/components/RoundIconBtn.svelte";
 
 
 <style>
+  .receive-actions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: center;
+  }
       .btn-center{
       display:flex;
       justify-content:center;
