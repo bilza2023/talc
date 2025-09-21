@@ -69,7 +69,7 @@ model MMA4S {
   supplierId Int
   supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   size       Size
-  amount     Int
+  amount     Int?
 
   dispatchShade Shade // was String
   receiveShade  Shade? // was String?
@@ -105,7 +105,7 @@ model MMA3S {
 
   // Lineage (NO size here — mma3s invariant)
   supplierId Int
-  amount     Int
+  amount     Int?
   supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   dispatchShade Shade // was String
