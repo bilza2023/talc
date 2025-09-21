@@ -86,7 +86,7 @@ export function createMMA4S(opts = {}) {
   // --- public API ------------------------------------------------------------
   return {
     // writes ---------------------------------------------------------------
-    async deposit({ mmaCode, supplierId, shade, size, qty, meta }) {
+    async deposit({ mmaCode, supplierId, shade, size, qty, amount,meta }) {
       assertMma(mmaCode, 'mmaCode');
       assertPositiveQty(qty);
       assertShade(shade);
@@ -103,6 +103,7 @@ export function createMMA4S(opts = {}) {
           toMmaCode: mmaCode,
           supplierId,
           size,
+          amount: amount || 0,
           dispatchShade: shade,
           receiveShade: shade,
           dispatchQty: qty,

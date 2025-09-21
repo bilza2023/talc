@@ -4,7 +4,7 @@ import { createMMA4S } from '$lib/mma/mma4s.js';
 
 // Hard-coded MMA code + payload for a smoke test.
 // NOTE: We pass a per-request registry that ALLOWS this code.
-const MMA_CODE = 'PSS.SLOTS';
+const MMA_CODE = 'ABS_PROCESSED';
 
 export const actions = {
   deposit: async () => {
@@ -15,9 +15,10 @@ export const actions = {
       // hard-coded test data
       const row = await engine.deposit({
         mmaCode: MMA_CODE,
-        supplierId: 101,
-        shade: 'WL',
+        supplierId: 1,
+        shade: 'WHITE',
         size: 'CHIPS', 
+        amount: 5000, 
         qty: 1,
         meta: { source: 'smoke-test' }
       });
