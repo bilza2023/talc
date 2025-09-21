@@ -83,16 +83,17 @@
     <input type="hidden" name="mmaCode" value={mmaCode} />
 
     <div class="grid">
+
       <label class="field">
-        <span>Supplier ID (optional)</span>
-        <input
-          name="supplierId"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          bind:value={supplierId}
-          placeholder="e.g. 101" />
+        <span>Supplier</span>
+        <select name="supplierId" bind:value={supplierId}>
+          <option value="" disabled selected={supplierId === ''}>Pick supplier…</option>
+          {#each options.suppliers as s}
+            <option value={s.id}>{s.code} — {s.name}</option>
+          {/each}
+        </select>
       </label>
+      
 
       <label class="field">
         <span>Shade</span>
@@ -139,14 +140,14 @@
           placeholder="e.g. 5000" />
       </label>
 
-      <label class="field field--wide">
+      <!-- <label class="field field--wide">
         <span>Meta (JSON, optional)</span>
         <textarea
           name="meta"
           rows="4"
           bind:value={meta}
           placeholder='' />
-      </label>
+      </label> -->
     </div>
 
     <button type="submit" class="btn" disabled={isSubmitting}>

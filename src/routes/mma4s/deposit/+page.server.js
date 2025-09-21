@@ -2,57 +2,67 @@
 import { fail, error } from '@sveltejs/kit';
 import { z } from 'zod';
 import { createMMA4S } from '$lib/mma/mma4s.js';
-import { MMA, SHADE_LIST, SIZE_LIST, zMmaCode, zShade, zSize } from '$lib/mma/enums.js';
+import { SHADE_LIST, SIZE_LIST, zMmaCode, zShade, zSize } from '$lib/mma/enums.js';
+import createSupplierService from '$lib/services/supplierService.js';
+import prisma from '$lib/server/prisma.js';
+
+const suppliersSvc = createSupplierService(prisma);
 
 // ---- Zod schema for action payload ----
 const DepositSchema = z.object({
   mmaCode: zMmaCode,
-  supplierId: z.union([z.coerce.number().int().positive(), z.literal(0), z.null()]).transform(v => (v === 0 ? null : v)),
+  supplierId: z
+    .union([z.coerce.number().int().positive(), z.literal(''), z.null()])
+    .transform((v) => (v === '' || v == null ? null : v)),
   shade: zShade,
   size: zSize,
   qty: z.coerce.number().positive(),
-  amount: z.coerce.number().nonnegative().optional(),   // amount used in deposit flow only
+  amount: z.coerce.number().nonnegative().optional(),
   meta: z
-    .union([z.string(), z.record(z.any())])
-    .optional()
-    .transform((v) => {
-      if (v == null || v === '') return null;
-      if (typeof v === 'string') {
-        try { return JSON.parse(v); } catch { throw new Error('meta must be valid JSON'); }
+  .union([z.string(), z.record(z.any()), z.null()])
+  .transform((v) => {
+    if (v == null || v === '') return null;
+    if (typeof v === 'string') {
+      try {
+        return JSON.parse(v);
+      } catch {
+        throw new Error('meta must be valid JSON');
       }
-      return v;
-    })
+    }
+    return v;
+  })
+  .optional()
+
 });
 
-// ---- load(): read ?mma (or ?station) and prep dropdowns ----
+// ---- load(): get MMA from URL + supplier list ----
 export async function load({ url }) {
   const urlMma = (url.searchParams.get('mma') || url.searchParams.get('station') || '').trim();
   if (!urlMma) throw error(400, 'Missing ?mma=<MMA_CODE>');
 
-  // Validate MMA from URL using your central enum
   const mmaCode = zMmaCode.parse(urlMma);
 
-  // Optional prefills (useful when linking from dashboards)
-  const supplierId = url.searchParams.get('supplierId') ?? '';
-  const shade = url.searchParams.get('shade') ?? '';
-  const size = url.searchParams.get('size') ?? '';
-  const qty = url.searchParams.get('qty') ?? '';
-  const amount = url.searchParams.get('amount') ?? '';
-  const meta = url.searchParams.get('meta') ?? '';
+  let suppliers = [];
+  try {
+    suppliers = await suppliersSvc.list();
+  } catch (e) {
+    console.error('supplier list failed', e);
+  }
 
   return {
     mmaCode,
     options: {
-      shades: SHADE_LIST,   // for selects
-      sizes: SIZE_LIST
+      shades: SHADE_LIST,
+      sizes: SIZE_LIST,
+      suppliers
     },
     initial: {
-      supplierId,
-      shade,
-      size,
-      qty,
-      amount,
-      meta
+      supplierId: url.searchParams.get('supplierId') ?? '',
+      shade: url.searchParams.get('shade') ?? '',
+      size: url.searchParams.get('size') ?? '',
+      qty: url.searchParams.get('qty') ?? '',
+      amount: url.searchParams.get('amount') ?? '',
+      meta: url.searchParams.get('meta') ?? ''
     }
   };
 }
@@ -62,7 +72,6 @@ export const actions = {
   deposit: async ({ request }) => {
     const form = await request.formData();
 
-    // extract raw values
     const raw = {
       mmaCode: String(form.get('mmaCode') ?? ''),
       supplierId: form.get('supplierId'),
@@ -73,7 +82,6 @@ export const actions = {
       meta: form.get('meta')
     };
 
-    // validate
     let parsed;
     try {
       parsed = DepositSchema.parse(raw);
@@ -85,28 +93,28 @@ export const actions = {
         message,
         errors,
         values: {
-          mmaCode: raw.mmaCode,
+          ...raw,
           supplierId: raw.supplierId ?? '',
-          shade: raw.shade,
-          size: raw.size,
           qty: raw.qty ?? '',
           amount: raw.amount ?? '',
-          meta: typeof raw.meta === 'string' ? raw.meta : JSON.stringify(raw.meta ?? '')
+          meta:
+            typeof raw.meta === 'string'
+              ? raw.meta
+              : JSON.stringify(raw.meta ?? '')
         }
       });
     }
 
     try {
-      // whitelist the route's mmaCode for this request (engine enforces registry)
       const engine = createMMA4S({ registry: [parsed.mmaCode] });
 
       const row = await engine.deposit({
         mmaCode: parsed.mmaCode,
-        supplierId: parsed.supplierId, // nullable
+        supplierId: parsed.supplierId,
         shade: parsed.shade,
         size: parsed.size,
         qty: parsed.qty,
-        amount: parsed.amount,         // you added this to deposit flow
+        amount: parsed.amount,
         meta: parsed.meta ?? null
       });
 
