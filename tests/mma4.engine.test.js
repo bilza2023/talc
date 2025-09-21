@@ -1,19 +1,12 @@
-// tests/mma.engine.test.js
-// Vitest E2E for the single-ledger MMA engine (no DB destroy).
+// Vitest E2E for the MMA4S (SSSS) ledger engine (no DB destroy).
 // We DO NOT wipe or reset the database. Each test seeds unique rows
 // (timestamp-based supplier codes) and asserts effects locally.
-//
-// References (legacy tests we’re replacing conceptually):
-// - coreFlow.e2e.test.js … ore→talc pipeline before MMA-first  :contentReference[oaicite:0]{index=0}
-// - oreServices.test.js … ore deposit/dispatch/receive patterns  :contentReference[oaicite:1]{index=1}
-// - prisma.smoke.test.js … prisma singleton sanity                :contentReference[oaicite:2]{index=2}
-// - talcServices.test.js … talc services legacy                   :contentReference[oaicite:3]{index=3}
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient, BornAs, EdgeStatus } from '@prisma/client';
-import { createMMA } from '../src/lib/mma/mma.js';
+import { createMMA4S } from '../src/lib/mma/mma4s.js';
 
-describe.sequential('MMA Engine (single-ledger)', () => {
+describe.sequential('MMA4S Engine (single-ledger)', () => {
   let db;
   let mma;
 
@@ -26,7 +19,7 @@ describe.sequential('MMA Engine (single-ledger)', () => {
 
   beforeAll(async () => {
     db = new PrismaClient();
-    mma = createMMA({ prisma: db, registry: REGISTRY });
+    mma = createMMA4S({ prisma: db, registry: REGISTRY });
   });
 
   afterAll(async () => {
@@ -144,7 +137,7 @@ describe.sequential('MMA Engine (single-ledger)', () => {
     const beforeDst = await mma.onHand({
       mmaCode: 'PSS.DUMP',
       supplierId: sup.id,
-      shade: 'gray', // we’ll default receiveShade to dispatchShade here
+      shade: 'gray',
       size: 'FINE'
     });
 
@@ -167,12 +160,11 @@ describe.sequential('MMA Engine (single-ledger)', () => {
     const afterDst = await mma.onHand({
       mmaCode: 'PSS.DUMP',
       supplierId: sup.id,
-      shade: 'light-gray', // receive shade used at destination
+      shade: 'light-gray',
       size: 'FINE'
     });
-    // We can’t assume prior deposits at PSS.DUMP; we only assert the delta ≥ 6.0 increase
     expect(Number(afterDst)).toBeGreaterThanOrEqual(6.0);
-    // And ensure the exact row is now absent from inbound(IN_TRANSIT)
+
     const inboundOpen = await mma.inbound({ mmaCode: 'PSS.DUMP', status: EdgeStatus.IN_TRANSIT });
     expect(inboundOpen.some(r => r.id === edge.id)).toBe(false);
   });
@@ -198,12 +190,10 @@ describe.sequential('MMA Engine (single-ledger)', () => {
       qty: 2.5
     });
 
-    // Wrong supplier
     await expect(
       mma.receive({ id: edge.id, toMmaCode: 'PSS.DUMP', supplierId: supOther.id })
     ).rejects.toThrow(/Supplier mismatch/i);
 
-    // Wrong destination MMA
     await expect(
       mma.receive({ id: edge.id, toMmaCode: 'KEF.SLOTS', supplierId: sup.id })
     ).rejects.toThrow(/Destination MMA mismatch/i);
@@ -252,26 +242,23 @@ describe.sequential('MMA Engine (single-ledger)', () => {
       shade: 'w1',
       size: 'CHIPS'
     });
-    // Cancel should restore the deduction
     expect(Number(after)).toBeCloseTo(Number(before), 6);
 
-    // cancel again should fail (not IN_TRANSIT)
     await expect(mma.cancel({ id: edge.id })).rejects.toThrow(/Only IN_TRANSIT transfers can be canceled/i);
   });
 
   it('stock(): summarizes per (supplierId, shade, size) with positiveOnly default', async () => {
     const sup = await seedSupplier();
-    // Seed distinct shades & sizes at KEF
     await mma.deposit({ mmaCode: 'KEF.SLOTS', supplierId: sup.id, shade: 'sA', size: 'LUMPS', qty: 1.0 });
     await mma.deposit({ mmaCode: 'KEF.SLOTS', supplierId: sup.id, shade: 'sB', size: 'CHIPS', qty: 2.0 });
 
     const rows = await mma.stock({ mmaCode: 'KEF.SLOTS' });
     expect(Array.isArray(rows)).toBe(true);
-    // Should include at least the two seeded lines (there may be more from earlier tests)
+
     const keys = rows.map(r => `${r.supplierId}|${r.shade}|${r.size}`);
     expect(keys.some(k => k.endsWith('|sA|LUMPS'))).toBe(true);
     expect(keys.some(k => k.endsWith('|sB|CHIPS'))).toBe(true);
-    // All returned rows are positive by default
+
     expect(rows.every(r => r.qty > 0)).toBe(true);
   });
 });
