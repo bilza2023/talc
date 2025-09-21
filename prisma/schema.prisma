@@ -1,210 +1,110 @@
-// schema.prisma
+// prisma/schema.prisma
+// Single-ledger MMA design: only `Supplier` + `raw` (append-only).
+// MMAs are code/registry values (e.g., "ABS.SLOTS", "PSS.DUMP"); no table for MMAs.
+// Canonical rule: a TRANSFER is ONE row written by two methods (dispatch → receive).
+// No requestId/idempotency key — lifecycle is driven by the row's primary key `id`.
+
+// ---------- Generator & Datasource ----------
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
+  // For SQLite now; portable to Postgres/MySQL later by changing provider+URL.
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum StationCode {
-  BS1
-  BS2
-  BS3
-  JSS
-  ABS
-  PSS
-  KEF
-  // add more when needed
+// ---------- Enums ----------
+enum BornAs {
+  DEPOSIT   // born here, no transit lifecycle
+  TRANSFER  // moves from A -> B (dispatch -> receive)
 }
 
 enum EdgeStatus {
-  in_transit
-  received
-  cancelled
+  IN_TRANSIT
+  RECEIVED
+  CANCELED
 }
 
+enum Size {
+  LUMPS
+  CHIPS
+  FINE
+}
+
+// ---------- Reference ----------
 model Supplier {
-  id   Int    @id @default(autoincrement())
-  name String
-  code String @unique // e.g. SUP001
+  id    Int    @id @default(autoincrement())
+  name  String
+  code  String @unique   // e.g., SUP001
 
-  deposits oreBatch[] @relation("OreBatchSupplier")
+  // All ledger rows linked to this supplier
+  raw   Raw[]
 }
 
-model oreBatch {
-  id Int @id @default(autoincrement())
+// ---------- Single Ledger Table ----------
+model Raw {
+  id            Int         @id @default(autoincrement())
 
-  // Where and what
-  stationCode StationCode
-  gradeCode   String
+  // Lifecycle & identity
+  bornAs        BornAs
+  status        EdgeStatus  @default(IN_TRANSIT) // deposits will be inserted as RECEIVED in services
 
-  // Authoritative quantities
-  createdTon   Float // set once at birth (deposit OR receive)
-  remainingTon Float // updated by events; source of truth
+  // Routing (MMA codes come from an app-level registry; no FK here)
+  fromMmaCode   String?                           // NULL for DEPOSIT
+  toMmaCode     String                            // always set
 
-  // Birth info — exactly one of these identifies how this batch was born
-  bornAs String // "deposit" or "receive" (kept as String to stay minimal)
+  // Lineage
+  supplierId    Int
+  supplier      Supplier    @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  size          Size
+  dispatchShade String                           // shade at source (or at deposit)
+  receiveShade  String?                          // shade at destination (set on receive; defaults to dispatchShade if omitted)
 
-  // Supplier attribution for external ore
-  supplierId Int?
-  supplier   Supplier? @relation("OreBatchSupplier", fields: [supplierId], references: [id])
+  // Quantities (weights/tons etc.)
+  dispatchQty   Decimal                           // planned at dispatch; for deposits equals receiveQty
+  receiveQty    Decimal?                          // actual at receive; for deposits equals dispatchQty
 
-  depositedAt DateTime? // if bornAs = "deposit"
-
-  // Timestamps (you can rely on remainingTon <= eps to infer closed)
-  createdAt DateTime  @default(now())
-  closedAt  DateTime?
-
-  // Lineage (graph)
-  edgesOut oreEdge[] @relation("EdgeParent") // this batch → others (dispatch)
-  edgesIn  oreEdge[] @relation("EdgeChild")  // others → this batch (receive)
-
-  // Cross-material: ore → talc (process outputs from this ore batch)
-  processOut processEdge[] @relation("ProcessParentOre")
-
-  @@index([stationCode])
-  @@index([bornAs])
-  @@index([supplierId])
-}
-
-model oreEdge {
-  id          Int        @id @default(autoincrement())
-  createdAt   DateTime   @default(now())
-
-  fromStation StationCode
-  toStation   StationCode
-
-  status EdgeStatus
-
-  truckNo String?
-  amount  Int?
-
-  // Dispatch-side (set at dispatch)
-  dispatchWeight Float
-  dispatchGrade  String
-  dispatchedAt   DateTime?
-  dispatchedBy   String?
-
-  // Receive-side (set at completion)
-  receiveWeight Float?
-  receiveGrade  String?
+  // Audit
+  meta          Json?
+  createdAt     DateTime     @default(now())
   receivedAt    DateTime?
-  receivedBy    String?
 
-  // Graph endpoints (parent → child)
-  parentBatchId Int
-  parentBatch   oreBatch @relation("EdgeParent", fields: [parentBatchId], references: [id])
+  // Helpful indexes
+  @@index([toMmaCode, status, createdAt])
+  @@index([fromMmaCode, status, createdAt])
+  @@index([toMmaCode, supplierId, size, status])
+  @@index([fromMmaCode, supplierId, size, status])
 
-  childBatchId Int?     // set when received
-  childBatch   oreBatch? @relation("EdgeChild", fields: [childBatchId], references: [id])
-
-  @@index([parentBatchId, status])
-  @@index([childBatchId])
-  @@index([status, toStation])
-  @@index([truckNo, createdAt])
+  @@map("raw")
 }
 
-model talcBatch {
-  id Int @id @default(autoincrement())
+/*
+---------------------------------------
+Notes & Query Math (for reference only)
+---------------------------------------
+On-hand(M, supplierId, shade, size) =
+  Σ rows where bornAs=DEPOSIT AND toMmaCode=M (receiveQty)
++ Σ rows where bornAs=TRANSFER AND toMmaCode=M AND status=RECEIVED (receiveQty)
+- Σ rows where bornAs=TRANSFER AND fromMmaCode=M AND status IN (IN_TRANSIT, RECEIVED) (dispatchQty)
 
-  // Where and what
-  stationCode StationCode
-  gradeCode   String
+Semantics:
+- deposit(): insert one row with bornAs=DEPOSIT, status=RECEIVED,
+  fromMmaCode=NULL, toMmaCode=..., dispatchQty=receiveQty, dispatchShade=receiveShade.
+- dispatch(): insert one row with bornAs=TRANSFER, status=IN_TRANSIT,
+  fromMmaCode=A, toMmaCode=B, dispatchQty, dispatchShade.
+- receive(id): update that row by primary key:
+  status=RECEIVED, receiveQty (default to dispatchQty),
+  receiveShade (default to dispatchShade), receivedAt=now().
 
-  // Authoritative quantities
-  createdTon   Float // set once at birth (process OR receive)
-  remainingTon Float // updated by events; source of truth
+Integrity (enforced in services):
+- Non-negative pre-dispatch check using computed on-hand.
+- fromMmaCode != toMmaCode for TRANSFER.
+- supplierId must remain constant from dispatch to receive.
+- Shade may change; both dispatchShade and receiveShade are recorded.
 
-  // Birth info — exactly one of these identifies how this batch was born
-  bornAs String // "process" or "receive" (kept as String to stay minimal)
-
-  // Timestamps
-  createdAt DateTime  @default(now())
-  closedAt  DateTime?
-
-  // Lineage (graph inside talc)
-  edgesOut talcEdge[] @relation("TalcEdgeParent") // this batch → others (dispatch)
-  edgesIn  talcEdge[] @relation("TalcEdgeChild")  // others → this batch (receive)
-
-  // Cross-material: ore → talc (process inputs into this talc batch)
-  processIn processEdge[] @relation("ProcessChildTalc")
-
-  @@index([stationCode])
-  @@index([bornAs])
-}
-
-model talcEdge {
-  id          Int        @id @default(autoincrement())
-  createdAt   DateTime   @default(now())
-
-  fromStation StationCode
-  toStation   StationCode
-
-  status EdgeStatus
-
-  truckNo String?
-  amount  Int?
-
-  // Dispatch-side (set at dispatch)
-  dispatchWeight Float
-  dispatchGrade  String
-  dispatchedAt   DateTime?
-  dispatchedBy   String?
-
-  // Receive-side (set at completion)
-  receiveWeight Float?
-  receiveGrade  String?
-  receivedAt    DateTime?
-  receivedBy    String?
-
-  // Graph endpoints (parent → child)
-  parentBatchId Int
-  parentBatch   talcBatch @relation("TalcEdgeParent", fields: [parentBatchId], references: [id])
-
-  childBatchId Int?        // set when received
-  childBatch   talcBatch?  @relation("TalcEdgeChild", fields: [childBatchId], references: [id])
-
-  @@index([parentBatchId, status])
-  @@index([childBatchId])
-  @@index([status, toStation])
-  @@index([truckNo, createdAt])
-}
-
-model processEdge {
-  id        Int      @id @default(autoincrement())
-  processAt DateTime @default(now())
-
-  // Endpoints across materials
-  parentOreBatchId Int
-  childTalcBatchId Int
-
-  // Quantities
-  oreDeltaTon  Float  // ore consumed from the parent ore batch (> 0)
-  talcDeltaTon Float? // optional: portion of talc produced into this child (helps recovery math)
-
-  // Optional run correlation (group multiple inputs/outputs of one process run)
-  runKey String?
-
-  // Relations (named; back-relations live on oreBatch.processOut and talcBatch.processIn)
-  parentOreBatch oreBatch  @relation("ProcessParentOre", fields: [parentOreBatchId], references: [id])
-  childTalcBatch talcBatch @relation("ProcessChildTalc", fields: [childTalcBatchId], references: [id])
-
-  @@index([parentOreBatchId])
-  @@index([childTalcBatchId])
-  @@index([runKey])
-}
-
-model Log {
-  id        Int      @id @default(autoincrement())
-  level     String   @default("info") // "info" | "warn" | "error"
-  type      String?  // e.g. "ORE_DEPOSIT", "ORE_DISPATCH"
-  metadata  Json?    // arbitrary payload
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-  @@map("logs")
-}
-
-// ///////////////////////////////
+SQLite & Decimal:
+- Prisma emulates Decimal on SQLite using strings; acceptable for weights.
+  If inconvenient, switch both qty fields to Float.
+*/
