@@ -1,24 +1,22 @@
-// prisma/schema.prisma
-// Single-ledger MMA design: only `Supplier` + ledgers.
-// MMAs are code/registry values (e.g., "ABS.SLOTS", "PSS.DUMP"); no table for MMAs.
-// Canonical rule: a TRANSFER is ONE row written by two methods (dispatch → receive).
-// No requestId/idempotency key — lifecycle is driven by the row's primary key `id`.
+// -----------------------------------------------------
+// Prisma Schema — SQLite
+// Three ledgers: mma2s, mma3s, mma4s
+// -----------------------------------------------------
 
-// ---------- Generator & Datasource ----------
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // For SQLite now; portable to Postgres/MySQL later by changing provider+URL.
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// ---------- Enums ----------
+// -------------------- Enums --------------------------
+
 enum BornAs {
-  DEPOSIT // born here, no transit lifecycle
-  TRANSFER // moves from A -> B (dispatch -> receive)
+  DEPOSIT
+  TRANSFER
 }
 
 enum EdgeStatus {
@@ -33,129 +31,113 @@ enum Size {
   FINE
 }
 
-enum Shade {
-  WHITE
-  GREY
-  LIGHTGREY
-  GREEN
-  MIXED
-}
+// -------------------- Reference ----------------------
 
-// ---------- Reference ----------
 model Supplier {
   id   Int    @id @default(autoincrement())
   name String
-  station String?
-  code String @unique // e.g., SUP001
-
-  // Ledgers linked to this supplier
-  mma4s MMA4S[] // mma4s ledger (SSSS)
-  mma3s MMA3S[] // mma3s ledger (SSS)
+  code String @unique
 }
 
-// ---------- mma4s Ledger (SSSS: supplier, stationCode (here mmacode), shade, size) ----------
+// -----------------------------------------------------
+// 4-slot ledger (station implied by MMA code)
+// Keys: Supplier · Shade · Size
+// Table: mma4s
+// -----------------------------------------------------
 model MMA4S {
-  id Int @id @default(autoincrement())
-
-  // Lifecycle & identity
+  id     Int        @id @default(autoincrement())
   bornAs BornAs
-  status EdgeStatus @default(IN_TRANSIT) // deposits will be inserted as RECEIVED in services
+  status EdgeStatus
 
-  // Routing (MMA codes come from an app-level registry; no FK here)
-  fromMmaCode String? // NULL for DEPOSIT
-  toMmaCode   String // always set
+  fromMmaCode String? // NULL for deposits
+  toMmaCode   String
 
-  // Lineage
-  supplierId Int
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  size       Size
-  amount     Int?
+  supplierId     Int
+  size           Size // required in 4S
+  amountDispatch Decimal @default(0)
+  amountReceive  Decimal @default(0)
 
-  dispatchShade Shade // was String
-  receiveShade  Shade? // was String?
+  dispatchShade String
+  receiveShade  String? // set on receive (defaults to dispatchShade if not provided)
 
-  // Quantities (weights/tons etc.)
-  dispatchQty Decimal // planned at dispatch; for deposits equals receiveQty
-  receiveQty  Decimal? // actual at receive; for deposits equals dispatchQty
+  dispatchQty Decimal
+  receiveQty  Decimal?
 
-  // Audit
   meta       Json?
   createdAt  DateTime  @default(now())
   receivedAt DateTime?
 
-  // Helpful indexes
   @@index([toMmaCode, status, createdAt])
   @@index([fromMmaCode, status, createdAt])
   @@index([toMmaCode, supplierId, size, status])
   @@index([fromMmaCode, supplierId, size, status])
-  @@map("raw") // keep underlying table name unchanged (backward-compatible)
+  @@map("mma4s")
 }
 
-// ---------- mma3s Ledger (SSS: supplier, stationCode, shade) ----------
+// -----------------------------------------------------
+// 3-slot ledger (station implied by MMA code)
+// Keys: Supplier · Shade   (no Size)
+// Table: mma3s
+// -----------------------------------------------------
 model MMA3S {
-  id Int @id @default(autoincrement())
-
-  // Lifecycle & identity
+  id     Int        @id @default(autoincrement())
   bornAs BornAs
-  status EdgeStatus @default(IN_TRANSIT) // deposits inserted as RECEIVED in services
+  status EdgeStatus
 
-  // Routing (same registry concept; still no FK)
   fromMmaCode String?
   toMmaCode   String
 
-  // Lineage (NO size here — mma3s invariant)
-  supplierId Int
-  amount     Int?
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  supplierId     Int // required in 3S
+  amountDispatch Decimal @default(0)
+  amountReceive  Decimal @default(0)
 
-  dispatchShade Shade // was String
-  receiveShade  Shade? // was String?
+  dispatchShade String
+  receiveShade  String?
 
-  // Quantities
   dispatchQty Decimal
   receiveQty  Decimal?
 
-  // Audit
   meta       Json?
   createdAt  DateTime  @default(now())
   receivedAt DateTime?
 
-  // Helpful indexes (mirrors mma4s, minus size)
   @@index([toMmaCode, status, createdAt])
   @@index([fromMmaCode, status, createdAt])
   @@index([toMmaCode, supplierId, status])
   @@index([fromMmaCode, supplierId, status])
-  @@index([toMmaCode, supplierId, dispatchShade])
-  @@index([fromMmaCode, supplierId, dispatchShade])
-  @@map("mma3s") // DB table name = mma3s
+  @@map("mma3s")
 }
 
-/**
- * ---------------------------------------
- * Notes & Query Math (for reference only)
- * ---------------------------------------
- * On-hand_4S(M, supplierId, shade, size) =
- * Σ rows where bornAs=DEPOSIT AND toMmaCode=M (receiveQty)
- * + Σ rows where bornAs=TRANSFER AND toMmaCode=M AND status=RECEIVED (receiveQty)
- * - Σ rows where bornAs=TRANSFER AND fromMmaCode=M AND status IN (IN_TRANSIT, RECEIVED) (dispatchQty)
- * On-hand_3S(M, supplierId, shade) =
- * Σ rows (mma3s) where bornAs=DEPOSIT AND toMmaCode=M (receiveQty)
- * + Σ rows (mma3s) where bornAs=TRANSFER AND toMmaCode=M AND status=RECEIVED (receiveQty)
- * - Σ rows (mma3s) where bornAs=TRANSFER AND fromMmaCode=M AND status IN (IN_TRANSIT, RECEIVED) (dispatchQty)
- * Semantics (both ledgers):
- * - deposit(): insert one row with bornAs=DEPOSIT, status=RECEIVED,
- * fromMmaCode=NULL, toMmaCode=..., dispatchQty=receiveQty, dispatchShade=receiveShade.
- * - dispatch(): insert one row with bornAs=TRANSFER, status=IN_TRANSIT,
- * fromMmaCode=A, toMmaCode=B, dispatchQty, dispatchShade.
- * - receive(id): update that row by primary key:
- * status=RECEIVED, receiveQty (default to dispatchQty),
- * receiveShade (default to dispatchShade), receivedAt=now().
- * Integrity (enforced in services):
- * - Non-negative pre-dispatch check using computed on-hand.
- * - fromMmaCode != toMmaCode for TRANSFER.
- * - supplierId must remain constant from dispatch to receive.
- * - Shade may change; both dispatchShade and receiveShade are recorded.
- * SQLite & Decimal:
- * - Prisma emulates Decimal on SQLite using strings; acceptable for weights.
- * If inconvenient, switch both qty fields to Float.
- */
+// -----------------------------------------------------
+// 2-slot ledger (station implied by MMA code)
+// Keys: Shade/Grade only (supplier optional; no Size)
+// Table: mma2s
+// -----------------------------------------------------
+model MMA2S {
+  id     Int        @id @default(autoincrement())
+  bornAs BornAs
+  status EdgeStatus
+
+  fromMmaCode String?
+  toMmaCode   String
+
+  supplierId     Int? // optional in 2S; NOT part of slot identity
+  amountDispatch Decimal @default(0)
+  amountReceive  Decimal @default(0)
+
+  dispatchShade String
+  receiveShade  String?
+
+  dispatchQty Decimal
+  receiveQty  Decimal?
+
+  meta       Json?
+  createdAt  DateTime  @default(now())
+  receivedAt DateTime?
+
+  @@index([toMmaCode, status, createdAt])
+  @@index([fromMmaCode, status, createdAt])
+  @@index([toMmaCode, status])
+  @@index([fromMmaCode, status])
+  @@map("mma2s")
+}

@@ -1,10 +1,11 @@
+
 // Vitest E2E for the MMA4S (SSSS) ledger engine (no DB destroy).
 // We DO NOT wipe or reset the database. Each test seeds unique rows
 // (timestamp-based supplier codes) and asserts effects locally.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient, BornAs, EdgeStatus } from '@prisma/client';
-import { createMMA4S } from '../src/lib/mma/mma4s.js';
+import MMA4S from '../src/lib/mma/mma4s.js';
 
 describe.sequential('MMA4S Engine (single-ledger)', () => {
   let db;
@@ -19,7 +20,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
 
   beforeAll(async () => {
     db = new PrismaClient();
-    mma = createMMA4S({ prisma: db, registry: REGISTRY });
+    mma = new MMA4S({ prisma: db, registry: REGISTRY });
   });
 
   afterAll(async () => {
@@ -49,6 +50,9 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
     expect(row.toMmaCode).toBe('ABS.SLOTS');
     expect(Number(row.receiveQty)).toBeCloseTo(12.5, 6);
     expect(row.receiveShade).toBe('white');
+    // amount defaults (no amount provided)
+    expect(Number(row.amountDispatch ?? 0)).toBeCloseTo(0, 6);
+    expect(Number(row.amountReceive ?? 0)).toBeCloseTo(0, 6);
 
     const after = await mma.onHand({
       mmaCode: 'ABS.SLOTS',
@@ -85,6 +89,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
       shade: 'white',
       size: 'CHIPS',
       qty: 5.0,
+      amountDispatch: 5000,
       meta: { truck: 'TR-ABS-001' }
     });
 
@@ -93,6 +98,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
     expect(edge.fromMmaCode).toBe('ABS.SLOTS');
     expect(edge.toMmaCode).toBe('PSS.DUMP');
     expect(Number(edge.dispatchQty)).toBeCloseTo(5.0, 6);
+    expect(Number(edge.amountDispatch)).toBeCloseTo(5000, 6);
 
     // Source stock dropped immediately
     const afterSrc = await mma.onHand({
@@ -131,6 +137,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
       shade: 'gray',
       size: 'FINE',
       qty: 6.2,
+      amountDispatch: 6200,
       meta: { truck: 'TR-ABS-777' }
     });
 
@@ -148,6 +155,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
       supplierId: sup.id,
       receiveQty: 6.0,
       receiveShade: 'light-gray',
+      amountReceive: 6000,
       meta: { receivedBy: 'Sara' }
     });
 
@@ -156,6 +164,7 @@ describe.sequential('MMA4S Engine (single-ledger)', () => {
     expect(Number(recv.receiveQty)).toBeCloseTo(6.0, 6);
     expect(recv.receiveShade).toBe('light-gray');
     expect(recv.toMmaCode).toBe('PSS.DUMP');
+    expect(Number(recv.amountReceive)).toBeCloseTo(6000, 6);
 
     const afterDst = await mma.onHand({
       mmaCode: 'PSS.DUMP',

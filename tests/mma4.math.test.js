@@ -1,7 +1,7 @@
 // tests/mma4.math.test.js
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient, EdgeStatus } from '@prisma/client';
-import { createMMA4S } from '../src/lib/mma/mma4s.js';
+import MMA4S from '../src/lib/mma/mma4s.js';
 
 describe.sequential('MMA4S Stock Math (authoritative formula)', () => {
   let db, mma;
@@ -13,7 +13,7 @@ describe.sequential('MMA4S Stock Math (authoritative formula)', () => {
 
   beforeAll(async () => {
     db = new PrismaClient();
-    mma = createMMA4S({ prisma: db, registry: REGISTRY });
+    mma = new MMA4S({ prisma: db, registry: REGISTRY });
   });
 
   afterAll(async () => { await db.$disconnect(); });
@@ -21,8 +21,8 @@ describe.sequential('MMA4S Stock Math (authoritative formula)', () => {
   it('deposit → dispatch → receive variance → cancel math holds', async () => {
     const sup = await seedSupplier();
     await mma.deposit({ mmaCode:'ABS.SLOTS', supplierId:sup.id, shade:'s1', size:'LUMPS', qty:100 });
-    const edge = await mma.dispatch({ fromMmaCode:'ABS.SLOTS', toMmaCode:'PSS.DUMP', supplierId:sup.id, shade:'s1', size:'LUMPS', qty:60 });
-    await mma.receive({ id:edge.id, toMmaCode:'PSS.DUMP', supplierId:sup.id, receiveQty:58, receiveShade:'s2' });
+    const edge = await mma.dispatch({ fromMmaCode:'ABS.SLOTS', toMmaCode:'PSS.DUMP', supplierId:sup.id, shade:'s1', size:'LUMPS', qty:60, amountDispatch: 6000 });
+    await mma.receive({ id:edge.id, toMmaCode:'PSS.DUMP', supplierId:sup.id, receiveQty:58, receiveShade:'s2', amountReceive: 5800 });
     const afterABS = await mma.onHand({ mmaCode:'ABS.SLOTS', supplierId:sup.id, shade:'s1', size:'LUMPS' });
     const afterPSS = await mma.onHand({ mmaCode:'PSS.DUMP', supplierId:sup.id, shade:'s2', size:'LUMPS' });
     expect(Number(afterABS)).toBeCloseTo(40, 6);
