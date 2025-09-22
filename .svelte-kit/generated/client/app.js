@@ -33,7 +33,8 @@ export const nodes = [
 	() => import('./nodes/29'),
 	() => import('./nodes/30'),
 	() => import('./nodes/31'),
-	() => import('./nodes/32')
+	() => import('./nodes/32'),
+	() => import('./nodes/33')
 ];
 
 export const server_loads = [];
@@ -53,22 +54,23 @@ export const dictionary = {
 		"/mma4s/deposit": [~14],
 		"/mma4s/dispatch": [~15],
 		"/mma4s/receive": [~16],
-		"/ore/deposit": [~17],
-		"/ore/dispatch": [~18],
-		"/ore/receive": [~19],
-		"/settings": [20],
-		"/stations": [~21],
-		"/stations/abs": [~22],
-		"/stations/bs1": [~23],
-		"/stations/bs2": [~24],
-		"/stations/bs3": [~25],
-		"/stations/jss": [~26],
-		"/stations/kef": [~27],
-		"/stations/pss": [~28],
-		"/suppliers": [~29],
-		"/talc/deposit": [~30],
-		"/talc/dispatch": [~31],
-		"/talc/receive": [~32]
+		"/mma4s/slots": [~17],
+		"/ore/deposit": [~18],
+		"/ore/dispatch": [~19],
+		"/ore/receive": [~20],
+		"/settings": [21],
+		"/stations": [~22],
+		"/stations/abs": [~23],
+		"/stations/bs1": [~24],
+		"/stations/bs2": [~25],
+		"/stations/bs3": [~26],
+		"/stations/jss": [~27],
+		"/stations/kef": [~28],
+		"/stations/pss": [~29],
+		"/suppliers": [~30],
+		"/talc/deposit": [~31],
+		"/talc/dispatch": [~32],
+		"/talc/receive": [~33]
 	};
 
 export const hooks = {
