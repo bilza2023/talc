@@ -1,257 +1,174 @@
 // /src/lib/mma/mma4s.js
-// MMA4S (SSSS) — class-based engine, own table, own suppliers, allowed dispatch targets
-// Prisma delegate: prisma.raw  or prisma.mMA4S (supports either schema mapping)
-//
-// API (same across 2S/3S/4S):
-// deposit, dispatch, receive, cancel, onHand, stock, inbound, outbound, activeSlots
-//
-// Amounts:
-// - deposit(): sets amountDispatch AND amountReceive (both = provided amount*, see below)
-// - dispatch(): sets amountDispatch
-// - receive(): sets/overrides amountReceive (defaults to row.amountDispatch if not provided)
-//
-// Back-compat: deposit/dispatch/receive accept `amount` as a fallback.
-//   deposit:  amountDispatch = amountDispatch ?? amount ?? 0
-//             amountReceive  = amountReceive  ?? amount ?? amountDispatch
-//   dispatch: amountDispatch = amountDispatch ?? amount ?? 0
-//   receive:  amountReceive  = amountReceive  ?? amount ?? row.amountDispatch
-
 import { PrismaClient, EdgeStatus, BornAs } from '@prisma/client';
 
-function getMMA4SDelegate(clientOrTx) {
-  return clientOrTx?.raw ?? clientOrTx?.mMA4S ?? null;
+function getDelegate(clientOrTx, table) {
+  const d = clientOrTx?.[table];
+  if (!d) throw new Error(`MMA4S: Prisma delegate "${table}" not found on client/transaction`);
+  return d;
 }
 
 export default class MMA4S {
-  /**
-   * @param {object} opts
-   * @param {PrismaClient} [opts.prisma]
-   * @param {string[]} [opts.registry]        // valid mma codes for this engine
-   * @param {number[]} [opts.suppliersAllowed]// supplier ids allowed to write here
-   * @param {string[]} [opts.dispatchTargets] // which mma codes we can dispatch to
-   */
   constructor(opts = {}) {
+    if (!opts.table) throw new Error('MMA4S requires opts.table = "processed4s" | "sorted4s"');
     this.prisma = opts.prisma ?? new PrismaClient();
+    this.table = opts.table;
     this.REGISTRY = new Set(opts.registry ?? []);
     this.SUPPLIERS = new Set(opts.suppliersAllowed ?? []);
     this.TARGETS = new Set(opts.dispatchTargets ?? []);
   }
 
-  // ---- local assertions / guards ------------------------------------------
   #assertMma(code, label = 'mmaCode') {
     if (!code || typeof code !== 'string') throw new Error(`${label} is required`);
-    if (!this.REGISTRY.has(code)) throw new Error(`${label} "${code}" is not in registry`);
+    if (this.REGISTRY.size && !this.REGISTRY.has(code)) {
+      throw new Error(`${label} "${code}" is not in registry for table ${this.table}`);
+    }
   }
-  #assertPositiveQty(qty) {
-    if (qty == null || Number(qty) <= 0) throw new Error(`qty must be > 0`);
-  }
-  #assertShade(shade) {
-    if (!shade || typeof shade !== 'string') throw new Error(`shade is required`);
-  }
-  #assertSize(size) {
-    if (!size || typeof size !== 'string') throw new Error(`size is required`);
-  }
+  #assertPositiveQty(qty) { if (qty == null || Number(qty) <= 0) throw new Error(`qty must be > 0`); }
+  #assertShade(shade) { if (!shade || typeof shade !== 'string') throw new Error(`shade is required`); }
+  #assertSize(size) { if (!size || typeof size !== 'string') throw new Error(`size is required for 4-slot stages`); }
   #assertSupplierAllowed(supplierId) {
     if (this.SUPPLIERS.size && !this.SUPPLIERS.has(Number(supplierId))) {
-      throw new Error(`supplierId ${supplierId} not allowed for this MMA`);
+      throw new Error(`supplierId ${supplierId} not allowed for this stage`);
     }
   }
   #assertDispatchTarget(toMmaCode) {
     if (this.TARGETS.size && !this.TARGETS.has(String(toMmaCode))) {
-      throw new Error(`dispatch to ${toMmaCode} not allowed for this MMA`);
+      throw new Error(`dispatch to ${toMmaCode} not allowed for this stage`);
     }
   }
 
-  // ---- math (tx-bound) -----------------------------------------------------
   async #onHandTx(tx, { mmaCode, supplierId, shade, size }) {
-    const Raw = getMMA4SDelegate(tx);
-    if (!Raw) throw new Error('MMA4S model not found on transaction (expected raw or mMA4S)');
+    const Raw = getDelegate(tx, this.table);
 
-    const depIn = await Raw.aggregate({
+    const inDeposit = await Raw.aggregate({
       _sum: { receiveQty: true },
       where: {
-        bornAs: BornAs.DEPOSIT,
-        toMmaCode: mmaCode,
-        ...(supplierId ? { supplierId } : {}),
-        ...(size ? { size } : {}),
-        ...(shade ? { receiveShade: shade } : {}),
+        bornAs: BornAs.DEPOSIT, toMmaCode: mmaCode,
+        ...(supplierId ? { supplierId } : {}), ...(size ? { size } : {}), ...(shade ? { receiveShade: shade } : {}),
+      },
+    });
+    const inTransfer = await Raw.aggregate({
+      _sum: { receiveQty: true },
+      where: {
+        bornAs: BornAs.TRANSFER, toMmaCode: mmaCode, status: EdgeStatus.RECEIVED,
+        ...(supplierId ? { supplierId } : {}), ...(size ? { size } : {}), ...(shade ? { receiveShade: shade } : {}),
+      },
+    });
+    const inProcess = await Raw.aggregate({
+      _sum: { receiveQty: true },
+      where: {
+        bornAs: BornAs.PROCESS, toMmaCode: mmaCode, status: EdgeStatus.RECEIVED,
+        ...(supplierId ? { supplierId } : {}), ...(size ? { size } : {}), ...(shade ? { receiveShade: shade } : {}),
       },
     });
 
-    const trIn = await Raw.aggregate({
-      _sum: { receiveQty: true },
-      where: {
-        bornAs: BornAs.TRANSFER,
-        toMmaCode: mmaCode,
-        status: EdgeStatus.RECEIVED,
-        ...(supplierId ? { supplierId } : {}),
-        ...(size ? { size } : {}),
-        ...(shade ? { receiveShade: shade } : {}),
-      },
-    });
-
-    const trOut = await Raw.aggregate({
+    const outTransfer = await Raw.aggregate({
       _sum: { dispatchQty: true },
       where: {
-        bornAs: BornAs.TRANSFER,
-        fromMmaCode: mmaCode,
+        bornAs: BornAs.TRANSFER, fromMmaCode: mmaCode,
         status: { in: [EdgeStatus.IN_TRANSIT, EdgeStatus.RECEIVED] },
-        ...(supplierId ? { supplierId } : {}),
-        ...(size ? { size } : {}),
-        ...(shade ? { dispatchShade: shade } : {}),
+        ...(supplierId ? { supplierId } : {}), ...(size ? { size } : {}), ...(shade ? { dispatchShade: shade } : {}),
+      },
+    });
+    const outProcess = await Raw.aggregate({
+      _sum: { dispatchQty: true },
+      where: {
+        bornAs: BornAs.PROCESS, fromMmaCode: mmaCode, status: EdgeStatus.RECEIVED,
+        ...(supplierId ? { supplierId } : {}), ...(size ? { size } : {}), ...(shade ? { dispatchShade: shade } : {}),
       },
     });
 
-    const inQty = Number(depIn._sum.receiveQty ?? 0) + Number(trIn._sum.receiveQty ?? 0);
-    const outQty = Number(trOut._sum.dispatchQty ?? 0);
+    const inQty = Number(inDeposit._sum.receiveQty ?? 0)
+                + Number(inTransfer._sum.receiveQty ?? 0)
+                + Number(inProcess._sum.receiveQty ?? 0);
+
+    const outQty = Number(outTransfer._sum.dispatchQty ?? 0)
+                 + Number(outProcess._sum.dispatchQty ?? 0);
+
     return inQty - outQty;
   }
 
-  // ---- public API ----------------------------------------------------------
-  async deposit({
-    mmaCode,
-    supplierId,
-    shade,
-    size,
-    qty,
-    amount,            // fallback (for back-compat)
-    amountDispatch,    // preferred
-    amountReceive,     // preferred
-    meta
-  }) {
-    this.#assertMma(mmaCode);
-    this.#assertSupplierAllowed(supplierId);
-    this.#assertPositiveQty(qty);
-    this.#assertShade(shade);
-    this.#assertSize(size);
+  // ---------- VERBS ----------
+  async deposit({ mmaCode, supplierId, shade, size, qty, meta }) {
+    this.#assertMma(mmaCode); this.#assertSupplierAllowed(supplierId);
+    this.#assertPositiveQty(qty); this.#assertShade(shade); this.#assertSize(size);
 
-    const Raw = getMMA4SDelegate(this.prisma);
-    if (!Raw) throw new Error('MMA4S model not found (expected prisma.raw or prisma.mMA4S)');
-
-    const aDispatch = amountDispatch ?? amount ?? 0;
-    const aReceive  = amountReceive  ?? amount ?? aDispatch;
-
+    const Raw = getDelegate(this.prisma, this.table);
     return Raw.create({
       data: {
-        bornAs: BornAs.DEPOSIT,
-        status: EdgeStatus.RECEIVED,
-        fromMmaCode: null,
-        toMmaCode: mmaCode,
-        supplierId,
-        size,
-        amountDispatch: aDispatch,
-        amountReceive:  aReceive,
-        dispatchShade: shade,
-        receiveShade:  shade,
-        dispatchQty: qty,
-        receiveQty:  qty,
+        bornAs: BornAs.DEPOSIT, status: EdgeStatus.RECEIVED,
+        fromMmaCode: null, toMmaCode: mmaCode,
+        supplierId, size,
+        dispatchShade: shade, receiveShade: shade,
+        dispatchQty: qty, receiveQty: qty,
+        // NOTE: transportation amounts are not relevant to deposits → leave null
         meta: meta ?? null,
         receivedAt: new Date(),
       },
     });
   }
 
-  async dispatch({
-    fromMmaCode,
-    toMmaCode,
-    supplierId,
-    shade,
-    size,
-    qty,
-    amount,           // fallback
-    amountDispatch,   // preferred
-    meta
-  }) {
-    this.#assertMma(fromMmaCode, 'fromMmaCode');
-    this.#assertMma(toMmaCode, 'toMmaCode');
-    if (fromMmaCode === toMmaCode) throw new Error('fromMmaCode and toMmaCode must differ');
-    this.#assertDispatchTarget(toMmaCode);
-    this.#assertSupplierAllowed(supplierId);
-    this.#assertPositiveQty(qty);
-    this.#assertShade(shade);
-    this.#assertSize(size);
+  async dispatch({ fromMmaCode, toMmaCode, supplierId, shade, size, qty, amount, amountDispatch, meta }) {
+    this.#assertMma(fromMmaCode, 'fromMmaCode'); this.#assertMma(toMmaCode, 'toMmaCode');
+    this.#assertDispatchTarget(toMmaCode); this.#assertSupplierAllowed(supplierId);
+    this.#assertPositiveQty(qty); this.#assertShade(shade); this.#assertSize(size);
 
-    const aDispatch = amountDispatch ?? amount ?? 0;
+    const dispatchAmount = amountDispatch ?? amount ?? 0;
 
     return this.prisma.$transaction(async (tx) => {
-      const Raw = getMMA4SDelegate(tx);
-      if (!Raw) throw new Error('MMA4S model not found on transaction (expected raw or mMA4S)');
-
+      const Raw = getDelegate(tx, this.table);
       const available = await this.#onHandTx(tx, { mmaCode: fromMmaCode, supplierId, shade, size });
       if (Number(available) < Number(qty)) {
-        throw new Error(
-          `Insufficient stock at ${fromMmaCode} for supplier=${supplierId}, shade=${shade}, size=${size}. available=${available}, requested=${qty}`
-        );
+        throw new Error(`Insufficient stock at ${fromMmaCode} for supplier=${supplierId}, shade=${shade}, size=${size}. available=${available}, requested=${qty}`);
       }
 
       return Raw.create({
         data: {
-          bornAs: BornAs.TRANSFER,
-          status: EdgeStatus.IN_TRANSIT,
-          fromMmaCode,
-          toMmaCode,
-          supplierId,
-          size,
-          amountDispatch: aDispatch,
-          dispatchShade: shade,
-          dispatchQty:   qty,
+          bornAs: BornAs.TRANSFER, status: EdgeStatus.IN_TRANSIT,
+          fromMmaCode, toMmaCode, supplierId, size,
+          dispatchShade: shade, dispatchQty: qty,
+          dispatchAmount, // <-- schema field
           meta: meta ?? null,
         },
       });
     });
   }
 
-  async receive({
-    id,
-    toMmaCode,
-    supplierId,
-    receiveQty,
-    receiveShade,
-    amount,          // fallback
-    amountReceive,   // preferred
-    meta
-  }) {
+  async receive({ id, toMmaCode, supplierId, receiveQty, receiveShade, amount, amountReceive, meta }) {
     if (id == null) throw new Error('receive() requires row id');
     if (!supplierId) throw new Error('receive() requires supplierId for verification');
     if (!toMmaCode) throw new Error('receive() requires toMmaCode for verification');
 
     return this.prisma.$transaction(async (tx) => {
-      const Raw = getMMA4SDelegate(tx);
-      if (!Raw) throw new Error('MMA4S model not found on transaction (expected raw or mMA4S)');
-
+      const Raw = getDelegate(tx, this.table);
       const row = await Raw.findUnique({ where: { id } });
       if (!row) throw new Error('Transfer not found');
       if (row.bornAs !== 'TRANSFER') throw new Error('Row is not a TRANSFER');
       if (row.status === 'CANCELED') throw new Error('Transfer is canceled');
 
       if (row.status === 'RECEIVED') {
-        // allow meta touch
         if (meta && JSON.stringify(meta) !== JSON.stringify(row.meta ?? null)) {
           await Raw.update({ where: { id: row.id }, data: { meta } });
         }
         return row;
       }
 
-      if (row.supplierId !== supplierId) {
-        throw new Error(`Supplier mismatch: row has supplierId=${row.supplierId}, got ${supplierId}`);
-      }
-      if (row.toMmaCode !== toMmaCode) {
-        throw new Error(`Destination MMA mismatch: row toMmaCode=${row.toMmaCode}, got ${toMmaCode}`);
-      }
+      if (row.supplierId !== supplierId) throw new Error(`Supplier mismatch: row has supplierId=${row.supplierId}, got ${supplierId}`);
+      if (row.toMmaCode !== toMmaCode) throw new Error(`Destination MMA mismatch: row toMmaCode=${row.toMmaCode}, got ${toMmaCode}`);
 
-      const finalQty     = receiveQty   ?? row.dispatchQty;
-      const finalShade   = receiveShade ?? row.dispatchShade;
-      const finalAmountR = amountReceive ?? amount ?? row.amountDispatch ?? 0;
+      const finalQty   = receiveQty   ?? row.dispatchQty;
+      const finalShade = receiveShade ?? row.dispatchShade;
+      const recvAmount = amountReceive ?? amount ?? row.dispatchAmount ?? 0;
 
       return Raw.update({
         where: { id: row.id },
         data: {
-          status:       EdgeStatus.RECEIVED,
-          receiveQty:   finalQty,
+          status: EdgeStatus.RECEIVED,
+          receiveQty: finalQty,
           receiveShade: finalShade,
-          amountReceive: finalAmountR,
-          receivedAt:   new Date(),
-          meta:         meta ?? row.meta,
+          receiveAmount: recvAmount,  // <-- schema field
+          receivedAt: new Date(),
+          meta: meta ?? row.meta,
         },
       });
     });
@@ -261,22 +178,17 @@ export default class MMA4S {
     if (id == null) throw new Error('cancel() requires row id');
 
     return this.prisma.$transaction(async (tx) => {
-      const Raw = getMMA4SDelegate(tx);
-      if (!Raw) throw new Error('MMA4S model not found on transaction (expected raw or mMA4S)');
-
+      const Raw = getDelegate(tx, this.table);
       const row = await Raw.findUnique({ where: { id } });
       if (!row) throw new Error('Transfer not found');
       if (row.bornAs !== 'TRANSFER') throw new Error('Row is not a TRANSFER');
       if (row.status !== 'IN_TRANSIT') throw new Error('Only IN_TRANSIT transfers can be canceled');
 
-      return Raw.update({
-        where: { id },
-        data: { status: EdgeStatus.CANCELED, meta: meta ?? row.meta },
-      });
+      return Raw.update({ where: { id }, data: { status: EdgeStatus.CANCELED, meta: meta ?? row.meta } });
     });
   }
 
-  // reads ---------------------------------------------------------------------
+  // ---------- READS ----------
   async onHand({ mmaCode, supplierId, shade, size }) {
     this.#assertMma(mmaCode, 'mmaCode');
     return this.prisma.$transaction((tx) => this.#onHandTx(tx, { mmaCode, supplierId, shade, size }));
@@ -284,38 +196,25 @@ export default class MMA4S {
 
   async stock({ mmaCode, positiveOnly = true } = {}) {
     this.#assertMma(mmaCode, 'mmaCode');
+    const Raw = getDelegate(this.prisma, this.table);
 
-    const Raw = getMMA4SDelegate(this.prisma);
-    if (!Raw) throw new Error('MMA4S model not found (expected prisma.raw or prisma.mMA4S)');
-
-    const [depositsIn, transfersIn, transfersOut] = await this.prisma.$transaction([
-      Raw.groupBy({
-        by: ['supplierId', 'size', 'receiveShade'],
-        where: { bornAs: BornAs.DEPOSIT, toMmaCode: mmaCode },
-        _sum: { receiveQty: true },
-      }),
-      Raw.groupBy({
-        by: ['supplierId', 'size', 'receiveShade'],
-        where: { bornAs: BornAs.TRANSFER, toMmaCode: mmaCode, status: EdgeStatus.RECEIVED },
-        _sum: { receiveQty: true },
-      }),
-      Raw.groupBy({
-        by: ['supplierId', 'size', 'dispatchShade'],
-        where: { bornAs: BornAs.TRANSFER, fromMmaCode: mmaCode, status: { in: [EdgeStatus.IN_TRANSIT, EdgeStatus.RECEIVED] } },
-        _sum: { dispatchQty: true },
-      }),
+    const [depositsIn, transfersIn, processesIn, transfersOut, processesOut] = await this.prisma.$transaction([
+      Raw.groupBy({ by: ['supplierId','size','receiveShade'], where: { bornAs: BornAs.DEPOSIT, toMmaCode: mmaCode }, _sum: { receiveQty: true } }),
+      Raw.groupBy({ by: ['supplierId','size','receiveShade'], where: { bornAs: BornAs.TRANSFER, toMmaCode: mmaCode, status: EdgeStatus.RECEIVED }, _sum: { receiveQty: true } }),
+      Raw.groupBy({ by: ['supplierId','size','receiveShade'], where: { bornAs: BornAs.PROCESS,  toMmaCode: mmaCode, status: EdgeStatus.RECEIVED }, _sum: { receiveQty: true } }),
+      Raw.groupBy({ by: ['supplierId','size','dispatchShade'], where: { bornAs: BornAs.TRANSFER, fromMmaCode: mmaCode, status: { in: [EdgeStatus.IN_TRANSIT, EdgeStatus.RECEIVED] } }, _sum: { dispatchQty: true } }),
+      Raw.groupBy({ by: ['supplierId','size','dispatchShade'], where: { bornAs: BornAs.PROCESS,  fromMmaCode: mmaCode, status: EdgeStatus.RECEIVED }, _sum: { dispatchQty: true } }),
     ]);
 
     const key = (sid, shade, size) => `${sid}::${shade}::${size}`;
     const acc = new Map();
-    const add = (sid, shade, size, delta) => {
-      const k = key(sid, shade, size);
-      acc.set(k, (acc.get(k) ?? 0) + Number(delta ?? 0));
-    };
+    const add = (sid, shade, size, delta) => { const k = key(sid, shade, size); acc.set(k, (acc.get(k) ?? 0) + Number(delta ?? 0)); };
 
     for (const r of depositsIn)  add(r.supplierId, r.receiveShade, r.size, r._sum.receiveQty ?? 0);
     for (const r of transfersIn) add(r.supplierId, r.receiveShade, r.size, r._sum.receiveQty ?? 0);
+    for (const r of processesIn) add(r.supplierId, r.receiveShade, r.size, r._sum.receiveQty ?? 0);
     for (const r of transfersOut) add(r.supplierId, r.dispatchShade, r.size, -Number(r._sum.dispatchQty ?? 0));
+    for (const r of processesOut) add(r.supplierId, r.dispatchShade, r.size, -Number(r._sum.dispatchQty ?? 0));
 
     const rows = [];
     for (const [k, qty] of acc.entries()) {
@@ -326,18 +225,46 @@ export default class MMA4S {
     return rows;
   }
 
-  async inbound({ mmaCode, status = 'IN_TRANSIT' } = {}) {
+  /**
+   * Transport amount rollups for a single MMA code (this stage table).
+   * Returns sums in plain numbers (0 if none).
+   */
+  async transportAmounts({ mmaCode }) {
     this.#assertMma(mmaCode, 'mmaCode');
-    const Raw = getMMA4SDelegate(this.prisma);
-    if (!Raw) throw new Error('MMA4S model not found (expected prisma.raw or prisma.mMA4S)');
+    const Raw = getDelegate(this.prisma, this.table);
+
+    const [outD, inD, inR] = await this.prisma.$transaction([
+      Raw.aggregate({
+        _sum: { dispatchAmount: true },
+        where: { bornAs: BornAs.TRANSFER, fromMmaCode: mmaCode, status: { in: [EdgeStatus.IN_TRANSIT, EdgeStatus.RECEIVED] } },
+      }),
+      Raw.aggregate({
+        _sum: { dispatchAmount: true },
+        where: { bornAs: BornAs.TRANSFER, toMmaCode: mmaCode, status: EdgeStatus.IN_TRANSIT },
+      }),
+      Raw.aggregate({
+        _sum: { receiveAmount: true },
+        where: { bornAs: BornAs.TRANSFER, toMmaCode: mmaCode, status: EdgeStatus.RECEIVED },
+      }),
+    ]);
+
+    return {
+      outboundDispatched: Number(outD._sum.dispatchAmount ?? 0),
+      inboundInTransit:   Number(inD._sum.dispatchAmount ?? 0),
+      inboundReceived:    Number(inR._sum.receiveAmount ?? 0),
+    };
+  }
+
+  async inbound({ mmaCode, status = EdgeStatus.IN_TRANSIT } = {}) {
+    this.#assertMma(mmaCode, 'mmaCode');
+    const Raw = getDelegate(this.prisma, this.table);
     const where = { toMmaCode: mmaCode, bornAs: BornAs.TRANSFER, ...(status ? { status } : {}) };
     return Raw.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
   }
 
-  async outbound({ mmaCode, status = 'IN_TRANSIT' } = {}) {
+  async outbound({ mmaCode, status = EdgeStatus.IN_TRANSIT } = {}) {
     this.#assertMma(mmaCode, 'mmaCode');
-    const Raw = getMMA4SDelegate(this.prisma);
-    if (!Raw) throw new Error('MMA4S model not found (expected prisma.raw or prisma.mMA4S)');
+    const Raw = getDelegate(this.prisma, this.table);
     const where = { fromMmaCode: mmaCode, bornAs: BornAs.TRANSFER, ...(status ? { status } : {}) };
     return Raw.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
   }
