@@ -48,11 +48,7 @@ enum MmaCode {
   PSS_SORTED
 }
 
-enum StageTable {
-  RAW_MATERIAL_3S
-  PROCESSED_4S
-  SORTED_4S
-}
+
 
 enum ProcessType {
   SCREENING
@@ -72,176 +68,72 @@ model Supplier {
   processedRows processed4s[]
   sortedRows    sorted4s[]
 }
+// -------------------- New Enums ----------------------
 
-// -------------------- Global Logs --------------------
-// Transport: logistics within the SAME stage table
-model Transport {
-  id           Int        @id @default(autoincrement())
-  fromTable    StageTable
-  toTable      StageTable     // should equal fromTable for transport (enforced in app)
-  fromMmaCode  MmaCode?
-  toMmaCode    MmaCode
-  status       EdgeStatus
-  meta         Json?
-  createdAt    DateTime   @default(now())
-  completedAt  DateTime?
-
-  // Back-relations (named)
-  processedRows processed4s[]     @relation("Transport_processed4s")
-  sortedRows    sorted4s[]        @relation("Transport_sorted4s")
-  rawRows       rawMaterial3s[]   @relation("Transport_rawMaterial3s")
-
-  @@index([status, createdAt])
-  @@index([fromTable, fromMmaCode])
-  @@index([toTable, toMmaCode])
+enum LedgerReason {
+  DIRECT
+  PROCESS
+  TRANSPORT
+  REVERSAL
+  ADJUST
 }
 
-// Process: transformation ACROSS tables (stage change)
-model Process {
-  id           Int        @id @default(autoincrement())
-  type         ProcessType
-  fromTable    StageTable
-  toTable      StageTable     // must differ from fromTable (enforced in app)
-  fromMmaCode  MmaCode?
-  toMmaCode    MmaCode?
-  meta         Json?
-  createdAt    DateTime   @default(now())
-
-  // Back-relations (named)
-  processedRows processed4s[]     @relation("Process_processed4s")
-  sortedRows    sorted4s[]        @relation("Process_sorted4s")
-  rawRows       rawMaterial3s[]   @relation("Process_rawMaterial3s")
-
-  @@index([type, createdAt])
-  @@index([fromTable, toTable])
+enum TransportEventType {
+  DISPATCH
+  RECEIVE
+  CANCEL
 }
 
-// -----------------------------------------------------
-// 4-slot stage (Size required) — processed4s
-// -----------------------------------------------------
-model processed4s {
-  id           Int        @id @default(autoincrement())
-  bornAs       BornAs
-  status       EdgeStatus
+// -------------------- processed (stage) ---------------
+// Append-only postings that drive on-hand math
+model ProcessedLedger {
+  id           Int          @id @default(autoincrement())
+  createdAt    DateTime     @default(now())
 
-  fromMmaCode  MmaCode?
-  toMmaCode    MmaCode
-
+  mmaCode      MmaCode
+  stationCode  String?      // optional pass-through (UI/logs)
   supplierId   Int
-  supplier     Supplier   @relation(fields: [supplierId], references: [id])
+  supplier     Supplier     @relation(fields: [supplierId], references: [id])
 
+  shade        Shade
   size         Size
 
-  dispatchShade Shade
-  receiveShade  Shade?
+  qtyDelta     Float        // +qty or -qty
+  reason       LedgerReason // DIRECT | PROCESS | TRANSPORT | REVERSAL | ADJUST
+  linkId       String?      // transportId or processId (for lineage)
+  meta         Json?
 
-  // Quantities: use Float on SQLite to avoid Decimal quirks
-  dispatchAmount    Int?
-  receiveAmount    Int?
-
-  dispatchQty   Float
-  receiveQty    Float?
-
-  // Optional links to headers (named relations)
-  transportId   Int?
-  transport     Transport? @relation("Transport_processed4s", fields: [transportId], references: [id])
-
-  processId     Int?
-  process       Process?   @relation("Process_processed4s", fields: [processId], references: [id])
-
-  meta          Json?
-  createdAt     DateTime   @default(now())
-  receivedAt    DateTime?
-
-  @@index([toMmaCode, status, createdAt])
-  @@index([fromMmaCode, status, createdAt])
-  @@index([toMmaCode, supplierId, size, status])
-  @@index([fromMmaCode, supplierId, size, status])
-  @@index([transportId])
-  @@index([processId])
-  @@map("processed4s")
+  @@index([mmaCode, supplierId, shade, size])
+  @@index([linkId])
+  @@map("processed_ledger")
 }
 
-// -----------------------------------------------------
-// 4-slot stage (Size required) — sorted4s
-// -----------------------------------------------------
-model sorted4s {
-  id           Int        @id @default(autoincrement())
-  bornAs       BornAs
-  status       EdgeStatus
+// Append-only transport events; compare DISPATCH vs RECEIVE by transportId
+model ProcessedTransport {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
 
-  fromMmaCode  MmaCode?
-  toMmaCode    MmaCode
+  transportId     String
+  type            TransportEventType  // DISPATCH | RECEIVE | CANCEL
 
-  supplierId   Int
-  supplier     Supplier   @relation(fields: [supplierId], references: [id])
+  fromMmaCode     MmaCode?
+  toMmaCode       MmaCode?
+  fromStationCode String?
+  toStationCode   String?
 
-  size         Size
+  supplierId      Int
+  supplier        Supplier            @relation(fields: [supplierId], references: [id])
 
-  dispatchShade Shade
-  receiveShade  Shade?
-  dispatchAmount    Int?
-  receiveAmount    Int?
+  shade           Shade
+  size            Size
 
-  dispatchQty   Float
-  receiveQty    Float?
+  qty             Float
+  amount          Int?                // money (e.g., cents)
+  meta            Json?
 
-  transportId   Int?
-  transport     Transport? @relation("Transport_sorted4s", fields: [transportId], references: [id])
-
-  processId     Int?
-  process       Process?   @relation("Process_sorted4s", fields: [processId], references: [id])
-
-  meta          Json?
-  createdAt     DateTime   @default(now())
-  receivedAt    DateTime?
-
-  @@index([toMmaCode, status, createdAt])
-  @@index([fromMmaCode, status, createdAt])
-  @@index([toMmaCode, supplierId, size, status])
-  @@index([fromMmaCode, supplierId, size, status])
-  @@index([transportId])
-  @@index([processId])
-  @@map("sorted4s")
-}
-
-// -----------------------------------------------------
-// 3-slot stage (no Size) — rawMaterial3s
-// -----------------------------------------------------
-model rawMaterial3s {
-  id           Int        @id @default(autoincrement())
-  bornAs       BornAs
-  status       EdgeStatus
-
-  fromMmaCode  MmaCode?
-  toMmaCode    MmaCode
-
-  supplierId   Int
-  supplier     Supplier   @relation(fields: [supplierId], references: [id])
-
-  dispatchShade Shade
-  receiveShade  Shade?
-  dispatchAmount    Int?
-  receiveAmount    Int?
-
-  dispatchQty   Float
-  receiveQty    Float?
-
-  transportId   Int?
-  transport     Transport? @relation("Transport_rawMaterial3s", fields: [transportId], references: [id])
-
-  processId     Int?
-  process       Process?   @relation("Process_rawMaterial3s", fields: [processId], references: [id])
-
-  meta          Json?
-  createdAt     DateTime   @default(now())
-  receivedAt    DateTime?
-
-  @@index([toMmaCode, status, createdAt])
-  @@index([fromMmaCode, status, createdAt])
-  @@index([toMmaCode, supplierId, status])
-  @@index([fromMmaCode, supplierId, status])
-  @@index([transportId])
-  @@index([processId])
-  @@map("rawMaterial3s")
+  @@unique([transportId, type])       // prevents double RECEIVE/CANCEL
+  @@index([fromMmaCode])
+  @@index([toMmaCode])
+  @@index([createdAt])
+  @@map("processed_transport")
 }

@@ -51,15 +51,17 @@
     {/if}
   
     <form method="POST" action="?/submit" use:enhance bind:this={formEl}>
+    
       <div class="row">
         <label class="req" for="mmaCode">MMA</label>
         <select id="mmaCode" name="mmaCode" required>
           <option value="">Pick one…</option>
-          {#each data.mmaList as code}
-            <option value={code}>{code}</option>
-          {/each}
+          <option value="ABS_PROCESSED">ABS_PROCESSED</option>
+          <option value="PSS_PROCESSED">PSS_PROCESSED</option>
+          <option value="PSS_SORTED">PSS_SORTED</option>
         </select>
       </div>
+      
   
       <div class="row">
         <label class="req" for="supplierId">Supplier</label>
