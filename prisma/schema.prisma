@@ -1,6 +1,6 @@
 // -----------------------------------------------------
 // Prisma Schema — SQLite
-// Stage: processed (append-only: ledger + transport)
+// Stages: raw, processed, sorted (append-only: ledger + transport)
 // -----------------------------------------------------
 
 generator client {
@@ -18,6 +18,7 @@ enum Size {
   LUMPS
   CHIPS
   FINE
+  ANY          // unify 3s/4s: raw uses ANY
 }
 
 enum Shade {
@@ -56,19 +57,27 @@ model Supplier {
   name  String
   code  String @unique
 
-  // Opposite sides of the relations (required)
+  // processed back-relations
   processedLedgerRows    ProcessedLedger[]    @relation("SupplierToProcessedLedger")
   processedTransportRows ProcessedTransport[] @relation("SupplierToProcessedTransport")
+
+  // raw back-relations
+  rawLedgerRows          RawLedger[]          @relation("SupplierToRawLedger")
+  rawTransportRows       RawTransport[]       @relation("SupplierToRawTransport")
+
+  // sorted back-relations
+  sortedLedgerRows       SortedLedger[]       @relation("SupplierToSortedLedger")
+  sortedTransportRows    SortedTransport[]    @relation("SupplierToSortedTransport")
 }
 
 // -------------------- processed (stage) ---------------
-// Append-only postings that drive on-hand math
+
 model ProcessedLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
   mmaCode      MmaCode
-  stationCode  String?      // optional pass-through (UI/logs)
+  stationCode  String?
 
   supplierId   Int
   supplier     Supplier     @relation("SupplierToProcessedLedger", fields: [supplierId], references: [id])
@@ -76,9 +85,9 @@ model ProcessedLedger {
   shade        Shade
   size         Size
 
-  qtyDelta     Float        // +qty or -qty
-  reason       LedgerReason // DIRECT | PROCESS | TRANSPORT | REVERSAL | ADJUST
-  linkId       String?      // transportId or processId (for lineage)
+  qtyDelta     Float
+  reason       LedgerReason
+  linkId       String?
   meta         Json?
 
   @@index([mmaCode, createdAt])
@@ -87,13 +96,12 @@ model ProcessedLedger {
   @@map("processed_ledger")
 }
 
-// Append-only transport events; compare DISPATCH vs RECEIVE by transportId
 model ProcessedTransport {
   id               Int                 @id @default(autoincrement())
   createdAt        DateTime            @default(now())
 
   transportId      String
-  type             TransportEventType  // DISPATCH | RECEIVE | CANCEL
+  type             TransportEventType
 
   fromMmaCode      MmaCode?
   toMmaCode        MmaCode?
@@ -107,12 +115,122 @@ model ProcessedTransport {
   size             Size
 
   qty              Float
-  amount           Int?                // money (e.g., cents)
+  amount           Int?
   meta             Json?
 
-  @@unique([transportId, type])       // prevents double RECEIVE/CANCEL
-  @@index([transportId])              // auditTransport()
-  @@index([fromMmaCode, createdAt])   // outbound()
-  @@index([toMmaCode, createdAt])     // inbound()
+  @@unique([transportId, type])
+  @@index([transportId])
+  @@index([fromMmaCode, createdAt])
+  @@index([toMmaCode, createdAt])
   @@map("processed_transport")
+}
+
+// -------------------- raw (stage) ---------------------
+
+model RawLedger {
+  id           Int          @id @default(autoincrement())
+  createdAt    DateTime     @default(now())
+
+  mmaCode      MmaCode
+  stationCode  String?
+
+  supplierId   Int
+  supplier     Supplier     @relation("SupplierToRawLedger", fields: [supplierId], references: [id])
+
+  shade        Shade
+  size         Size         // will be ANY for raw
+
+  qtyDelta     Float
+  reason       LedgerReason
+  linkId       String?
+  meta         Json?
+
+  @@index([mmaCode, createdAt])
+  @@index([mmaCode, supplierId, shade, size])
+  @@index([linkId])
+  @@map("raw_ledger")
+}
+
+model RawTransport {
+  id               Int                 @id @default(autoincrement())
+  createdAt        DateTime            @default(now())
+
+  transportId      String
+  type             TransportEventType
+
+  fromMmaCode      MmaCode?
+  toMmaCode        MmaCode?
+  fromStationCode  String?
+  toStationCode    String?
+
+  supplierId       Int
+  supplier         Supplier            @relation("SupplierToRawTransport", fields: [supplierId], references: [id])
+
+  shade            Shade
+  size             Size                // ANY for raw
+
+  qty              Float
+  amount           Int?
+  meta             Json?
+
+  @@unique([transportId, type])
+  @@index([transportId])
+  @@index([fromMmaCode, createdAt])
+  @@index([toMmaCode, createdAt])
+  @@map("raw_transport")
+}
+
+// -------------------- sorted (stage) ------------------
+
+model SortedLedger {
+  id           Int          @id @default(autoincrement())
+  createdAt    DateTime     @default(now())
+
+  mmaCode      MmaCode
+  stationCode  String?
+
+  supplierId   Int
+  supplier     Supplier     @relation("SupplierToSortedLedger", fields: [supplierId], references: [id])
+
+  shade        Shade
+  size         Size
+
+  qtyDelta     Float
+  reason       LedgerReason
+  linkId       String?
+  meta         Json?
+
+  @@index([mmaCode, createdAt])
+  @@index([mmaCode, supplierId, shade, size])
+  @@index([linkId])
+  @@map("sorted_ledger")
+}
+
+model SortedTransport {
+  id               Int                 @id @default(autoincrement())
+  createdAt        DateTime            @default(now())
+
+  transportId      String
+  type             TransportEventType
+
+  fromMmaCode      MmaCode?
+  toMmaCode        MmaCode?
+  fromStationCode  String?
+  toStationCode    String?
+
+  supplierId       Int
+  supplier         Supplier            @relation("SupplierToSortedTransport", fields: [supplierId], references: [id])
+
+  shade            Shade
+  size             Size
+
+  qty              Float
+  amount           Int?
+  meta             Json?
+
+  @@unique([transportId, type])
+  @@index([transportId])
+  @@index([fromMmaCode, createdAt])
+  @@index([toMmaCode, createdAt])
+  @@map("sorted_transport")
 }

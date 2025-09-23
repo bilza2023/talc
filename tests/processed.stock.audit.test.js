@@ -1,14 +1,6 @@
 // tests/processed.stock.audit.test.js
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
-import Stock from '../src/lib/stock/Stock.js';
-
-const prisma = new PrismaClient();
-const processed = new Stock({
-  prisma,
-  ledgerModel: 'processedLedger',
-  transportModel: 'processedTransport',
-});
+import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma, processedStock as processed } from '../src/lib/stocks/index.js';
 
 async function seedSupplier(name = 'Audit Supplier') {
   const code = `SUP-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
@@ -19,10 +11,6 @@ beforeEach(async () => {
   await prisma.processedTransport.deleteMany();
   await prisma.processedLedger.deleteMany();
   await prisma.supplier.deleteMany();
-});
-
-afterAll(async () => {
-  await prisma.$disconnect();
 });
 
 describe.sequential('Stock(processed) — audit (transport/process)', () => {
