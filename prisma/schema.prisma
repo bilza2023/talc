@@ -1,7 +1,6 @@
 // -----------------------------------------------------
 // Prisma Schema — SQLite
-// Stage tables: rawMaterial3s, processed4s, sorted4s
-// Global logs: Transport, Process
+// Stage: processed (append-only: ledger + transport)
 // -----------------------------------------------------
 
 generator client {
@@ -14,18 +13,6 @@ datasource db {
 }
 
 // -------------------- Enums --------------------------
-
-enum BornAs {
-  DEPOSIT
-  TRANSFER
-  PROCESS
-}
-
-enum EdgeStatus {
-  IN_TRANSIT
-  RECEIVED
-  CANCELED
-}
 
 enum Size {
   LUMPS
@@ -48,28 +35,6 @@ enum MmaCode {
   PSS_SORTED
 }
 
-
-
-enum ProcessType {
-  SCREENING
-  SORTING
-  BLENDING
-  OTHER
-}
-
-// -------------------- Reference ----------------------
-
-model Supplier {
-  id   Int    @id @default(autoincrement())
-  name String
-  code String @unique
-
-  rawRows       rawMaterial3s[]
-  processedRows processed4s[]
-  sortedRows    sorted4s[]
-}
-// -------------------- New Enums ----------------------
-
 enum LedgerReason {
   DIRECT
   PROCESS
@@ -84,6 +49,18 @@ enum TransportEventType {
   CANCEL
 }
 
+// -------------------- Reference ----------------------
+
+model Supplier {
+  id    Int    @id @default(autoincrement())
+  name  String
+  code  String @unique
+
+  // Opposite sides of the relations (required)
+  processedLedgerRows    ProcessedLedger[]    @relation("SupplierToProcessedLedger")
+  processedTransportRows ProcessedTransport[] @relation("SupplierToProcessedTransport")
+}
+
 // -------------------- processed (stage) ---------------
 // Append-only postings that drive on-hand math
 model ProcessedLedger {
@@ -92,8 +69,9 @@ model ProcessedLedger {
 
   mmaCode      MmaCode
   stationCode  String?      // optional pass-through (UI/logs)
+
   supplierId   Int
-  supplier     Supplier     @relation(fields: [supplierId], references: [id])
+  supplier     Supplier     @relation("SupplierToProcessedLedger", fields: [supplierId], references: [id])
 
   shade        Shade
   size         Size
@@ -103,6 +81,7 @@ model ProcessedLedger {
   linkId       String?      // transportId or processId (for lineage)
   meta         Json?
 
+  @@index([mmaCode, createdAt])
   @@index([mmaCode, supplierId, shade, size])
   @@index([linkId])
   @@map("processed_ledger")
@@ -110,30 +89,30 @@ model ProcessedLedger {
 
 // Append-only transport events; compare DISPATCH vs RECEIVE by transportId
 model ProcessedTransport {
-  id              Int                 @id @default(autoincrement())
-  createdAt       DateTime            @default(now())
+  id               Int                 @id @default(autoincrement())
+  createdAt        DateTime            @default(now())
 
-  transportId     String
-  type            TransportEventType  // DISPATCH | RECEIVE | CANCEL
+  transportId      String
+  type             TransportEventType  // DISPATCH | RECEIVE | CANCEL
 
-  fromMmaCode     MmaCode?
-  toMmaCode       MmaCode?
-  fromStationCode String?
-  toStationCode   String?
+  fromMmaCode      MmaCode?
+  toMmaCode        MmaCode?
+  fromStationCode  String?
+  toStationCode    String?
 
-  supplierId      Int
-  supplier        Supplier            @relation(fields: [supplierId], references: [id])
+  supplierId       Int
+  supplier         Supplier            @relation("SupplierToProcessedTransport", fields: [supplierId], references: [id])
 
-  shade           Shade
-  size            Size
+  shade            Shade
+  size             Size
 
-  qty             Float
-  amount          Int?                // money (e.g., cents)
-  meta            Json?
+  qty              Float
+  amount           Int?                // money (e.g., cents)
+  meta             Json?
 
   @@unique([transportId, type])       // prevents double RECEIVE/CANCEL
-  @@index([fromMmaCode])
-  @@index([toMmaCode])
-  @@index([createdAt])
+  @@index([transportId])              // auditTransport()
+  @@index([fromMmaCode, createdAt])   // outbound()
+  @@index([toMmaCode, createdAt])     // inbound()
   @@map("processed_transport")
 }
