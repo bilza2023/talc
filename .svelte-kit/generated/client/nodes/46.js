@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/stations-old/bs3/+page.svelte";

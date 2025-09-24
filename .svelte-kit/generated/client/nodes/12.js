@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/forms/dispatch/+page.svelte";
+export { default as component } from "../../../../src/routes/dashboard/ore_batches/+page.svelte";
