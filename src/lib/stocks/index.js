@@ -6,20 +6,20 @@ export const prisma = new PrismaClient();
 
 export const rawStock = new Stock({
   prisma,
-  ledgerModel: 'rawLedger',
+  ledgerModel: 'rawLedger', // new name --->unscreened
   transportModel: 'rawTransport',
   sizeDefault: 'ANY',
 });
 
 export const processedStock = new Stock({
   prisma,
-  ledgerModel: 'processedLedger',
+  ledgerModel: 'processedLedger',// new name --->screened
   transportModel: 'processedTransport',
 });
 
 export const sortedStock = new Stock({
   prisma,
-  ledgerModel: 'sortedLedger',
+  ledgerModel: 'sortedLedger', // new name --->production
   transportModel: 'sortedTransport',
 });
 

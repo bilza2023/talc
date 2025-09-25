@@ -29,12 +29,6 @@ enum Shade {
   MIXED
 }
 
-enum MmaCode {
-  ABS_RAW
-  ABS_PROCESSED
-  PSS_PROCESSED
-  PSS_SORTED
-}
 
 enum LedgerReason {
   DIRECT
@@ -76,7 +70,7 @@ model ProcessedLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
-  mmaCode      MmaCode
+  mmaCode      String?
   stationCode  String?
 
   supplierId   Int
@@ -103,8 +97,8 @@ model ProcessedTransport {
   transportId      String
   type             TransportEventType
 
-  fromMmaCode      MmaCode?
-  toMmaCode        MmaCode?
+  fromMmaCode      String?
+  toMmaCode        String?
   fromStationCode  String?
   toStationCode    String?
 
@@ -131,7 +125,7 @@ model RawLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
-  mmaCode      MmaCode
+  mmaCode      String
   stationCode  String?
 
   supplierId   Int
@@ -158,8 +152,8 @@ model RawTransport {
   transportId      String
   type             TransportEventType
 
-  fromMmaCode      MmaCode?
-  toMmaCode        MmaCode?
+  fromMmaCode      String?
+  toMmaCode        String?
   fromStationCode  String?
   toStationCode    String?
 
@@ -186,7 +180,7 @@ model SortedLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
-  mmaCode      MmaCode
+  mmaCode      String
   stationCode  String?
 
   supplierId   Int
@@ -213,8 +207,8 @@ model SortedTransport {
   transportId      String
   type             TransportEventType
 
-  fromMmaCode      MmaCode?
-  toMmaCode        MmaCode?
+  fromMmaCode      String?
+  toMmaCode        String?
   fromStationCode  String?
   toStationCode    String?
 

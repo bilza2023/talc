@@ -54,7 +54,8 @@ export const nodes = [
 	() => import('./nodes/50'),
 	() => import('./nodes/51'),
 	() => import('./nodes/52'),
-	() => import('./nodes/53')
+	() => import('./nodes/53'),
+	() => import('./nodes/54')
 ];
 
 export const server_loads = [3];
@@ -92,24 +93,25 @@ export const dictionary = {
 		"/process/screen": [~33],
 		"/process/sort": [34],
 		"/settings": [35],
-		"/stations-old": [~42],
-		"/stations-old/abs": [~43],
-		"/stations-old/bs1": [~44],
-		"/stations-old/bs2": [~45],
-		"/stations-old/bs3": [~46],
-		"/stations-old/jss": [~47],
-		"/stations-old/kef": [~48],
-		"/stations-old/pss": [~49],
+		"/stations-old": [~43],
+		"/stations-old/abs": [~44],
+		"/stations-old/bs1": [~45],
+		"/stations-old/bs2": [~46],
+		"/stations-old/bs3": [~47],
+		"/stations-old/jss": [~48],
+		"/stations-old/kef": [~49],
+		"/stations-old/pss": [~50],
 		"/stations/abs": [~36],
 		"/stations/abs/purchase": [~37],
-		"/stations/jss": [~38],
-		"/stations/kef": [~39],
-		"/stations/pss": [~40],
-		"/stations/slots": [~41],
-		"/suppliers": [~50],
-		"/talc/deposit": [~51],
-		"/talc/dispatch": [~52],
-		"/talc/receive": [~53]
+		"/stations/abs/slots": [~38],
+		"/stations/jss": [~39],
+		"/stations/kef": [~40],
+		"/stations/pss": [~41],
+		"/stations/slots": [~42],
+		"/suppliers": [~51],
+		"/talc/deposit": [~52],
+		"/talc/dispatch": [~53],
+		"/talc/receive": [~54]
 	};
 
 export const hooks = {
