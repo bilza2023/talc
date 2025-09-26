@@ -1,6 +1,6 @@
 
 // /src/lib/core/abs/abs.screened.js
-import { processedStock } from '$lib/stocks/index.js';
+import { processedStock } from '../../stocks/index.js';
 
 const STATION = 'ABS';
 const MMA_CODE = 'ABS_SCREENED';

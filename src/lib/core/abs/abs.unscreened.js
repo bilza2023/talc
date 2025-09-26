@@ -1,6 +1,6 @@
 
 // /src/lib/core/abs/abs.unscreened.js
-import { rawStock } from '$lib/stocks/index.js';
+import { rawStock } from '../../stocks/index.js';
 
 const STATION = 'ABS';
 const MMA_CODE = 'ABS_UNSCREENED_RAW';

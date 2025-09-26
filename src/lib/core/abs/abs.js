@@ -2,7 +2,7 @@
 // ABS façade: one object literal that exposes 9 verbs and hides MMA/category wiring.
 import AbsUnscreened from './abs.unscreened.js';
 import AbsScreened from './abs.screened.js';
-import { rawStock, processedStock } from '$lib/stocks/index.js';
+import { rawStock, processedStock } from '../../stocks/index.js';
 import getStationSuppliers from '../getStationSuppliers.js';
 
 const STATION = 'ABS';

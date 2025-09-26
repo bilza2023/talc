@@ -1,4 +1,4 @@
-import { prisma } from '$lib/stocks/index.js';
+import { prisma } from '../stocks/index.js';
 
 export default async function getStationSuppliers(ids = []) {
   // normalize & dedupe
