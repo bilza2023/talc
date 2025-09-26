@@ -9,5 +9,4 @@
     });
   </script>
   
-  <!-- Intentionally minimal: visual UI comes later -->
-ok  
+<h1>OK</h1>  

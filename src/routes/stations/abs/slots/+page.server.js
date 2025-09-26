@@ -1,72 +1,77 @@
-// Station: ABS — Slots overview (by MMA)
-// Lists each MMA's positive slots and provides pre-filled action links.
+// /home/bilal-tariq/ab/src/routes/stations/abs/slots/+page.server.js
+import { error } from '@sveltejs/kit';
+import Abs from '$lib/core/abs/abs.js';
 
-import { rawStock, processedStock, sortedStock } from '$lib/stocks/index.js';
-import { stations } from '../../../../lib/stations/stations';
-
-// Hard-set for this route
 const STATION_CODE = 'ABS';
 
-// Where each ABS MMA is allowed to dispatch
-// (keep this small and explicit; UI reads from here)
-const DISPATCH_TARGETS = {
-  ABS_RAW: [], // raw normally goes to 'screen' (process) not dispatch
-  ABS_PROCESSED: [
-    { toStationCode: 'PSS', toMmaCode: 'PSS_PROCESSED', label: '→ PSS / PROCESSED' }
-  ],
-  // add more later if needed
+// Hard-whitelisted routes for this station's MMAs (UI-friendly labels + URL params)
+const DISPATCH_ROUTES = {
+  ABS_UNSCREENED_RAW: [
+    { toStation: 'PSS', toMma: 'PSS_SORTED', label: '→ PSS / SORTED' },
+    { toStation: 'KEF', toMma: 'KEF_SORTED', label: '→ KEF / SORTED' }
+  ]
 };
 
-const STOCK_BY_MMA = {
-  ABS_RAW: rawStock,
-  ABS_PROCESSED: processedStock,
-  // add ABS_SORTED if you create it later
+// Process links per MMA (local transformations)
+const PROCESS_ROUTES = {
+  ABS_UNSCREENED_RAW: [
+    { toMma: 'ABS_SCREENED', label: 'Screen (→ ABS_SCREENED)' }
+  ]
 };
 
-export async function load() {
-  const station = stations.ABS; // { stationCode, mmas:[{mmaCode,stock}] }
-  const mmaCodes = station.mmas.map(m => m.mmaCode);
+/** @type {import('./$types').PageServerLoad} */
+export const load = async () => {
+  const station = Abs;
+  if (!station) throw error(500, 'ABS station not available');
 
+  // Build sections per MMA using the MMA **instance API**
+  const mmaEntries = Object.entries(station.mmas);
   const sections = [];
-  for (const mmaCode of mmaCodes) {
-    const stock = STOCK_BY_MMA[mmaCode];
-    if (!stock) continue;
 
-    const slots = await stock.slots({ mmaCode, positiveOnly: true }); // [{supplierId,shade,size,qty},...]
+  for (const [mmaCode, mma] of mmaEntries) {
+    // positive-only live slots; switch to { activeOnly:false } to debug full grid
+    const slots = await mma.slots({ activeOnly: true }); // [{ supplierId, supplierName, shade, size, qty, ... }]
 
-    // Attach precomputed dispatch links per slot
-    const rows = slots.map(s => {
-      const common = `fromStation=${STATION_CODE}&fromMma=${mmaCode}` +
-                     `&supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}` +
-                     `&size=${encodeURIComponent(s.size)}`;
-      const dispatchLinks = (DISPATCH_TARGETS[mmaCode] ?? []).map(t => ({
-        label: t.label,
-        href: `/stations/${STATION_CODE}/dispatch?${common}` +
-              `&toStation=${t.toStationCode}&toMma=${t.toMmaCode}`
+    const rows = slots.map((s) => {
+      const common =
+        `fromStation=${encodeURIComponent(STATION_CODE)}` +
+        `&fromMma=${encodeURIComponent(mmaCode)}` +
+        `&supplierId=${encodeURIComponent(s.supplierId)}` +
+        `&shade=${encodeURIComponent(s.shade)}` +
+        `&size=${encodeURIComponent(s.size)}`;
+
+      const dispatchLinks = (DISPATCH_ROUTES[mmaCode] ?? []).map((r) => ({
+        label: r.label,
+        // use a central process/dispatch route; adjust if your app uses another path
+        href:
+          `/process/dispatch?${common}` +
+          `&toStation=${encodeURIComponent(r.toStation)}` +
+          `&toMma=${encodeURIComponent(r.toMma)}`
       }));
-      const processLinks = [];
-      // Example: screen from RAW, sort from PROCESSED (optional pages)
-      if (mmaCode === 'ABS_RAW') {
-        processLinks.push({
-          label: 'Screen (RAW → PROCESSED)',
-          href: `/stations/${STATION_CODE}/screen?${common}&toMma=ABS_PROCESSED`
-        });
-      }
-      if (mmaCode === 'ABS_PROCESSED') {
-        processLinks.push({
-          label: 'Sort (PROCESSED → SORTED)',
-          href: `/stations/${STATION_CODE}/sort?${common}&toMma=ABS_SORTED`
-        });
-      }
 
-      return { ...s, dispatchLinks, processLinks };
+      const processLinks = (PROCESS_ROUTES[mmaCode] ?? []).map((p) => ({
+        label: p.label,
+        // screen is a local process (withdraw→deposit): handled by the process route
+        href: `/process/screen?${common}&toMma=${encodeURIComponent(p.toMma)}`
+      }));
+
+      return {
+        supplierId: s.supplierId,
+        supplierName: s.supplierName,
+        shade: s.shade,
+        size: s.size,
+        qty: s.qty,
+        dispatchLinks,
+        processLinks
+      };
     });
 
     sections.push({ mmaCode, rows });
   }
 
   return {
-    stationCode: STATION_CODE,
-    sections,                  // [{ mmaCode, rows:[{supplierId,shade,size,qty,dispatchLinks,processLinks}] }]
+    stationCode: station.code,
+    stationName: station.name,
+    sections // [{ mmaCode, rows: [...] }]
   };
-}
+};

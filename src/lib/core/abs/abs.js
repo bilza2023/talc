@@ -1,54 +1,58 @@
-// /home/bilal-tariq/ab/src/lib/core/abs/abs.js
-import Mma from '$lib/core/Mma.js';
-import createAbsUnscreenedRaw from '$lib/core/abs/abs_unscreened_raw.js';
-import { rawStock, sortedStock } from '$lib/stocks/index.js';
+// /src/lib/core/abs/abs.js
+// ABS façade: one object literal that exposes 9 verbs and hides MMA/category wiring.
+import AbsUnscreened from './abs.unscreened.js';
+import AbsScreened from './abs.screened.js';
+import { rawStock, processedStock } from '$lib/stocks/index.js';
+import getStationSuppliers from '../getStationSuppliers.js';
 
-const STATION_CODE = 'ABS';
-const MMA_UNSCREENED = 'ABS_UNSCREENED_RAW';
-const MMA_SCREENED   = 'ABS_SCREENED';
-
-// Station-level policy lists
-const SHADE_LIST = ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
-const SIZE_LIST  = ['LUMPS', 'CHIPS', 'FINE'];
-
-// Hard-coded suppliers for ABS
-const SUPPLIERS_ABS = [{ id: 540, name: 'ABS Supplier' }];
-
-async function getSuppliersABS() {
-  return SUPPLIERS_ABS;
-}
-
-// Base Mma (has onHand/slots/inbound/outbound)
-const baseUnscreened = new Mma({
-  stationCode: STATION_CODE,
-  mmaCode: MMA_UNSCREENED,
-  stock: rawStock,
-  shadeList: SHADE_LIST,
-  sizeList: SIZE_LIST,
-  services: { getSuppliers: getSuppliersABS }
-});
-
-// Capability wrapper (only business verbs)
-const caps = createAbsUnscreenedRaw({
-  base: baseUnscreened,
-  depositToScreened: (payload) =>
-    sortedStock.deposit({ ...payload, mmaCode: MMA_SCREENED })
-});
-
-// Compose: expose BOTH business verbs and base pass-throughs
-const abs_unscreened_raw = {
-  ...caps,
-  onHand:   (...a) => baseUnscreened.onHand(...a),
-  slots:    (o)    => baseUnscreened.slots(o),
-  inbound:  (...a) => baseUnscreened.inbound(...a),
-  outbound: (...a) => baseUnscreened.outbound(...a)
-};
+const STATION = 'ABS';
+const SHADES = ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
+const SIZES  = ['LUMPS', 'CHIPS', 'FINE'];
 
 const Abs = {
-  code: STATION_CODE,
-  name: 'Abbottabad Sorting Station',
-  mmas: { [MMA_UNSCREENED]: abs_unscreened_raw },
-  mma(code) { return this.mmas[code] ?? null; }
+  /* Station identity + UI helpers */
+  code: STATION,
+  mma: { UNSCREENED: AbsUnscreened.code, SCREENED: AbsScreened.code },
+  async suppliers() { return getStationSuppliers(STATION); },
+  shades: SHADES,
+  sizes: SIZES,
+
+  /* Unscreened verbs (from MMA module) */
+  purchaseUnscreened: AbsUnscreened.purchaseUnscreened,
+  dispatchUnscreenedToPss: AbsUnscreened.dispatchUnscreenedToPss,
+  dispatchUnscreenedToKef: AbsUnscreened.dispatchUnscreenedToKef,
+  receiveUnscreened: AbsUnscreened.receiveUnscreened,
+
+  /* Screened verbs (from MMA module) */
+  purchaseScreened: AbsScreened.purchaseScreened,
+  dispatchScreenedToPss: AbsScreened.dispatchScreenedToPss,
+  dispatchScreenedToKef: AbsScreened.dispatchScreenedToKef,
+  receiveScreened: AbsScreened.receiveScreened,
+
+  /* Process: Unscreened → Screened (internal, orchestrated here) */
+  async screening({ supplierId, shade, size, qty, meta } = {}) {
+    // 1) create an in-transit row from UNSCREENED to SCREENED
+    const out = await rawStock.dispatch({
+      fromStationCode: STATION,
+      fromMmaCode: AbsUnscreened.code,
+      toStationCode: STATION,
+      toMmaCode: AbsScreened.code,
+      supplierId: Number(supplierId),
+      shade, size,
+      createdTon: Number(qty),
+      meta: meta && typeof meta === 'object' ? meta : {},
+      bornAs: 'process:screening'
+    });
+
+    // 2) complete at SCREENED
+    const rowId = out?.id ?? out?.rowId;
+    return processedStock.receive({
+      stationCode: STATION,
+      mmaCode: AbsScreened.code,
+      rowId,
+      meta: meta && typeof meta === 'object' ? meta : {}
+    });
+  }
 };
 
 export default Abs;
