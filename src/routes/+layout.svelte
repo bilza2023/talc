@@ -1,4 +1,4 @@
-<script>
+<!-- <script>
   import '$lib/styles/tokens.css';
   import '$lib/styles/themes.css';
   import Nav from '$lib/components/Nav.svelte';
@@ -28,4 +28,4 @@
 <style>
   :global(html, body){ margin:0; padding:0; background:var(--backgroundColor); color:var(--primaryText); }
   .app{ min-height:100dvh; background:var(--backgroundColor); color:var(--primaryText); }
-</style>
+</style> -->

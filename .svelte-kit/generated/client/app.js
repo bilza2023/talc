@@ -54,9 +54,7 @@ export const nodes = [
 	() => import('./nodes/50'),
 	() => import('./nodes/51'),
 	() => import('./nodes/52'),
-	() => import('./nodes/53'),
-	() => import('./nodes/54'),
-	() => import('./nodes/55')
+	() => import('./nodes/53')
 ];
 
 export const server_loads = [3,4];
@@ -103,16 +101,14 @@ export const dictionary = {
 		"/stations-old/kef": [~50],
 		"/stations-old/pss": [~51],
 		"/stations/abs": [37,[4]],
-		"/stations/abs/purchase_unscreened": [38,[4]],
-		"/stations/abs/slots": [~39,[4]],
+		"/stations/abs/purchase_screened": [38,[4]],
+		"/stations/abs/purchase_unscreened": [39,[4]],
 		"/stations/jss": [~40],
 		"/stations/kef": [~41],
 		"/stations/pss": [~42],
 		"/stations/slots": [~43],
 		"/suppliers": [~52],
-		"/talc/deposit": [~53],
-		"/talc/dispatch": [~54],
-		"/talc/receive": [~55]
+		"/unscreened": [~53]
 	};
 
 export const hooks = {
