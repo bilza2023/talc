@@ -39,8 +39,8 @@ export const dictionary = {
 		"/process/sort": [13],
 		"/settings": [14],
 		"/stations/abs": [15,[2]],
-		"/stations/abs/purchase_screened": [16,[2]],
-		"/stations/abs/purchase_unscreened": [17,[2]],
+		"/stations/abs/purchase_screened": [~16,[2]],
+		"/stations/abs/purchase_unscreened": [~17,[2]],
 		"/suppliers": [~18],
 		"/unscreened": [~19]
 	};

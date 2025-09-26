@@ -1,30 +1,36 @@
 // /src/routes/stations/abs/+layout.server.js
-import Abs from '$lib/core/abs/abs.js';
+import { PrismaClient } from '@prisma/client';
 
-export const load = async () => {
-  // ensure names are present
-  const suppliers =
-    (Abs.suppliers ?? [{ id: 263 }, { id: 264 }, { id: 265 }]).map(s => ({
-      id: s.id,
-      name: s.name ?? String(s.id)
-    }));
-  const shades = Abs.shades ?? ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
-  const sizes  = Abs.sizes  ?? ['LUMPS', 'CHIPS', 'FINE'];
+/* Reuse a single Prisma instance in dev */
+const prisma = globalThis.__prisma ?? new PrismaClient();
+if (!globalThis.__prisma) globalThis.__prisma = prisma;
 
-  const defaults = {
-    supplierId: suppliers[0]?.id ?? '',
-    shade:      shades[0] ?? '',
-    size:       sizes[0] ?? '',
-    qty:        ''
-  };
+/** @type {import('./$types').LayoutServerLoad} */
+export async function load() {
+  const stationCode = 'ABS';
+
+  // 1) Get suppliers as a plain array (safe for .map in Svelte)
+  const suppliers = await prisma.supplier.findMany({
+    where: { /* add station-specific filter if/when you model it */ },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, code: true }
+  });
+
+  // 2) Hard options for now (match your enums)
+  const shadeOptions = ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
+  const sizeOptions  = ['LUMPS', 'CHIPS', 'FINE', 'ANY'];
+
+  // 3) Whatever MMAs you want visible on ABS page (adjust later)
+  const mmas = [
+    { mmaCode: 'ABS_UNSCREENED_RAW', label: 'Unscreened (RAW)' },
+    { mmaCode: 'ABS_SCREENED',       label: 'Screened (PROCESSED)' }
+  ];
 
   return {
-    stationName: 'Abbottabad Sorting Station',
-    stationCode: Abs.code,
-    mmaCode:     Abs.mmaCode,
-    suppliers,
-    shades,
-    sizes,
-    defaults
+    stationCode,
+    suppliers,      // ← array, safe to {#each}
+    shadeOptions,
+    sizeOptions,
+    mmas
   };
-};
+}

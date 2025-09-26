@@ -9,4 +9,5 @@
     });
   </script>
   
-<h1>OK</h1>  
+<a href="/stations/abs/purchase_unscreened">stations/abs/purchase_unscreened</a> 
+<a href="/stations/abs/purchase_screened">purchase_screened</a> 
