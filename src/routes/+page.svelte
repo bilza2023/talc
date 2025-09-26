@@ -39,7 +39,6 @@
   function handleChange(e) { selected = e.detail; }
 </script>
 
- 
   <div class="home-nav">
     <HomeNav items={categories} iconMap={iconMap} value={selected} on:change={(e)=>selected=e.detail} />
   </div>
