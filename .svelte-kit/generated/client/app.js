@@ -24,33 +24,38 @@ export const nodes = [
 	() => import('./nodes/20'),
 	() => import('./nodes/21'),
 	() => import('./nodes/22'),
-	() => import('./nodes/23')
+	() => import('./nodes/23'),
+	() => import('./nodes/24'),
+	() => import('./nodes/25'),
+	() => import('./nodes/26')
 ];
 
-export const server_loads = [2];
+export const server_loads = [2,3];
 
 export const dictionary = {
-		"/": [3],
-		"/actions/cancel": [~4],
-		"/actions/deposit": [~5],
-		"/actions/dispatch": [~6],
-		"/actions/receive": [~7],
-		"/actions/withdraw": [~8],
-		"/help/dashboard": [9],
-		"/home": [10],
-		"/mines": [11],
-		"/process/screen": [~12],
-		"/process/sort": [13],
-		"/settings": [14],
-		"/stations/abs": [15,[2]],
-		"/stations/abs/abs_screened": [~16,[2]],
-		"/stations/abs/abs_unscreened_raw": [~17,[2]],
-		"/stations/abs/dispatch_kef_screened": [~18,[2]],
-		"/stations/abs/dispatch_pss_screened": [~19,[2]],
-		"/stations/abs/purchase_screened": [~20,[2]],
-		"/stations/abs/purchase_unscreened": [~21,[2]],
-		"/stock/unscreened": [~22],
-		"/suppliers": [~23]
+		"/": [4],
+		"/actions/cancel": [~5],
+		"/actions/deposit": [~6],
+		"/actions/dispatch": [~7],
+		"/actions/receive": [~8],
+		"/actions/withdraw": [~9],
+		"/help/dashboard": [10],
+		"/home": [11],
+		"/mines": [12],
+		"/process/screen": [~13],
+		"/process/sort": [14],
+		"/settings": [15],
+		"/stations/abs": [16,[2]],
+		"/stations/abs/abs_screened": [~17,[2]],
+		"/stations/abs/abs_unscreened_raw": [~18,[2]],
+		"/stations/abs/dispatch_kef_screened": [~19,[2]],
+		"/stations/abs/dispatch_pss_screened": [~20,[2]],
+		"/stations/abs/purchase_screened": [~21,[2]],
+		"/stations/abs/purchase_unscreened": [~22,[2]],
+		"/stations/pss": [23,[3]],
+		"/stations/pss/receive_abs_screened": [~24,[3]],
+		"/stock/unscreened": [~25],
+		"/suppliers": [~26]
 	};
 
 export const hooks = {
