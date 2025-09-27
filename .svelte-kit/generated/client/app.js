@@ -20,7 +20,11 @@ export const nodes = [
 	() => import('./nodes/16'),
 	() => import('./nodes/17'),
 	() => import('./nodes/18'),
-	() => import('./nodes/19')
+	() => import('./nodes/19'),
+	() => import('./nodes/20'),
+	() => import('./nodes/21'),
+	() => import('./nodes/22'),
+	() => import('./nodes/23')
 ];
 
 export const server_loads = [2];
@@ -39,10 +43,14 @@ export const dictionary = {
 		"/process/sort": [13],
 		"/settings": [14],
 		"/stations/abs": [15,[2]],
-		"/stations/abs/purchase_screened": [~16,[2]],
-		"/stations/abs/purchase_unscreened": [~17,[2]],
-		"/suppliers": [~18],
-		"/unscreened": [~19]
+		"/stations/abs/abs_screened": [~16,[2]],
+		"/stations/abs/abs_unscreened_raw": [~17,[2]],
+		"/stations/abs/dispatch_kef_screened": [~18,[2]],
+		"/stations/abs/dispatch_pss_screened": [~19,[2]],
+		"/stations/abs/purchase_screened": [~20,[2]],
+		"/stations/abs/purchase_unscreened": [~21,[2]],
+		"/stock/unscreened": [~22],
+		"/suppliers": [~23]
 	};
 
 export const hooks = {
