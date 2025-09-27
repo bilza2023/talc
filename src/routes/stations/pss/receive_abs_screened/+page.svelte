@@ -1,92 +1,102 @@
+<!-- /src/routes/stations/pss/receive_screened/+page.svelte -->
 <script>
-  export let data;
+  export let data; // { stationCode, lane, rows }
   export let form;
 
-  const { stationCode, lane, rows } = data;
+  const { stationCode, lane, rows = [] } = data;
+  const justId = form?.received?.transportId;
+  const fmt = (ts) => new Date(ts).toLocaleString();
 </script>
 
-<h1>{stationCode} — Receive (ABS → PSS_SCREENED)</h1>
-<p>Lane: <strong>{lane}</strong></p>
+<header class="page-h">
+  <h1 class="page-title">{stationCode} — Receive (ABS → PSS_SCREENED)</h1>
+  <p class="page-sub">Lane: <strong>{lane}</strong></p>
+</header>
 
 {#if form?.success}
-  <div class="alert ok">Received <code>{form.received.transportId}</code>.</div>
+  <p class="success" aria-live="polite">
+    Received <code>{justId}</code>.
+  </p>
 {:else if form?.error}
-  <div class="alert err">
+  <p class="error" aria-live="polite">
     {form.error}{#if form.detail} — <code>{form.detail}</code>{/if}
-  </div>
+  </p>
 {/if}
 
 {#if rows.length === 0}
   <p class="muted">No inbound dispatches from ABS for <strong>PSS_SCREENED</strong>.</p>
 {:else}
-  <table class="grid">
-    <thead>
-      <tr>
-        <th>When</th>
-        <th>SupplierId</th>
-        <th>Shade / Size</th>
-        <th>Dispatched Qty (t)</th>
-        <th>Incoming Qty (t)</th>
-        <th>Amount</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each rows as r}
-        <tr>
-          <td>{new Date(r.createdAt).toLocaleString()}</td>
-          <td>{r.supplierId}</td>
-          <td>{r.shade} / {r.size}</td>
-          <td>{r.dispatchedQty}</td>
-          <td>
-            <form method="POST" action="?/receiveOne" class="inline">
-              <input type="hidden" name="transportId" value={r.transportId} />
-              <input type="hidden" name="supplierId" value={r.supplierId} />
+  <div class="stack">
+    {#each rows as r}
+      <section class="card {justId === r.transportId ? 'is-received' : ''}">
+        <header class="card-h">
+          <div class="title">
+            <strong>Dispatch</strong> <code>{r.transportId}</code>
+          </div>
+          <div class="meta">
+            <span>{fmt(r.createdAt)}</span>
+            <span>Supplier #{r.supplierId}</span>
+            <span>{r.shade} / {r.size}</span>
+            <span>Dispatched: {r.dispatchedQty}t</span>
+          </div>
+        </header>
 
-              <!-- Incoming/measured qty (required). Default to dispatched qty, but editable -->
+        <form method="POST" action="?/receiveOne" class="form compact" autocomplete="off">
+          <input type="hidden" name="transportId" value={r.transportId} />
+          <input type="hidden" name="supplierId" value={r.supplierId} />
+
+          <div class="row">
+            <label class="req" for={`qty-${r.transportId}`}>Incoming Qty (t)</label>
+            <div>
               <input
-                type="number"
+                id={`qty-${r.transportId}`}
                 name="qty"
+                type="number"
                 step="0.001"
                 min="0.001"
                 required
                 value={r.dispatchedQty}
-                title="Incoming weight in tons"
-                style="width:8ch"
               />
+              <div class="hint">Defaulted to dispatched; edit if needed</div>
+            </div>
+          </div>
 
-              <!-- Optional amount -->
-              <input
-                type="number"
-                name="amount"
-                step="1"
-                inputmode="numeric"
-                placeholder="amount"
-                title="Amount (optional)"
-                style="width:9ch; margin-left:.4rem;"
-              />
+          <div class="row">
+            <label for={`amount-${r.transportId}`}>Amount</label>
+            <input
+              id={`amount-${r.transportId}`}
+              name="amount"
+              type="number"
+              step="1"
+              inputmode="numeric"
+              placeholder="Optional"
+            />
+          </div>
 
-              <button type="submit" style="margin-left:.5rem;">Receive</button>
-            </form>
-          </td>
-          <td><!-- amount column is in the form above; left empty for compactness --></td>
-          <td><!-- submit button lives in the form, same cell --></td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
+          <div class="actions">
+            {#if justId === r.transportId}
+              <button type="button" class="secondary" disabled>Received</button>
+            {:else}
+              <input type="submit" class="primary" value="Receive" />
+            {/if}
+          </div>
+        </form>
+      </section>
+    {/each}
+  </div>
 {/if}
 
 <style>
-  h1 { margin: 0 0 0.5rem; }
-  .muted { opacity: 0.7; }
-  .inline { display: inline-flex; align-items: center; }
-  .alert {
-    padding: .6rem .8rem; border-radius: .5rem; margin:.5rem 0;
-    border:1px solid #444; background: rgba(255,255,255,.03);
-  }
-  .ok  { border-color:#2d7; box-shadow:0 0 0 2px rgba(45,215,120,.12); }
-  .err { border-color:#e55; box-shadow:0 0 0 2px rgba(229,85,85,.12); }
-  table.grid { width:100%; border-collapse: collapse; }
-  table.grid th, table.grid td { padding:.5rem .6rem; border-bottom:1px solid #333; text-align:left; }
+  /* tiny, page-local polish for headings only (scoped, won't leak) */
+  .page-h { margin: 0 0 12px; }
+  .page-title { margin: 0 0 4px; font-size: clamp(1.05rem, 2.2vw, 1.35rem); }
+  .page-sub { margin: 0; opacity: .8; font-size: .95rem; }
+
+  /* keep meta line subtle; relies on your global tokens */
+  .card-h .title { font-weight: 600; }
+  .card-h .meta { opacity: .85; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 10px; }
+  .card-h .meta span::after { content: "•"; margin: 0 6px; opacity: .5; }
+  .card-h .meta span:last-child::after { content: ""; }
+
+  .muted { opacity: .75; }
 </style>
