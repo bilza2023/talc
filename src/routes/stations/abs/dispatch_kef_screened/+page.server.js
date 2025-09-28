@@ -1,30 +1,22 @@
-
 import { fail, redirect } from '@sveltejs/kit';
-import { rawStock } from '$lib/stocks/index.js';
+import { processedStock } from '$lib/stocks/index.js';
 
-const FROM_MMA = 'ABS_UNSCREENED_RAW';
-// "screened" label for KEF maps to actual MMA:
-const TO_MMA = 'KEF_SORTED';
+const FROM_MMA = 'ABS_SCREENED';
+const TO_MMA   = 'KEF_SCREENED';
 
 export async function load({ url }) {
   const supplierId = Number(url.searchParams.get('supplierId') || '');
-  const shade = url.searchParams.get('shade') || '';
-  const size = url.searchParams.get('size') || '';
+  const shade      = url.searchParams.get('shade') || '';
+  const size       = url.searchParams.get('size') || '';
+  const qty        = Number(url.searchParams.get('qty') || 0); // optional prefill
 
   if (!supplierId || !shade || !size) {
     return {
-      error: 'Missing supplierId, shade, or size in URL. Open from the slots page.',
+      error: 'Missing supplierId, shade, or size in URL. Open from the ABS Screened Slots page.',
       fromMmaCode: FROM_MMA,
       toMmaCode: TO_MMA
     };
   }
-
-  // Find available qty for this exact slot key
-  const slots = await rawStock.slots({ mmaCode: FROM_MMA, positiveOnly: true });
-  const match = slots.find(
-    s => s.supplierId === supplierId && s.shade === shade && s.size === size
-  );
-  const availableQty = match?.qty ?? 0;
 
   return {
     fromMmaCode: FROM_MMA,
@@ -32,7 +24,7 @@ export async function load({ url }) {
     supplierId,
     shade,
     size,
-    availableQty
+    qty
   };
 }
 
@@ -40,13 +32,12 @@ export const actions = {
   default: async ({ request }) => {
     const data = Object.fromEntries(await request.formData());
     const fromMmaCode = String(data.fromMmaCode || '');
-    const toMmaCode = String(data.toMmaCode || '');
-    const supplierId = Number(data.supplierId || 0);
-    const shade = String(data.shade || '');
-    const size = String(data.size || '');
-    const qty = Number(data.qty || 0);
+    const toMmaCode   = String(data.toMmaCode || '');
+    const supplierId  = Number(data.supplierId || 0);
+    const shade       = String(data.shade || '');
+    const size        = String(data.size || '');
+    const qty         = Number(data.qty || 0);
 
-    // Hard guards for this endpoint
     if (fromMmaCode !== FROM_MMA || toMmaCode !== TO_MMA) {
       return fail(400, { error: 'Wrong MMA endpoint.', posted: data });
     }
@@ -54,17 +45,7 @@ export const actions = {
       return fail(400, { error: 'supplierId, shade, size, qty are required', posted: data });
     }
 
-    // Optional pre-check against current availability
-    const slots = await rawStock.slots({ mmaCode: FROM_MMA, positiveOnly: true });
-    const match = slots.find(
-      s => s.supplierId === supplierId && s.shade === shade && s.size === size
-    );
-    const available = match?.qty ?? 0;
-    if (qty > available) {
-      return fail(400, { error: `Insufficient on-hand: ${available}t available`, posted: data });
-    }
-
-    await rawStock.dispatch({
+    await processedStock.dispatch({
       fromMmaCode: FROM_MMA,
       toMmaCode: TO_MMA,
       supplierId,
@@ -75,7 +56,6 @@ export const actions = {
       toStationCode: 'KEF'
     });
 
-    // Back to ABS unscreened slots
-    throw redirect(303, '/stations/abs/abs_unscreened_raw');
+    throw redirect(303, '/stations/abs/abs_screened');
   }
 };
