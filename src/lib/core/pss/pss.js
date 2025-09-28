@@ -1,7 +1,7 @@
 // PSS façade — single file (processed + sorted)
 // Minimal helpers used by tests: purchase*, dispatch*ToKef, receive*
 
-import { prisma, processedStock, sortedStock } from '../../stocks/index.js';
+import { prisma, screenedStock, sortedStock } from '../../stocks/index.js';
 
 const STATION = 'PSS';
 const MMA = {
@@ -58,7 +58,7 @@ const Pss = {
 
   // ===== processed =====
   async purchaseProcessed({ supplierId, shade, size, qty, meta } = {}) {
-    return processedStock.deposit({
+    return screenedStock.deposit({
       toStationCode: STATION,
       toMmaCode: MMA.PROCESSED,
       supplierId: assertId(supplierId),
@@ -70,7 +70,7 @@ const Pss = {
   },
 
   async dispatchProcessedToKef({ supplierId, shade, size, qty, meta } = {}) {
-    return processedStock.dispatch({
+    return screenedStock.dispatch({
       fromStationCode: STATION,
       fromMmaCode: MMA.PROCESSED,
       toStationCode: ROUTES.KEF.stationCode,
@@ -89,7 +89,7 @@ const Pss = {
       ? assertId(supplierId)
       : await supplierIdFromProcessedTransport(tid);
 
-    return processedStock.receive({
+    return screenedStock.receive({
       transportId: tid,
       toStationCode: STATION,
       toMmaCode: MMA.PROCESSED,
