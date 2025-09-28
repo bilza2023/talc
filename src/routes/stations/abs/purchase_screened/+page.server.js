@@ -1,8 +1,8 @@
-
-// /src/routes/stations/abs/purchase_screened/+page.server.js
+// ABS — Purchase (SCREENED)
+// Uses processedStock and ABS_SCREENED (new naming).
 import { fail } from '@sveltejs/kit';
 import { PrismaClient } from '@prisma/client';
-import { processedStock } from '$lib/stocks/index.js'; // tested Stock instance for SCREENED
+import { processedStock } from '$lib/stocks/index.js';
 
 /* Reuse a single Prisma instance in dev */
 const prisma = globalThis.__prisma ?? new PrismaClient();
@@ -10,15 +10,14 @@ if (!globalThis.__prisma) globalThis.__prisma = prisma;
 
 const stationCode = 'ABS';
 const stationName = 'ABS';
-// NOTE: If your registry uses 'ABS_SCREENED' instead, change it here.
-const mmaCode = 'ABS_PROCESSED';
+const mmaCode = 'ABS_SCREENED'; // aligned to SCREENED naming
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ parent }) {
   const p = await parent();
 
-  // For screened, we usually don't allow 'ANY' size; filter it out defensively.
-  const baseSizes = p.sizeOptions ?? ['LUMPS', 'CHIPS', 'FINE'];
+  // For screened, keep size options but drop "ANY" defensively (UI stays same).
+  const baseSizes = p.sizeOptions ?? ['LUMPS', 'CHIPS', 'FINE', 'ANY'];
   const sizeOptions = baseSizes.filter((v) => v !== 'ANY');
 
   return {
@@ -32,7 +31,7 @@ export async function load({ parent }) {
 }
 
 export const actions = {
-  /** Handles "purchase" into the SCREENED (PROCESSED) MMA */
+  /** Handles purchase into ABS_SCREENED (processed family) */
   async purchaseScreened({ request }) {
     const form = await request.formData();
 
@@ -42,7 +41,7 @@ export const actions = {
     const qty = Number(form.get('qty'));
     const note = String(form.get('note') || '');
 
-    // Basic guards
+    // Basic guards (same UX as before)
     if (!supplierId || !Number.isFinite(supplierId)) {
       return fail(400, { error: 'Supplier is required', posted: { supplierId, shade, size, qty } });
     }
@@ -57,16 +56,16 @@ export const actions = {
     }
 
     try {
-      // Verify supplier exists
+      // Verify supplier existence (same behavior as before)
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId }, select: { id: true } });
       if (!supplier) {
         return fail(400, { error: 'Unknown supplier', posted: { supplierId, shade, size, qty } });
       }
 
-      // Core operation — deposit into SCREENED stock
+      // Core deposit to SCREENED family
       await processedStock.deposit({
-        toMmaCode: mmaCode,           // REQUIRED key
-        toStationCode: stationCode,   // optional but consistent
+        toMmaCode: mmaCode,
+        toStationCode: stationCode,
         supplierId,
         shade,
         size,
@@ -75,10 +74,7 @@ export const actions = {
         meta: { source: 'stations/abs/purchase_screened', note }
       });
 
-      return {
-        success: true,
-        posted: { supplierId, shade, size, qty }
-      };
+      return { success: true, posted: { supplierId, shade, size, qty } };
     } catch (err) {
       console.error('purchaseScreened error:', err);
       return fail(500, {

@@ -16,8 +16,8 @@ const STATION = {
     // Dispatch from ABS_SCREENED → PSS_SORTED / KEF_SORTED
     { icon: '🚚', label: 'Dispatch → PSS (to SORTED)', href: '/stations/abs/dispatch_pss_sorted' },
     { icon: '🚚', label: 'Dispatch → KEF (to SORTED)', href: '/stations/abs/dispatch_kef_sorted' },
-    { icon: '📦', label: 'Slots — Unscreened', href: '/stations/abs/slots?mma=ABS_UNSCREENED_RAW' },
-    { icon: '📦', label: 'Slots — Screened',   href: '/stations/abs/slots?mma=ABS_SCREENED'       },
+    { icon: '📦', label: 'Slots — Unscreened', href: '/stations/abs/abs_unscreened_raw' },
+    { icon: '📦', label: 'Slots — Screened',   href: '/stations/abs/abs_screened'       },
   ],
 };
 // ─────────────────────────────────────────────────────────────────────────────

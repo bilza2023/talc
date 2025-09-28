@@ -1,16 +1,17 @@
-
-// /src/routes/unscreened/+page.server.js
+// ABS — SCREENED (processed family)
+// Minimal loader: keep the page API the same as before.
 import { processedStock } from '$lib/stocks/index.js';
 
+function stationFrom(mma) {
+  return (mma.split('_')[0] || '').toUpperCase();
+}
 
-export const load = async ({ url }) => {
-  const mmaCode =  'ABS_PROCESSED';
-  const positiveOnly = true; // keep UI clean; switch to false if you want zero/negative
+export const load = async () => {
+  const mmaCode = 'ABS_SCREENED';            // <- aligned to your naming
+  const positiveOnly = true;                 // keep UI clean
 
   const slots = await processedStock.slots({ mmaCode, positiveOnly });
-//  console.log("slots",slots);
-  // derive station code from MMA (e.g., 'ABS' from 'ABS_UNSCREENED_RAW')
-  const stationCode = (mmaCode.split('_')[0] || '').toUpperCase();
+  const stationCode = stationFrom(mmaCode);
 
   return {
     stationCode,
