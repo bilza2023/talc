@@ -12,10 +12,10 @@ const STATION = {
   cards: [
     { icon: '🧾', label: 'Purchase (Unscreened)', href: '/stations/abs/purchase_unscreened' },
     { icon: '🧾', label: 'Purchase (Screened)',   href: '/stations/abs/purchase_screened'   },
-    { icon: '🧰', label: 'Screening (RAW → SCREENED)', href: '/stations/abs/screening'      },
+    // { icon: '🧰', label: 'Screening (RAW → SCREENED)', href: '/stations/abs/screening'      },
     // Dispatch from ABS_SCREENED → PSS_SORTED / KEF_SORTED
-    { icon: '🚚', label: 'Dispatch → PSS (to SORTED)', href: '/stations/abs/dispatch_pss_sorted' },
-    { icon: '🚚', label: 'Dispatch → KEF (to SORTED)', href: '/stations/abs/dispatch_kef_sorted' },
+    // { icon: '🚚', label: 'Dispatch → PSS (to SORTED)', href: '/stations/abs/dispatch_pss_sorted' },
+    // { icon: '🚚', label: 'Dispatch → KEF (to SORTED)', href: '/stations/abs/dispatch_kef_sorted' },
     { icon: '📦', label: 'Slots — Unscreened', href: '/stations/abs/abs_unscreened_raw' },
     { icon: '📦', label: 'Slots — Screened',   href: '/stations/abs/abs_screened'       },
   ],

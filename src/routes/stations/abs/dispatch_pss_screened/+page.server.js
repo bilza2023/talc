@@ -8,7 +8,7 @@ export async function load({ url }) {
   const supplierId = Number(url.searchParams.get('supplierId') || '');
   const shade      = url.searchParams.get('shade') || '';
   const size       = url.searchParams.get('size') || '';
-  const qty        = Number(url.searchParams.get('qty') || 0); // ← read qty from URL
+  const qty        = Number(url.searchParams.get('qty') || 0); // optional, prefill if present
 
   if (!supplierId || !shade || !size) {
     return {
@@ -18,7 +18,6 @@ export async function load({ url }) {
     };
   }
 
-  // Keep it simple: just pass through what we got
   return {
     fromMmaCode: FROM_MMA,
     toMmaCode: TO_MMA,
@@ -39,7 +38,6 @@ export const actions = {
     const size        = String(data.size || '');
     const qty         = Number(data.qty || 0);
 
-    // Guards for this endpoint
     if (fromMmaCode !== FROM_MMA || toMmaCode !== TO_MMA) {
       return fail(400, { error: 'Wrong MMA endpoint.', posted: data });
     }
@@ -47,7 +45,6 @@ export const actions = {
       return fail(400, { error: 'supplierId, shade, size, qty are required', posted: data });
     }
 
-    // Let the stock engine validate balances; no extra checks here
     await processedStock.dispatch({
       fromMmaCode: FROM_MMA,
       toMmaCode: TO_MMA,
@@ -59,7 +56,6 @@ export const actions = {
       toStationCode: 'PSS'
     });
 
-    // Back to ABS screened slots
     throw redirect(303, '/stations/abs/abs_screened');
   }
 };

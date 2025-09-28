@@ -27,11 +27,11 @@
           <td>{s.shade}</td>
           <td>{s.size}</td>
           <td>{s.qty}</td>
-          <td style="white-space:nowrap">
+          <!-- <td style="white-space:nowrap">
             <a href={toPssSorted(s)}>Dispatch → PSS_SORTED</a>
             &nbsp;|&nbsp;
             <a href={toKefSorted(s)}>Dispatch → KEF_SORTED</a>
-          </td>
+          </td> -->
         </tr>
       {/each}
     </tbody>

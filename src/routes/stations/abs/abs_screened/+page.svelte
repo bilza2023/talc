@@ -5,10 +5,10 @@
   // Keep display same; only helpers live here (no markup rewrite).
   // SCREENED -> dispatch to SORTED (PSS / KEF)
   const toPssSorted = (s) =>
-    `/stations/abs/dispatch_pss_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
+    `/stations/abs/dispatch_pss_screened?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
 
   const toKefSorted = (s) =>
-    `/stations/abs/dispatch_kef_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
+    `/stations/abs/dispatch_kef_screened?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
 </script>
 
 <h1>{stationCode} — Slots: {mmaCode}</h1>
@@ -28,9 +28,9 @@
           <td>{s.size}</td>
           <td>{s.qty}</td>
           <td style="white-space:nowrap">
-            <a href={toPssSorted(s)}>Dispatch → PSS_SORTED</a>
+            <a href={toPssSorted(s)}>Dispatch → PSS_SCREENED</a>
             &nbsp;|&nbsp;
-            <a href={toKefSorted(s)}>Dispatch → KEF_SORTED</a>
+            <a href={toKefSorted(s)}>Dispatch → KEF_SCREENED</a>
           </td>
         </tr>
       {/each}
