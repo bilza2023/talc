@@ -1,38 +1,44 @@
 <script>
-  import MmaRecBtn from '$lib/components/MmaRecBtn.svelte';
   export let data;
+  export let form;
 
-  const { stationCode, mmas, inboundCounts } = data;
+  const {
+    stationCode, stationName,
+    mmas = [], inboundCounts = {},
+    cards = []
+  } = data;
 
-  // Explicit, readable mapping per MMA → receive page
-  const recLinks = {
-    PSS_PROCESSED: '/stations/pss/receive_abs_screened',   // ABS → PSS_PROCESSED
-    PSS_SORTED:    '/stations/pss/receive_pss_screened',  // PSS_PROCESSED → PSS_SORTED (create this page when ready)
-  };
+  const success = form?.success;
+  const error   = form?.error;
 </script>
 
 <h1>{stationCode} — Station</h1>
+{#if success}
+  <p class="success" aria-live="polite">OK ✓</p>
+{:else if error}
+  <p class="error" aria-live="assertive">{error}</p>
+{/if}
 
-<section class="panel">
-  <h2>Incoming Traffic</h2>
-  <div class="rec-grid">
+<section>
+  <h2>MMAs</h2>
+  <ul>
     {#each mmas as m}
-      <MmaRecBtn
-        label={m.label}
-        inboundCount={inboundCounts?.[m.mmaCode] ?? 0}
-        href={recLinks[m.mmaCode] || '#'}
-      />
+      <li>
+        <strong>{m.label}</strong>
+        <code>{m.mmaCode}</code>
+        — inbound: {inboundCounts[m.mmaCode] ?? 0}
+      </li>
     {/each}
-  </div>
+  </ul>
 </section>
 
-<style>
-  .panel {
-    border: 1px solid var(--border, #333);
-    border-radius: 0.75rem;
-    padding: 0.9rem;
-    margin-top: 0.5rem;
-    background: var(--panel, rgba(255,255,255,0.02));
-  }
-  .rec-grid { display:flex; flex-wrap:wrap; gap:.75rem; }
-</style>
+<section>
+  <h2>Actions</h2>
+  <nav>
+    {#each cards as c}
+      <a href={c.href} aria-label={c.label} title={c.label}>
+        <span class="icon">{c.icon}</span> {c.label}
+      </a>
+    {/each}
+  </nav>
+</section>
