@@ -1,7 +1,7 @@
-// /src/routes/stations/abs/purchase_unscreened/+page.server.js
+// ABS — Purchase (UNSCREENED) — twin of purchase_unscreened_raw
 import { fail } from '@sveltejs/kit';
 import { PrismaClient } from '@prisma/client';
-import { rawStock } from '$lib/stocks/index.js'; // tested Stock instance
+import { rawStock } from '$lib/stocks/index.js';
 
 /* Reuse a single Prisma instance in dev */
 const prisma = globalThis.__prisma ?? new PrismaClient();
@@ -13,7 +13,6 @@ const mmaCode = 'ABS_UNSCREENED_RAW'; // canonical MMA for unscreened purchases
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ parent }) {
-  // pull what the /stations/abs layout already fetched for us (suppliers, enum options, etc.)
   const p = await parent();
 
   return {
@@ -22,7 +21,7 @@ export async function load({ parent }) {
     mmaCode,
     suppliers: p.suppliers ?? [],
     shadeOptions: p.shadeOptions ?? ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'],
-    sizeOptions: p.sizeOptions ?? ['LUMPS', 'CHIPS', 'FINE', 'ANY']
+    sizeOptions: p.sizeOptions ?? ['ANY', 'LUMPS', 'CHIPS', 'FINE']
   };
 }
 
@@ -60,8 +59,8 @@ export const actions = {
 
       // Core operation — deposit into RAW/UNSCREENED stock
       await rawStock.deposit({
-        toMmaCode: mmaCode,           // REQUIRED key
-        toStationCode: stationCode,   // optional but consistent
+        toMmaCode: mmaCode,
+        toStationCode: stationCode,
         supplierId,
         shade,
         size,
@@ -70,10 +69,7 @@ export const actions = {
         meta: { source: 'stations/abs/purchase_unscreened', note }
       });
 
-      return {
-        success: true,
-        posted: { supplierId, shade, size, qty }
-      };
+      return { success: true, posted: { supplierId, shade, size, qty } };
     } catch (err) {
       console.error('purchaseUnscreened error:', err);
       return fail(500, {

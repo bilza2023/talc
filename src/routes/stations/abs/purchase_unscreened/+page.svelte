@@ -1,26 +1,32 @@
-<!-- /src/routes/stations/abs/purchase_unscreened/+page.svelte -->
 <script>
-  export let data;   // { mmaCode, suppliers, shadeOptions, sizeOptions, urlQty? }
-  export let form;   // SvelteKit form action result
+  export let data;
+  export let form;
 
-  const suppliers = data.suppliers ?? [];
-  const shades = data.shadeOptions ?? [];
-  const sizes = data.sizeOptions ?? [];
-  const defaultQty = form?.posted?.qty ?? (data.urlQty ?? '');
+  const { stationName, mmaCode, suppliers, shadeOptions, sizeOptions } = data;
+  const success = form?.success;
+  const error   = form?.error;
+  const posted  = form?.posted || {};
 </script>
 
-<h1>ABS — Purchase (Unscreened)</h1>
+<h1>{stationName} — Purchase (Unscreened)</h1>
+<p>MMA: <strong>{mmaCode}</strong></p>
 
-<form class="form" method="POST" action="?/purchaseUnscreened" autocomplete="off">
+{#if success}
+  <div class="alert alert-success" role="alert">
+    Purchased {posted.qty}t → {mmaCode}
+    (supplier {posted.supplierId}, {posted.shade}/{posted.size}).
+  </div>
+{:else if error}
+  <div class="alert alert-error" role="alert">{error}</div>
+{/if}
+
+<form method="POST" action="?/purchaseUnscreened" autocomplete="off">
   <div class="row">
     <label for="supplierId">Supplier</label>
     <select id="supplierId" name="supplierId" required>
+      <option value="" disabled selected>Choose supplier</option>
       {#each suppliers as s}
-        <option
-          value={s.id}
-          selected={String(form?.posted?.supplierId) === String(s.id)}>
-          {s.name} (#{s.id})
-        </option>
+        <option value={s.id} selected={posted.supplierId == s.id}>{s.id} — {s.name}</option>
       {/each}
     </select>
   </div>
@@ -28,8 +34,9 @@
   <div class="row">
     <label for="shade">Shade</label>
     <select id="shade" name="shade" required>
-      {#each shades as sh}
-        <option value={sh} selected={form?.posted?.shade === sh}>{sh}</option>
+      <option value="" disabled selected>Choose shade</option>
+      {#each shadeOptions as opt}
+        <option value={opt} selected={posted.shade === opt}>{opt}</option>
       {/each}
     </select>
   </div>
@@ -37,37 +44,22 @@
   <div class="row">
     <label for="size">Size</label>
     <select id="size" name="size" required>
-      {#each sizes as sz}
-        <option value={sz} selected={form?.posted?.size === sz}>{sz}</option>
+      <option value="" disabled selected>Choose size</option>
+      {#each sizeOptions as opt}
+        <option value={opt} selected={posted.size === opt}>{opt}</option>
       {/each}
     </select>
   </div>
 
   <div class="row">
     <label for="qty">Quantity (t)</label>
-    <div>
-      <input
-        id="qty"
-        type="number"
-        name="qty"
-        min="0"
-        step="0.01"
-        required
-        value={defaultQty} />
-      <div class="hint">Enter tons (e.g., 12.5)</div>
-    </div>
+    <input id="qty" name="qty" type="number" step="0.01" min="0.01" required value={posted.qty ?? ''}/>
   </div>
 
-  <div class="actions">
-    <input type="submit" class="primary" value="Purchase" />
+  <div class="row">
+    <label for="note">Note</label>
+    <input id="note" name="note" type="text" placeholder="optional"/>
   </div>
 
-  {#if form?.error}
-    <p class="error">{form.error}</p>
-  {:else if form?.success}
-    <p class="success">
-      Purchased {form.posted.qty}t → {data.mmaCode}
-      (supplier {form.posted.supplierId}, {form.posted.shade}/{form.posted.size})
-    </p>
-  {/if}
+  <button type="submit">Record Purchase</button>
 </form>
