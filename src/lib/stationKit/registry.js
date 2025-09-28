@@ -18,14 +18,14 @@ export const StationRegistry = {
     code: STATION.PSS,
     label: 'Peshawar Screening & Sorting',
     mmas: {
-      [FAMILY.SCREENED]: { family: FAMILY.SCREENED, mmaCode: 'PSS_PROCESSED', label: 'PSS Screened', verbs: ['purchase','dispatch','receive','process'] },
+      [FAMILY.SCREENED]: { family: FAMILY.SCREENED, mmaCode: 'PSS_SCREENED', label: 'PSS Screened', verbs: ['purchase','dispatch','receive','process'] },
       [FAMILY.SORTED]:   { family: FAMILY.SORTED,   mmaCode: 'PSS_SORTED',    label: 'PSS Sorted',   verbs: ['dispatch','receive'] }
     }
   },
 
   [STATION.KEF]: {
     code: STATION.KEF,
-    label: 'Kohat Export Facility',
+    label: 'Karachi Export Facility',
     mmas: {
       [FAMILY.SORTED]:   { family: FAMILY.SORTED,   mmaCode: 'KEF_SORTED',    label: 'KEF Sorted',   verbs: ['receive'] }
     }

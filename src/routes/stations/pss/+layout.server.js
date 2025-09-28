@@ -50,11 +50,12 @@ const STATION = {
     { mmaCode: 'PSS_SORTED',   label: 'Sorted'   }
   ],
   cards: [
+    { icon: '📦', label: 'Slots — Sorted',   href: '/stations/pss/pss_sorted'   },
+    { icon: '📦', label: 'Slots — Screened', href: '/stations/pss/pss_screened' },
+  
     { icon: '📥', label: 'Receive (ABS → PSS_SCREENED)', href: '/stations/pss/receive_screened' },
     { icon: '🧰', label: 'Sorting (SCREENED → SORTED)',  href: '/stations/pss/sort'             },
-    { icon: '🚚', label: 'Dispatch (PSS_SORTED → KEF)',  href: '/stations/pss/dispatch_kef_sorted' },
-    { icon: '📦', label: 'Slots — Screened', href: '/stations/pss/slots?mma=PSS_SCREENED' },
-    { icon: '📦', label: 'Slots — Sorted',   href: '/stations/pss/slots?mma=PSS_SORTED'   },
+  
   ],
 };
 /** ─────────────────────────────────────────────────────────────────────────── */
