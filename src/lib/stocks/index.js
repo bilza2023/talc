@@ -23,4 +23,18 @@ export const sortedStock = new Stock({
   transportModel: 'sortedTransport',
 });
 
-export default { prisma, rawStock, processedStock, sortedStock };
+export const exportGradeStock = new Stock({
+  prisma,
+  ledgerModel: 'exportGradeLedger', // new name --->production
+  transportModel: 'exportGradeTransport',
+});
+
+export default { prisma, rawStock, processedStock, sortedStock,exportGradeStock };
+
+
+///===Aliasis for the  App
+
+export const unscreenedStock = rawStock;
+export const screenedStock   = processedStock;
+export const productionStock = sortedStock;
+
