@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/mma4s/receive/+page.svelte";
+export { default as component } from "../../../../src/routes/suppliers/+page.svelte";

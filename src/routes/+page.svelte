@@ -8,13 +8,13 @@
     // dashboards
    
     // stations
-    { title: 'BS1', url: '/stations/bs1', icon: '🏗️1', category: 'stations' },
-    { title: 'BS2', url: '/stations/bs2', icon: '🏗️2', category: 'stations' },
-    { title: 'BS3', url: '/stations/bs3', icon: '🏗️3', category: 'stations' },
-    { title: 'JSS', url: '/stations/jss', icon: '🚚',  category: 'stations' },
+    // { title: 'BS1', url: '/stations/bs1', icon: '🏗️1', category: 'stations' },
+    // { title: 'BS2', url: '/stations/bs2', icon: '🏗️2', category: 'stations' },
+    // { title: 'BS3', url: '/stations/bs3', icon: '🏗️3', category: 'stations' },
+    // { title: 'JSS', url: '/stations/jss', icon: '🚚',  category: 'stations' },
+    { title: 'ABS', url: '/stations/abs', icon: '🗺️',  category: 'stations' },
     { title: 'PSS', url: '/stations/pss', icon: '🗺️',  category: 'stations' },
     { title: 'KEF', url: '/stations/kef', icon: '📦',  category: 'stations' },
-    { title: 'ABS', url: '/stations/abs', icon: '🗺️',  category: 'stations' },
 
 
     { title: 'Ore',            url: '/dashboard/ore',            icon: '🪨', category: 'dashboards' },

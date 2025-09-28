@@ -1,23 +1,19 @@
-// /src/routes/stations/abs/+layout.server.js
+
+// /src/routes/stations/kef/+layout.server.js
 import { prisma, rawStock, processedStock, sortedStock } from '$lib/stocks/index.js';
 
 // ── Station config (edit only this block) ─────────────────────────────────────
 const STATION = {
-  code: 'ABS',
-  name: 'Abbottabad (ABS)',
+  code: 'KEF',
+  name: 'Khanpur (KEF)',
   mmas: [
-    { mmaCode: 'ABS_UNSCREENED_RAW', label: 'Unscreened (RAW)' },
-    { mmaCode: 'ABS_SCREENED',       label: 'Screened' }
+    { mmaCode: 'KEF_SORTED', label: 'Sorted' }
   ],
   cards: [
-    { icon: '🧾', label: 'Purchase (Unscreened)', href: '/stations/abs/purchase_unscreened' },
-    { icon: '🧾', label: 'Purchase (Screened)',   href: '/stations/abs/purchase_screened'   },
-    { icon: '🧰', label: 'Screening (RAW → SCREENED)', href: '/stations/abs/screening'      },
-    // Dispatch from ABS_SCREENED → PSS_SORTED / KEF_SORTED
-    { icon: '🚚', label: 'Dispatch → PSS (to SORTED)', href: '/stations/abs/dispatch_pss_sorted' },
-    { icon: '🚚', label: 'Dispatch → KEF (to SORTED)', href: '/stations/abs/dispatch_kef_sorted' },
-    { icon: '📦', label: 'Slots — Unscreened', href: '/stations/abs/slots?mma=ABS_UNSCREENED_RAW' },
-    { icon: '📦', label: 'Slots — Screened',   href: '/stations/abs/slots?mma=ABS_SCREENED'       },
+    // Receives into KEF_SORTED
+    { icon: '📥', label: 'Receive ← ABS (SCREENED → SORTED)', href: '/stations/kef/receive_abs_sorted' },
+    { icon: '📥', label: 'Receive ← PSS (SORTED → SORTED)',   href: '/stations/kef/receive_pss_sorted' },
+    { icon: '📦', label: 'Slots — Sorted',                     href: '/stations/kef/slots?mma=KEF_SORTED' },
   ],
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,7 +28,7 @@ function stockFor(mmaCode) {
 
 /** @type {import('./$types').LayoutServerLoad} */
 export async function load({ url }) {
-  // Shared lists
+  // Shared lists (kept for consistency with other station layouts)
   const suppliers = await prisma.supplier.findMany({
     orderBy: { name: 'asc' },
     select: { id: true, name: true, code: true }
