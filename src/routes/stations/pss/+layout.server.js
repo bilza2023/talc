@@ -53,9 +53,7 @@ const STATION = {
     { icon: '📦', label: 'Slots — Sorted',   href: '/stations/pss/pss_sorted'   },
     { icon: '📦', label: 'Slots — Screened', href: '/stations/pss/pss_screened' },
   
-    { icon: '📥', label: 'Receive (ABS → PSS_SCREENED)', href: '/stations/pss/receive_abs_screened' },
-    { icon: '🧰', label: 'Sorting (SCREENED → SORTED)',  href: '/stations/pss/sort'             },
-  
+    { icon: '📥', label: 'Receive (ABS → PSS_SCREENED)', href: '/stations/pss/receive_abs_screened' }
   ],
 };
 /** ─────────────────────────────────────────────────────────────────────────── */

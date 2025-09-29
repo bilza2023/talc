@@ -3,9 +3,13 @@
     const { stationCode, mmaCode, slots = [] } = data;
   
     // Dispatch from PSS_SCREENED → PSS_SORTED
-    const toSorted = (s) =>
-      `/stations/pss/dispatch_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
-  </script>
+    const toSort = (s) =>
+    `/stations/pss/sort` +
+    `?supplierId=${s.supplierId}` +
+    `&shade=${encodeURIComponent(s.shade)}` +
+    `&size=${encodeURIComponent(s.size)}` +
+    (s.onHand != null ? `&qty=${s.onHand}` : ''); // or use s.qty if that’s your field
+</script>
   
   <h1>{stationCode} — Slots: {mmaCode}</h1>
   
@@ -23,7 +27,7 @@
             <td>{s.shade}</td>
             <td>{s.size}</td>
             <td>{s.qty}</td>
-            <td><a href={toSorted(s)}>Dispatch → PSS_SORTED</a></td>
+            <td><a class="btn" href={toSort(s)}>Sort</a></td>
           </tr>
         {/each}
       </tbody>

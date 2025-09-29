@@ -7,16 +7,25 @@ import { prisma, processedStock as processed, sortedStock as sorted } from '../s
 function stationFrom(mmaCode) {
   return String(mmaCode).split('_')[0] || '';
 }
-function familyFrom(mmaCode) {
-  return String(mmaCode).split('_')[1] || ''; // "PROCESSED" | "SORTED" | ...
+function familyRawFrom(mmaCode) {
+  return String(mmaCode).split('_')[1] || ''; // 'SCREENED' | 'PROCESSED' | 'SORTED' | ...
+}
+function normalizeFamily(fam) {
+  // Treat SCREENED as a synonym for PROCESSED
+  return fam === 'SCREENED' ? 'PROCESSED' : fam;
 }
 function assertPair(fromMmaCode, toMmaCode) {
-  if (familyFrom(fromMmaCode) !== 'PROCESSED') {
-    throw new Error(`sorting: fromMmaCode must be *PROCESSED*, got '${fromMmaCode}'`);
+  const fromRaw = familyRawFrom(fromMmaCode);
+  const toRaw   = familyRawFrom(toMmaCode);
+  const from    = normalizeFamily(fromRaw);
+  const to      = normalizeFamily(toRaw);
+
+  if (!(from === 'PROCESSED' && to === 'SORTED')) {
+    throw new Error(
+      `sorting: requires SCREENED/PROCESSED → SORTED (got ${fromRaw} → ${toRaw})`
+    );
   }
-  if (familyFrom(toMmaCode) !== 'SORTED') {
-    throw new Error(`sorting: toMmaCode must be *SORTED*, got '${toMmaCode}'`);
-  }
+
   const s1 = stationFrom(fromMmaCode);
   const s2 = stationFrom(toMmaCode);
   if (s1 && s2 && s1 !== s2) {
@@ -25,10 +34,10 @@ function assertPair(fromMmaCode, toMmaCode) {
 }
 
 /**
- * sorting(): one-to-one bridge from PROCESSED -> SORTED
+ * sorting(): one-to-one bridge from SCREENED/PROCESSED -> SORTED
  *
  * Inventory effects:
- *   - processed.withdraw(...)
+ *   - processed.withdraw(...)   // 'processed' engine also serves 'screened' MMAs
  *   - sorted.deposit(...)
  *
  * Persistence:
@@ -41,12 +50,12 @@ function assertPair(fromMmaCode, toMmaCode) {
  * Payload:
  * {
  *   processId?: string,                 // optional; generated if missing
- *   fromMmaCode: 'ABS_PROCESSED',
- *   toMmaCode:   'ABS_SORTED',
+ *   fromMmaCode: 'PSS_SCREENED' | 'PSS_PROCESSED',
+ *   toMmaCode:   'PSS_SORTED',
  *   supplierId: number,
  *   from: { shade, size, qtyT, stationCode?: string | null },
  *   to?:  { shade?, size?, qtyT?, stationCode?: string | null }, // defaults from 'from'
- *   meta?: { ht?: number, wastage?: number, ... }                 // forwarded as-is to ledgers
+ *   meta?: { ht?: number, wastage?: number, ... }                 // forwarded as-is to ledgers and table
  * }
  *
  * Returns:
@@ -55,7 +64,7 @@ function assertPair(fromMmaCode, toMmaCode) {
 export default async function sorting(payload) {
   const {
     processId = `SORT-${uuidv4().slice(0, 8).toUpperCase()}`,
-    fromMmaCode = 'ABS_PROCESSED',
+    fromMmaCode = 'ABS_PROCESSED', // accepts SCREENED or PROCESSED
     toMmaCode   = 'ABS_SORTED',
     supplierId,
     from,
@@ -92,7 +101,7 @@ export default async function sorting(payload) {
     throw new Error('sorting: from {shade, size, qtyT>0} is required');
   }
 
-  // enforce PROCESSED → SORTED + same-station pairing
+  // enforce SCREENED/PROCESSED → SORTED + same-station pairing
   assertPair(fromMmaCode, toMmaCode);
 
   // normalize target; 1→1 requires equal quantities
@@ -115,12 +124,12 @@ export default async function sorting(payload) {
 
   // carry meta (including ht & wastage) to both legs for audit (does not affect math)
   const baseMeta = { ...meta, process: 'SORTING' };
-  const htVal = meta?.ht !== undefined ? Number(meta.ht) : null;
-  const wastageVal = meta?.wastage !== undefined ? Number(meta.wastage) : null;
+  const htVal = meta?.ht !== undefined && meta.ht !== '' ? Number(meta.ht) : null;
+  const wastageVal = meta?.wastage !== undefined && meta.wastage !== '' ? Number(meta.wastage) : null;
 
   let withdrawPost = null;
   try {
-    // 1) consume from PROCESSED
+    // 1) consume from SCREENED/PROCESSED
     const w = await processed.withdraw({
       fromMmaCode,
       supplierId,
