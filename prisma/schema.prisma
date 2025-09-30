@@ -253,7 +253,7 @@ model process_tbl {
   meta             Json?
   @@index([fromMmaCode, toMmaCode, supplierId])
 }
-model sorting_tbl {
+model screening_tbl {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now())
   committedAt      DateTime?

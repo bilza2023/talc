@@ -1,7 +1,19 @@
 // /src/lib/processes/sorting.js
-
 import { randomUUID as uuidv4 } from 'crypto';
 import { prisma, processedStock as processed, sortedStock as sorted } from '../stocks/index.js';
+
+/* Resolve Prisma delegate safely regardless of model casing/naming */
+const Sorting =
+  prisma.sorting_tbl ||      // model sorting_tbl { ... }
+  prisma.sorting ||          // model Sorting { ... }
+  prisma.sortingTbl;         // model SortingTbl { ... }
+
+if (!Sorting) {
+  throw new Error(
+    "sorting.js: Prisma model for 'sorting' not found. Expected one of: sorting_tbl, Sorting, SortingTbl. " +
+    "Check prisma/schema.prisma and run `npx prisma generate`."
+  );
+}
 
 /* tiny helpers (no registry) */
 function stationFrom(mmaCode) {
@@ -21,9 +33,7 @@ function assertPair(fromMmaCode, toMmaCode) {
   const to      = normalizeFamily(toRaw);
 
   if (!(from === 'PROCESSED' && to === 'SORTED')) {
-    throw new Error(
-      `sorting: requires SCREENED/PROCESSED → SORTED (got ${fromRaw} → ${toRaw})`
-    );
+    throw new Error(`sorting: requires SCREENED/PROCESSED → SORTED (got ${fromRaw} → ${toRaw})`);
   }
 
   const s1 = stationFrom(fromMmaCode);
@@ -34,37 +44,30 @@ function assertPair(fromMmaCode, toMmaCode) {
 }
 
 /**
- * sorting(): one-to-one bridge from SCREENED/PROCESSED -> SORTED
+ * sorting(): one-to-one bridge SCREENED/PROCESSED -> SORTED
  *
- * Inventory effects:
- *   - processed.withdraw(...)   // 'processed' engine also serves 'screened' MMAs
- *   - sorted.deposit(...)
+ * Inventory:
+ *   processed.withdraw(...)  // serves SCREENED MMAs
+ *   sorted.deposit(...)
  *
  * Persistence:
- *   - exactly ONE row into sorting_tbl per successful commit (status='SUCCESS')
- *   - if deposit fails after withdraw and compensation succeeds, write status='ROLLED_BACK'
- *   - if even compensation fails, write status='FAILED' (last resort), then throw
- *
- * Units: tons (qtyT). 1→1 means to.qtyT === from.qtyT (enforced).
+ *   exactly ONE row into sorting_tbl (SUCCESS), or ROLLED_BACK/FAILED on error paths.
  *
  * Payload:
  * {
- *   processId?: string,                 // optional; generated if missing
+ *   processId?: string,
  *   fromMmaCode: 'PSS_SCREENED' | 'PSS_PROCESSED',
  *   toMmaCode:   'PSS_SORTED',
  *   supplierId: number,
- *   from: { shade, size, qtyT, stationCode?: string | null },
- *   to?:  { shade?, size?, qtyT?, stationCode?: string | null }, // defaults from 'from'
- *   meta?: { ht?: number, wastage?: number, ... }                 // forwarded as-is to ledgers and table
+ *   from: { shade, size, qtyT, stationCode?: string|null },
+ *   to?:  { shade?, size?, qtyT?, stationCode?: string|null },
+ *   meta?: { ht?: number, wastage?: number, ... }
  * }
- *
- * Returns:
- * { status:'SUCCESS'|'ROLLED_BACK'|'FAILED', processId, qtyT, from:{...}, to:{...} }
  */
 export default async function sorting(payload) {
   const {
     processId = `SORT-${uuidv4().slice(0, 8).toUpperCase()}`,
-    fromMmaCode = 'ABS_PROCESSED', // accepts SCREENED or PROCESSED
+    fromMmaCode = 'ABS_PROCESSED',
     toMmaCode   = 'ABS_SORTED',
     supplierId,
     from,
@@ -72,8 +75,8 @@ export default async function sorting(payload) {
     meta = {},
   } = payload ?? {};
 
-  // idempotency: if a row already exists, return its summary (no re-writes)
-  const existing = await prisma.sorting_tbl.findUnique({ where: { processId } }).catch(() => null);
+  // idempotency
+  const existing = await Sorting.findUnique({ where: { processId } }).catch(() => null);
   if (existing) {
     return {
       status: existing.status,
@@ -101,10 +104,8 @@ export default async function sorting(payload) {
     throw new Error('sorting: from {shade, size, qtyT>0} is required');
   }
 
-  // enforce SCREENED/PROCESSED → SORTED + same-station pairing
   assertPair(fromMmaCode, toMmaCode);
 
-  // normalize target; 1→1 requires equal quantities
   const qtyT = Number(to.qtyT ?? from.qtyT);
   if (!(qtyT > 0)) throw new Error('sorting: qtyT must be > 0');
   if (to.qtyT !== undefined) {
@@ -122,41 +123,41 @@ export default async function sorting(payload) {
   const toSize  = String(to.size ?? fromSize);
   const toStationCode = to.stationCode ?? null;
 
-  // carry meta (including ht & wastage) to both legs for audit (does not affect math)
+  // carry meta (including ht & wastage) to both legs
   const baseMeta = { ...meta, process: 'SORTING' };
   const htVal = meta?.ht !== undefined && meta.ht !== '' ? Number(meta.ht) : null;
   const wastageVal = meta?.wastage !== undefined && meta.wastage !== '' ? Number(meta.wastage) : null;
 
   let withdrawPost = null;
   try {
-    // 1) consume from SCREENED/PROCESSED
+    // 1) withdraw from SCREENED/PROCESSED
     const w = await processed.withdraw({
       fromMmaCode,
       supplierId,
       shade: fromShade,
       size: fromSize,
-      qty: qtyT,                 // tons
+      qty: qtyT,
       processId,
       fromStationCode,
       meta: { ...baseMeta, step: 'sorting.consume' },
     });
     withdrawPost = w?.posting ?? null;
 
-    // 2) produce into SORTED
+    // 2) deposit into SORTED
     const d = await sorted.deposit({
       toMmaCode,
       supplierId,
       shade: toShade,
       size: toSize,
-      qty: qtyT,                 // tons (1→1)
+      qty: qtyT,
       processId,
       toStationCode,
       meta: { ...baseMeta, step: 'sorting.produce' },
     });
     const depositPost = d?.posting ?? null;
 
-    // 3) single row log in sorting_tbl (commit-only)
-    await prisma.sorting_tbl.create({
+    // 3) log once
+    await Sorting.create({
       data: {
         processId,
         processType: 'SORTING',
@@ -189,11 +190,10 @@ export default async function sorting(payload) {
       to:   { mmaCode: toMmaCode,   supplierId, shade: toShade,   size: toSize,   stationCode: toStationCode },
     };
   } catch (err) {
-    // compensate if the deposit failed after withdraw
-    let rollbackPost = null;
+    // compensate if needed
     if (withdrawPost) {
       try {
-        const rb = await processed.deposit({
+        await processed.deposit({
           toMmaCode: fromMmaCode,
           supplierId,
           shade: fromShade,
@@ -203,10 +203,8 @@ export default async function sorting(payload) {
           toStationCode: fromStationCode,
           meta: { ...baseMeta, step: 'sorting.rollback.source' },
         });
-        rollbackPost = rb?.posting ?? null;
 
-        // record ROLLED_BACK
-        await prisma.sorting_tbl.create({
+        await Sorting.create({
           data: {
             processId,
             processType: 'SORTING',
@@ -223,7 +221,6 @@ export default async function sorting(payload) {
             ht: htVal,
             wastage: wastageVal,
             withdrawLedgerId: String(withdrawPost.id),
-            // deposit into SORTED never happened; keep null
             depositLedgerId: null,
             status: 'ROLLED_BACK',
             error: String(err?.message ?? err),
@@ -240,8 +237,7 @@ export default async function sorting(payload) {
           to:   { mmaCode: toMmaCode,   supplierId, shade: toShade,   size: toSize,   stationCode: toStationCode },
         };
       } catch (rbErr) {
-        // final attempt to record FAILED
-        await prisma.sorting_tbl.create({
+        await Sorting.create({
           data: {
             processId,
             processType: 'SORTING',
@@ -273,8 +269,7 @@ export default async function sorting(payload) {
       }
     }
 
-    // withdraw never happened; just record FAILED (best-effort) then throw
-    await prisma.sorting_tbl.create({
+    await Sorting.create({
       data: {
         processId,
         processType: 'SORTING',
