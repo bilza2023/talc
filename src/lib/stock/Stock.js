@@ -1,4 +1,4 @@
-// /src/lib/stock/Stock.js
+// src/lib/stock/Stock.js
 import { PrismaClient } from '@prisma/client';
 import { randomUUID as uuidv4 } from 'crypto';
 
@@ -7,44 +7,41 @@ import { randomUUID as uuidv4 } from 'crypto';
  *
  * 1) <stage>_ledger (append-only)
  *    - id (PK)
- *    - createdAt DateTime @default(now())
- *    - mmaCode        String
- *    - stationCode    String?   // optional pass-through; not used in math
- *    - supplierId     Int
- *    - shade          String
- *    - size           String
- *    - qtyDelta       Decimal   // +qty or -qty
- *    - reason         String    // 'DIRECT' | 'PROCESS' | 'TRANSPORT' | 'REVERSAL' | 'ADJUST'
- *    - linkId         String?   // processId or transportId for lineage
- *    - meta           Json?
+ *    - createdAt       DateTime  @default(now())
+ *    - mmaCode         String
+ *    - supplierId      Int
+ *    - shade           String
+ *    - size            String
+ *    - qtyDelta        Decimal   // +qty or -qty
+ *    - reason          String    // 'DIRECT' | 'PROCESS' | 'TRANSPORT' | 'REVERSAL' | 'ADJUST'
+ *    - linkId          String?   // processId or transportId for lineage
+ *    - meta            Json?
  *
  * 2) <stage>_transport (append-only)
  *    - id (PK)
- *    - createdAt DateTime @default(now())
- *    - transportId    String    // groups DISPATCH/RECEIVE/CANCEL
- *    - type           String    // 'DISPATCH' | 'RECEIVE' | 'CANCEL'
- *    - fromMmaCode    String?
- *    - toMmaCode      String?
- *    - fromStationCode String?
- *    - toStationCode   String?
- *    - supplierId     Int
- *    - shade          String
- *    - size           String
- *    - qty            Decimal
- *    - amount         Decimal?  // money at that side
- *    - meta           Json?
+ *    - createdAt       DateTime  @default(now())
+ *    - transportId     String    // groups DISPATCH/RECEIVE/CANCEL
+ *    - type            String    // 'DISPATCH' | 'RECEIVE' | 'CANCEL'
+ *    - fromMmaCode     String?
+ *    - toMmaCode       String?
+ *    - supplierId      Int
+ *    - shade           String
+ *    - size            String
+ *    - qty             Decimal
+ *    - amount          Decimal?  // money at that side
+ *    - meta            Json?
  */
 export default class Stock {
   /**
    * @param {Object} opts
-   * @param {string} opts.ledgerModel     // Prisma model name for the stage ledger, e.g. 'processed_ledger'
-   * @param {string} opts.transportModel  // Prisma model name for the stage transport, e.g. 'processed_transport'
+   * @param {string} opts.ledgerModel     // Prisma model name for the stage ledger, e.g. 'processedLedger'
+   * @param {string} opts.transportModel  // Prisma model name for the stage transport, e.g. 'processedTransport'
    * @param {PrismaClient} [opts.prisma]
-   * @param {string} [opts.sizeDefault='ANY'] // unify 3s/4s by defaulting raw to 'ANY'
+   * @param {string} [opts.sizeDefault='ANY'] // unify sizes by defaulting to 'ANY' when omitted
    */
   constructor({ ledgerModel, transportModel, prisma, sizeDefault = 'ANY' } = {}) {
-    if (!ledgerModel)     throw new Error('Stock requires opts.ledgerModel');
-    if (!transportModel)  throw new Error('Stock requires opts.transportModel');
+    if (!ledgerModel)    throw new Error('Stock requires opts.ledgerModel');
+    if (!transportModel) throw new Error('Stock requires opts.transportModel');
 
     this.prisma = prisma ?? new PrismaClient();
     this.ledgerModel = ledgerModel;
@@ -72,30 +69,109 @@ export default class Stock {
   // ============================================================
 
   /**
+   * deposit: append +qty in ledger (DIRECT or PROCESS)
+   */
+  async deposit({
+    toMmaCode, supplierId, shade, qty, size,
+    processId, reason = 'DIRECT', meta
+  }) {
+    this.#need(toMmaCode, 'toMmaCode');
+    this.#need(supplierId, 'supplierId');
+    this.#need(shade, 'shade');
+    this.#needPos(qty);
+
+    const finalSize = this.#size(size);
+    const linkId = processId ?? null;
+    const finalReason = processId ? 'PROCESS' : String(reason || 'DIRECT');
+
+    const post = await this.#Ledger().create({
+      data: {
+        mmaCode: String(toMmaCode),
+        supplierId: Number(supplierId),
+        shade: String(shade),
+        size: String(finalSize),
+        qtyDelta: Number(qty),
+        reason: finalReason,
+        linkId,
+        meta: meta ?? null,
+      },
+    });
+    return { posting: post };
+  }
+
+  /**
+   * withdraw: append -qty in ledger (PROCESS)
+   */
+  async withdraw({
+    fromMmaCode, supplierId, shade, qty, size,
+    processId, reason = 'PROCESS', meta
+  }) {
+    this.#need(fromMmaCode, 'fromMmaCode');
+    this.#need(supplierId, 'supplierId');
+    this.#need(shade, 'shade');
+    this.#needPos(qty);
+    if (!processId) throw new Error('withdraw requires processId');
+
+    const finalSize = this.#size(size);
+
+    // availability guard
+    const available = await this.onHand({ mmaCode: fromMmaCode, supplierId, shade, size: finalSize });
+    if (Number(available) < Number(qty)) {
+      throw new Error(`Insufficient stock at ${fromMmaCode} (available=${available}, requested=${qty})`);
+    }
+
+    const post = await this.#Ledger().create({
+      data: {
+        mmaCode: String(fromMmaCode),
+        supplierId: Number(supplierId),
+        shade: String(shade),
+        size: String(finalSize),
+        qtyDelta: -Number(qty),
+        reason: String(reason || 'PROCESS'),
+        linkId: String(processId),
+        meta: meta ?? null,
+      },
+    });
+    return { posting: post };
+  }
+
+  /**
    * dispatch: append DISPATCH event (+ ledger -qty)
    */
-  async dispatch({
+   /**
+   * dispatch: create DISPATCH transport and post -qty at source (atomic)
+   */
+   async dispatch({
     fromMmaCode, toMmaCode, supplierId, shade, qty, size,
-    amount, meta, transportId, fromStationCode, toStationCode
+    amount, meta, transportId
   }) {
     this.#need(fromMmaCode, 'fromMmaCode');
     this.#need(toMmaCode, 'toMmaCode');
     this.#need(supplierId, 'supplierId');
     this.#need(shade, 'shade');
     this.#needPos(qty);
+
     const finalSize = this.#size(size);
     const tid = transportId ?? uuidv4();
 
     return this.prisma.$transaction(async (tx) => {
-      // transport: DISPATCH
+      // optional: ensure available stock to dispatch
+      const available = await this.onHand({
+        mmaCode: fromMmaCode, supplierId, shade, size: finalSize,
+      });
+      if (Number(available) < Number(qty)) {
+        throw new Error(
+          `Insufficient stock at ${fromMmaCode} (available=${available}, requested=${qty})`
+        );
+      }
+
+      // 1) transport: DISPATCH  (note: NO 'status' column in schema)
       const tr = await this.#Transport(tx).create({
         data: {
           transportId: tid,
           type: 'DISPATCH',
           fromMmaCode: String(fromMmaCode),
           toMmaCode: String(toMmaCode),
-          fromStationCode: fromStationCode ?? null,
-          toStationCode: toStationCode ?? null,
           supplierId: Number(supplierId),
           shade: String(shade),
           size: String(finalSize),
@@ -105,11 +181,10 @@ export default class Stock {
         },
       });
 
-      // ledger: -qty at source
+      // 2) ledger: -qty at source
       const led = await this.#Ledger(tx).create({
         data: {
           mmaCode: String(fromMmaCode),
-          stationCode: fromStationCode ?? null,
           supplierId: Number(supplierId),
           shade: String(shade),
           size: String(finalSize),
@@ -124,12 +199,13 @@ export default class Stock {
     });
   }
 
+
   /**
-   * receive: append RECEIVE event (+ ledger +qty) — idempotency enforced via unique (transportId,type)
+   * receive: append RECEIVE event (+ ledger +qty) — idempotency via unique (transportId,type)
    */
   async receive({
     transportId, toMmaCode, supplierId, qty, shade,
-    amount, meta, toStationCode
+    amount, meta
   }) {
     this.#need(transportId, 'transportId');
     this.#need(toMmaCode, 'toMmaCode');
@@ -139,9 +215,7 @@ export default class Stock {
       const T = this.#Transport(tx);
 
       // find the dispatch (must exist)
-      const dispatch = await T.findFirst({
-        where: { transportId, type: 'DISPATCH' },
-      });
+      const dispatch = await T.findFirst({ where: { transportId, type: 'DISPATCH' } });
       if (!dispatch) throw new Error('DISPATCH not found for transportId');
 
       // Ensure not canceled / not already received
@@ -162,8 +236,6 @@ export default class Stock {
           type: 'RECEIVE',
           fromMmaCode: String(dispatch.fromMmaCode),
           toMmaCode: String(toMmaCode),
-          fromStationCode: dispatch.fromStationCode ?? null,
-          toStationCode: toStationCode ?? null,
           supplierId: Number(supplierId),
           shade: finalShade,
           size: finalSize,
@@ -177,7 +249,6 @@ export default class Stock {
       const led = await this.#Ledger(tx).create({
         data: {
           mmaCode: String(toMmaCode),
-          stationCode: toStationCode ?? null,
           supplierId: Number(supplierId),
           shade: finalShade,
           size: finalSize,
@@ -218,8 +289,6 @@ export default class Stock {
           type: 'CANCEL',
           fromMmaCode: String(dispatch.fromMmaCode),
           toMmaCode: String(dispatch.toMmaCode),
-          fromStationCode: dispatch.fromStationCode ?? null,
-          toStationCode: dispatch.toStationCode ?? null,
           supplierId: Number(dispatch.supplierId),
           shade: String(dispatch.shade),
           size: String(dispatch.size),
@@ -233,7 +302,6 @@ export default class Stock {
       const led = await this.#Ledger(tx).create({
         data: {
           mmaCode: String(dispatch.fromMmaCode),
-          stationCode: dispatch.fromStationCode ?? null,
           supplierId: Number(dispatch.supplierId),
           shade: String(dispatch.shade),
           size: String(dispatch.size),
@@ -246,73 +314,6 @@ export default class Stock {
 
       return { transportId, cancel: can, posting: led };
     });
-  }
-
-  /**
-   * deposit: append +qty in ledger (DIRECT or PROCESS)
-   */
-  async deposit({
-    toMmaCode, supplierId, shade, qty, size,
-    processId, reason = 'DIRECT', meta, toStationCode
-  }) {
-    this.#need(toMmaCode, 'toMmaCode');
-    this.#need(supplierId, 'supplierId');
-    this.#need(shade, 'shade');
-    this.#needPos(qty);
-    const finalSize = this.#size(size);
-    const linkId = processId ?? null;
-    const finalReason = processId ? 'PROCESS' : String(reason || 'DIRECT');
-
-    const post = await this.#Ledger().create({
-      data: {
-        mmaCode: String(toMmaCode),
-        stationCode: toStationCode ?? null,
-        supplierId: Number(supplierId),
-        shade: String(shade),
-        size: String(finalSize),
-        qtyDelta: Number(qty),
-        reason: finalReason,
-        linkId,
-        meta: meta ?? null,
-      },
-    });
-    return { posting: post };
-  }
-
-  /**
-   * withdraw: append -qty in ledger (PROCESS)
-   */
-  async withdraw({
-    fromMmaCode, supplierId, shade, qty, size,
-    processId, reason = 'PROCESS', meta, fromStationCode
-  }) {
-    this.#need(fromMmaCode, 'fromMmaCode');
-    this.#need(supplierId, 'supplierId');
-    this.#need(shade, 'shade');
-    this.#needPos(qty);
-    if (!processId) throw new Error('withdraw requires processId');
-    const finalSize = this.#size(size);
-
-    // optional: availability guard
-    const available = await this.onHand({ mmaCode: fromMmaCode, supplierId, shade, size: finalSize });
-    if (Number(available) < Number(qty)) {
-      throw new Error(`Insufficient stock at ${fromMmaCode} (available=${available}, requested=${qty})`);
-    }
-
-    const post = await this.#Ledger().create({
-      data: {
-        mmaCode: String(fromMmaCode),
-        stationCode: fromStationCode ?? null,
-        supplierId: Number(supplierId),
-        shade: String(shade),
-        size: String(finalSize),
-        qtyDelta: -Number(qty),
-        reason: String(reason || 'PROCESS'),
-        linkId: String(processId),
-        meta: meta ?? null,
-      },
-    });
-    return { posting: post };
   }
 
   // ============================================================

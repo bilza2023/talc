@@ -3,9 +3,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    globals: true,                                  // makes beforeAll/afterAll available
-    setupFiles: ['tests/setup.prisma.js', 'tests/setup.db.js'],
-    threads: false,                                  // shared in-memory sqlite
+    globals: true,
+    globalSetup: 'tests/global.prisma.setup.js', // <-- run once before all tests
+    setupFiles: ['tests/setup.db.js'],          // <-- per-suite cleanup only
+    threads: false,                              // single worker (shared in-memory DB)
     reporters: 'verbose',
   },
 });
