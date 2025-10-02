@@ -1,22 +1,17 @@
-// ABS — Purchase (SCREENED)
-// Uses processedStock and ABS_SCREENED (new naming).
-import { fail } from '@sveltejs/kit';
-import { PrismaClient } from '@prisma/client';
-import { processedStock } from '$lib/stocks/index.js';
+// /src/routes/stations/abs/purchase_screened/+page.server.js
 
-/* Reuse a single Prisma instance in dev */
-const prisma = globalThis.__prisma ?? new PrismaClient();
-if (!globalThis.__prisma) globalThis.__prisma = prisma;
+import { fail } from '@sveltejs/kit';
+import { prisma, stock } from '$lib/stocks/stockEngine.js';
 
 const stationCode = 'ABS';
 const stationName = 'ABS';
-const mmaCode = 'ABS_SCREENED'; // aligned to SCREENED naming
+const mmaCode = 'ABS_SCREENED';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ parent }) {
   const p = await parent();
 
-  // For screened, keep size options but drop "ANY" defensively (UI stays same).
+  // Keep size options but defensively drop "ANY" for screened, like before
   const baseSizes = p.sizeOptions ?? ['LUMPS', 'CHIPS', 'FINE', 'ANY'];
   const sizeOptions = baseSizes.filter((v) => v !== 'ANY');
 
@@ -31,7 +26,7 @@ export async function load({ parent }) {
 }
 
 export const actions = {
-  /** Handles purchase into ABS_SCREENED (processed family) */
+  /** Handles purchase into ABS_SCREENED */
   async purchaseScreened({ request }) {
     const form = await request.formData();
 
@@ -56,22 +51,21 @@ export const actions = {
     }
 
     try {
-      // Verify supplier existence (same behavior as before)
+      // Verify supplier exists
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId }, select: { id: true } });
       if (!supplier) {
         return fail(400, { error: 'Unknown supplier', posted: { supplierId, shade, size, qty } });
       }
 
-      // Core deposit to SCREENED family
-      await processedStock.deposit({
+      // Core deposit to SCREENED MMA via the unified engine
+      await stock.deposit({
         toMmaCode: mmaCode,
-        toStationCode: stationCode,
         supplierId,
         shade,
         size,
         qty,
         reason: 'DIRECT',
-        meta: { source: 'stations/abs/purchase_screened', note }
+        meta: { source: 'stations/abs/purchase_screened', stationCode, note }
       });
 
       return { success: true, posted: { supplierId, shade, size, qty } };

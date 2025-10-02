@@ -1,39 +1,35 @@
 <script>
   export let data;
-  const { stationCode, mmaCode, slots = [] } = data;
-
-  // Keep display same; only helpers live here (no markup rewrite).
-  // SCREENED -> dispatch to SORTED (PSS / KEF)
-  const toPssSorted = (s) =>
-    `/stations/abs/dispatch_pss_screened?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
-
-  const toKefSorted = (s) =>
-    `/stations/abs/dispatch_kef_screened?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
+  const { suppliers, shadeOptions, sizeOptions } = data;
 </script>
 
-<h1>{stationCode} — Slots: {mmaCode}</h1>
+<h1>{data.stationCode} — Purchase (Screened)</h1>
 
-{#if slots.length === 0}
-  <p>No on-hand slots.</p>
-{:else}
-  <table>
-    <thead>
-      <tr><th>Supplier</th><th>Shade</th><th>Size</th><th>Qty (t)</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {#each slots as s}
-        <tr>
-          <td>{s.supplierId}</td>
-          <td>{s.shade}</td>
-          <td>{s.size}</td>
-          <td>{s.qty}</td>
-          <td style="white-space:nowrap">
-            <a href={toPssSorted(s)}>Dispatch → PSS_SCREENED</a>
-            &nbsp;|&nbsp;
-            <a href={toKefSorted(s)}>Dispatch → KEF_SCREENED</a>
-          </td>
-        </tr>
+<form method="POST" action="?/purchaseScreened">
+  <label>Supplier
+    <select name="supplierId" required>
+      <option value="">— choose —</option>
+      {#each suppliers as s}
+        <option value={s.id}>{s.name ?? s.id}</option>
       {/each}
-    </tbody>
-  </table>
-{/if}
+    </select>
+  </label>
+
+  <label>Shade
+    <select name="shade" required>
+      {#each shadeOptions as sh}<option value={sh}>{sh}</option>{/each}
+    </select>
+  </label>
+
+  <label>Size
+    <select name="size" required>
+      {#each sizeOptions as sz}<option value={sz}>{sz}</option>{/each}
+    </select>
+  </label>
+
+  <label>Qty
+    <input name="qty" type="number" min="0.01" step="0.01" required />
+  </label>
+
+  <button type="submit">Save</button>
+</form>
