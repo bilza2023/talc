@@ -1,6 +1,6 @@
 // -----------------------------------------------------
-// Prisma Schema — SQLite
-// Stages: raw, processed, sorted (append-only: ledger + transport)
+// Prisma Schema — SQLite (UNIFIED)
+// Stages captured via `Family` enum in ONE pair of tables
 // -----------------------------------------------------
 
 generator client {
@@ -13,6 +13,13 @@ datasource db {
 }
 
 // -------------------- Enums --------------------------
+
+enum Family {
+  RAW
+  SCREENED
+  SORTED
+  PRODUCTION
+}
 
 enum Size {
   LUMPS
@@ -28,7 +35,6 @@ enum Shade {
   GREEN
   MIXED
 }
-
 
 enum LedgerReason {
   DIRECT
@@ -51,46 +57,44 @@ model Supplier {
   name  String
   code  String @unique
 
-  // processed back-relations
-  processedLedgerRows    ProcessedLedger[]    @relation("SupplierToProcessedLedger")
-  processedTransportRows ProcessedTransport[] @relation("SupplierToProcessedTransport")
-
-  // raw back-relations
-  rawLedgerRows          RawLedger[]          @relation("SupplierToRawLedger")
-  rawTransportRows       RawTransport[]       @relation("SupplierToRawTransport")
-
-  // sorted back-relations
-  sortedLedgerRows       SortedLedger[]       @relation("SupplierToSortedLedger")
-  sortedTransportRows    SortedTransport[]    @relation("SupplierToSortedTransport")
+  // unified back-relations
+  stockLedgerRows    StockLedger[]    @relation("SupplierToStockLedger")
+  stockTransportRows StockTransport[] @relation("SupplierToStockTransport")
 }
 
-// -------------------- processed (stage) ---------------
+// -------------------- UNIFIED STOCK TABLES ------------
 
-model ProcessedLedger {
+model StockLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
-  mmaCode      String?
-  stationCode  String?
+  family       Family
+  mmaCode      String
 
   supplierId   Int
-  supplier     Supplier     @relation("SupplierToProcessedLedger", fields: [supplierId], references: [id])
+  supplier     Supplier     @relation("SupplierToStockLedger", fields: [supplierId], references: [id])
 
   shade        Shade
   size         Size
 
   qtyDelta     Float
   reason       LedgerReason
-  linkId       String?
+  linkId       String?      // processId or transportId (for audit chains)
   meta         Json?
+
+  // back-relations for screening_tbl (named to avoid ambiguity)
+  screeningWithdraws screening_tbl[] @relation("ScreeningWithdraw")
+  screeningDeposits  screening_tbl[] @relation("ScreeningDeposit")
 
   @@index([mmaCode, createdAt])
   @@index([mmaCode, supplierId, shade, size])
+  @@index([supplierId, shade, size])
+  @@index([family, mmaCode])
   @@index([linkId])
-  @@map("processed_ledger")
+  @@map("stock_ledger")
 }
 
-model ProcessedTransport {
+model StockTransport {
   id               Int                 @id @default(autoincrement())
   createdAt        DateTime            @default(now())
 
@@ -99,11 +103,9 @@ model ProcessedTransport {
 
   fromMmaCode      String?
   toMmaCode        String?
-  fromStationCode  String?
-  toStationCode    String?
 
   supplierId       Int
-  supplier         Supplier            @relation("SupplierToProcessedTransport", fields: [supplierId], references: [id])
+  supplier         Supplier            @relation("SupplierToStockTransport", fields: [supplierId], references: [id])
 
   shade            Shade
   size             Size
@@ -116,143 +118,44 @@ model ProcessedTransport {
   @@index([transportId])
   @@index([fromMmaCode, createdAt])
   @@index([toMmaCode, createdAt])
-  @@map("processed_transport")
+  @@index([supplierId, shade, size])
+  @@map("stock_transport")
 }
 
-// -------------------- raw (stage) ---------------------
+// -------------------- PROCESS TABLES (aligned) --------
 
-model RawLedger {
-  id           Int          @id @default(autoincrement())
-  createdAt    DateTime     @default(now())
-
-  mmaCode      String
-  stationCode  String?
-
-  supplierId   Int
-  supplier     Supplier     @relation("SupplierToRawLedger", fields: [supplierId], references: [id])
-
-  shade        Shade
-  size         Size         // will be ANY for raw
-
-  qtyDelta     Float
-  reason       LedgerReason
-  linkId       String?
-  meta         Json?
-
-  @@index([mmaCode, createdAt])
-  @@index([mmaCode, supplierId, shade, size])
-  @@index([linkId])
-  @@map("raw_ledger")
-}
-
-model RawTransport {
-  id               Int                 @id @default(autoincrement())
-  createdAt        DateTime            @default(now())
-
-  transportId      String
-  type             TransportEventType
-
-  fromMmaCode      String?
-  toMmaCode        String?
-  fromStationCode  String?
-  toStationCode    String?
-
-  supplierId       Int
-  supplier         Supplier            @relation("SupplierToRawTransport", fields: [supplierId], references: [id])
-
-  shade            Shade
-  size             Size                // ANY for raw
-
-  qty              Float
-  amount           Int?
-  meta             Json?
-
-  @@unique([transportId, type])
-  @@index([transportId])
-  @@index([fromMmaCode, createdAt])
-  @@index([toMmaCode, createdAt])
-  @@map("raw_transport")
-}
-
-// -------------------- sorted (stage) ------------------
-
-model SortedLedger {
-  id           Int          @id @default(autoincrement())
-  createdAt    DateTime     @default(now())
-
-  mmaCode      String
-  stationCode  String?
-
-  supplierId   Int
-  supplier     Supplier     @relation("SupplierToSortedLedger", fields: [supplierId], references: [id])
-
-  shade        Shade
-  size         Size
-
-  qtyDelta     Float
-  reason       LedgerReason
-  linkId       String?
-  meta         Json?
-
-  @@index([mmaCode, createdAt])
-  @@index([mmaCode, supplierId, shade, size])
-  @@index([linkId])
-  @@map("sorted_ledger")
-}
-
-model SortedTransport {
-  id               Int                 @id @default(autoincrement())
-  createdAt        DateTime            @default(now())
-
-  transportId      String
-  type             TransportEventType
-
-  fromMmaCode      String?
-  toMmaCode        String?
-  fromStationCode  String?
-  toStationCode    String?
-
-  supplierId       Int
-  supplier         Supplier            @relation("SupplierToSortedTransport", fields: [supplierId], references: [id])
-
-  shade            Shade
-  size             Size
-
-  qty              Float
-  amount           Int?
-  meta             Json?
-
-  @@unique([transportId, type])
-  @@index([transportId])
-  @@index([fromMmaCode, createdAt])
-  @@index([toMmaCode, createdAt])
-  @@map("sorted_transport")
-}
 model process_tbl {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now())
+
   // identity
-  processId        String    @unique     // same id linked in Stock.withdraw/deposit linkId
-  processType      String                 // "PROCESSING" (room to add others later)
-  // bridge RAW -> PROCESSED
-  fromMmaCode      String                  // e.g., "ABS_RAW"
-  toMmaCode        String                  // e.g., "ABS_PROCESSED"
+  processId        String    @unique     // may also be stored in StockLedger.linkId
+  processType      String                 // e.g., "PROCESSING"
+
+  // bridge RAW -> SCREENED
+  fromMmaCode      String
+  toMmaCode        String
   supplierId       Int
   fromStationCode  String?
   toStationCode    String?
+
   // source (one RAW slot)
   sourceShade      String
-  sourceSize       String                  // "ANY" allowed; use tons only
-  sourceQtyT       Decimal                 // tons consumed
-  // targets (many PROCESSED slots)
-  targetsQtyT      Decimal                 // Σ of target tons
-  targets          Json                    // [{ shade, size, qtyT }, ...]
+  sourceSize       String                // "ANY" allowed
+  sourceQtyT       Decimal               // tons consumed
+
+  // targets (many SCREENED slots)
+  targetsQtyT      Decimal               // Σ of target tons
+  targets          Json                  // [{ shade, size, qtyT }, ...]
+
   // status
-  status           String                  // "SUCCESS" | "ROLLED_BACK" | "FAILED"
-  error            String?                 // captured error message when not SUCCESS
+  status           String                // "SUCCESS" | "ROLLED_BACK" | "FAILED"
+  error            String?
   meta             Json?
+
   @@index([fromMmaCode, toMmaCode, supplierId])
 }
+
 model screening_tbl {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now())
@@ -260,16 +163,16 @@ model screening_tbl {
 
   // idempotency / identity
   processId        String    @unique
-  processType      String?   // "SORTING" (optional, for readability)
+  processType      String?   // "SORTING" (optional)
 
-  // strict pair: PROCESSED -> SORTED
-  fromMmaCode      String      // e.g., "ABS_PROCESSED"
-  toMmaCode        String      // e.g., "ABS_SORTED"
+  // strict pair: SCREENED -> SORTED
+  fromMmaCode      String
+  toMmaCode        String
   supplierId       Int
   fromStationCode  String?
   toStationCode    String?
 
-  // source (PROCESSED)
+  // source (SCREENED)
   fromShade        String
   fromSize         String
   // destination (SORTED)
@@ -279,18 +182,20 @@ model screening_tbl {
   // quantity (tons) — identical both sides
   qtyT             Decimal
 
-  // NEW: top-level attributes for this process
-  ht               Int?        // e.g., 55
-  wastage          Decimal?    // percent (0..100). External funcs can map/interpret.
+  // attributes for this process
+  ht               Int?
+  wastage          Decimal?
 
-  // ledger linkage (for audit)
-  withdrawLedgerId String
-  depositLedgerId  String
+  // ledger linkage (audit) — named relations to avoid ambiguity
+  withdrawLedgerId Int
+  withdrawLedger   StockLedger @relation(name: "ScreeningWithdraw", fields: [withdrawLedgerId], references: [id])
+
+  depositLedgerId  Int
+  depositLedger    StockLedger @relation(name: "ScreeningDeposit",  fields: [depositLedgerId],  references: [id])
 
   // outcome
   status           String      // "SUCCESS" | "ROLLED_BACK" | "FAILED"
   error            String?
-  // keep meta for any extras beyond ht/wastage
   meta             Json?
 
   @@index([fromMmaCode, toMmaCode, supplierId])
