@@ -1,65 +1,88 @@
 <script>
-  export let data;
-  export let form; // SvelteKit action result (unchanged UX)
+  export let data; // { mmaCode, sizes, suppliers }
 
-  const { stationName, mmaCode, suppliers, shadeOptions, sizeOptions } = data;
-  const success = form?.success;
-  const error   = form?.error;
-  const posted  = form?.posted || {};
+  // Preselect first supplier (if any) so supplierId is never empty by default.
+  let supplierId = data.suppliers[0]?.id ?? '';
+  let shade = 'WHITE';
+  let size = data.sizes[0];
+  let qty = 1;
+
+  let status = null; // { ok, msg }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    status = null;
+
+    // Manual validation because we're bypassing native form submit
+    if (!supplierId) {
+      status = { ok: false, msg: 'Please select a supplier.' };
+      return;
+    }
+    if (!qty || Number(qty) <= 0) {
+      status = { ok: false, msg: 'Quantity must be > 0.' };
+      return;
+    }
+
+    const params = new URLSearchParams({
+      toMmaCode: data.mmaCode,
+      supplierId: String(supplierId),
+      shade: String(shade || ''),
+      size: String(size || 'ANY'),
+      qty: String(qty)
+    });
+
+    const res = await fetch(`/api/deposit?${params.toString()}`, { method: 'POST' });
+    const j = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON' }));
+
+    status = j.ok
+      ? { ok: true,  msg: 'Purchase recorded.' }
+      : { ok: false, msg: j.error || 'Failed' };
+
+    if (j.ok) qty = 1;
+  }
 </script>
 
-<h1>{stationName} — Purchase (Screened)</h1>
-<p>MMA: <strong>{mmaCode}</strong></p>
+<h1>ABS — Purchase (to {data.mmaCode})</h1>
 
-{#if success}
-  <div class="alert alert-success" role="alert">
-    Purchased {posted.qty}t → {mmaCode}
-    (supplier {posted.supplierId}, {posted.shade}/{posted.size}).
-  </div>
-{:else if error}
-  <div class="alert alert-error" role="alert">{error}</div>
+{#if status}
+  <p class={status.ok ? 'success' : 'error'} aria-live="polite">{status.msg}</p>
 {/if}
 
-<form method="POST" action="?/purchaseScreened" autocomplete="off">
-  <div class="row">
-    <label for="supplierId">Supplier</label>
-    <select id="supplierId" name="supplierId" required>
-      <option value="" disabled selected>Choose supplier</option>
-      {#each suppliers as s}
-        <option value={s.id} selected={posted.supplierId == s.id}>{s.id} — {s.name}</option>
+<form on:submit={onSubmit} autocomplete="off">
+  <label>Supplier
+    <select bind:value={supplierId} required>
+      {#if !data.suppliers.length}
+        <option value="" disabled>(no suppliers found)</option>
+      {:else}
+        {#each data.suppliers as s}
+          <option value={s.id}>{s.name} ({s.code})</option>
+        {/each}
+      {/if}
+    </select>
+  </label>
+
+  <label>Shade
+    <input bind:value={shade} required />
+  </label>
+
+  <label>Size
+    <select bind:value={size} required>
+      {#each data.sizes as z}
+        <option value={z}>{z}</option>
       {/each}
     </select>
-  </div>
+  </label>
 
-  <div class="row">
-    <label for="shade">Shade</label>
-    <select id="shade" name="shade" required>
-      <option value="" disabled selected>Choose shade</option>
-      {#each shadeOptions as opt}
-        <option value={opt} selected={posted.shade === opt}>{opt}</option>
-      {/each}
-    </select>
-  </div>
+  <label>Quantity (t)
+    <input type="number" min="0.01" step="0.01" bind:value={qty} required />
+  </label>
 
-  <div class="row">
-    <label for="size">Size</label>
-    <select id="size" name="size" required>
-      <option value="" disabled selected>Choose size</option>
-      {#each sizeOptions as opt}
-        <option value={opt} selected={posted.size === opt}>{opt}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="row">
-    <label for="qty">Quantity (t)</label>
-    <input id="qty" name="qty" type="number" step="0.01" min="0.01" required value={posted.qty ?? ''}/>
-  </div>
-
-  <div class="row">
-    <label for="note">Note</label>
-    <input id="note" name="note" type="text" placeholder="optional"/>
-  </div>
-
-  <button type="submit">Record Purchase</button>
+  <button type="submit" disabled={!data.suppliers.length}>Add to {data.mmaCode}</button>
 </form>
+
+<style>
+  form { display: grid; gap: .75rem; max-width: 420px; }
+  label { display: grid; gap: .25rem; }
+  .success { color: #1db954; }
+  .error { color: #ff4d4f; }
+</style>
