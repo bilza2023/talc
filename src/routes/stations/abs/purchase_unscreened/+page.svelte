@@ -1,65 +1,102 @@
 <script>
-  export let data;
-  export let form;
+  export let data; // { mmaCode, sizes, suppliers }
 
-  const { stationName, mmaCode, suppliers, shadeOptions, sizeOptions } = data;
-  const success = form?.success;
-  const error   = form?.error;
-  const posted  = form?.posted || {};
+  const shades = ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
+
+  // Match screened UX: supplier & size preselected; shade must be chosen
+  let supplierId = data.suppliers[0]?.id ?? '';
+  let shade = '';
+  let size = data.sizes[0];
+  let qty = 1;
+
+  let status = null; // { ok:boolean, msg:string }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    status = null;
+
+    if (!supplierId) { status = { ok:false, msg:'Please select a supplier.' }; return; }
+    if (!shade)      { status = { ok:false, msg:'Please select a shade.' }; return; }
+    if (!qty || Number(qty) <= 0) { status = { ok:false, msg:'Quantity must be > 0.' }; return; }
+
+    const params = new URLSearchParams({
+      toMmaCode: data.mmaCode,
+      supplierId: String(supplierId),
+      shade,
+      size,
+      qty: String(qty)
+    });
+
+    const res = await fetch(`/api/deposit?${params.toString()}`, { method: 'POST' });
+    const j = await res.json().catch(() => ({ ok:false, error:'Invalid JSON' }));
+
+    status = j.ok ? { ok:true, msg:'Purchase recorded.' } : { ok:false, msg:j.error || 'Failed' };
+    if (j.ok) qty = 1; // keep selections, just reset qty
+  }
 </script>
 
-<h1>{stationName} — Purchase (Unscreened)</h1>
-<p>MMA: <strong>{mmaCode}</strong></p>
+<h1 class="page-title">ABS — Purchase (to {data.mmaCode})</h1>
 
-{#if success}
-  <div class="alert alert-success" role="alert">
-    Purchased {posted.qty}t → {mmaCode}
-    (supplier {posted.supplierId}, {posted.shade}/{posted.size}).
-  </div>
-{:else if error}
-  <div class="alert alert-error" role="alert">{error}</div>
+{#if status}
+  <div class="notice {status.ok ? 'success' : 'error'}" aria-live="polite">{status.msg}</div>
 {/if}
 
-<form method="POST" action="?/purchaseUnscreened" autocomplete="off">
-  <div class="row">
-    <label for="supplierId">Supplier</label>
-    <select id="supplierId" name="supplierId" required>
-      <option value="" disabled selected>Choose supplier</option>
-      {#each suppliers as s}
-        <option value={s.id} selected={posted.supplierId == s.id}>{s.id} — {s.name}</option>
-      {/each}
-    </select>
+<form class="form card" on:submit={onSubmit} autocomplete="off">
+  <div class="grid">
+    <div class="field">
+      <label class="label">Supplier</label>
+      <select class="control" bind:value={supplierId} required>
+        {#if !data.suppliers.length}
+          <option value="" disabled>(no suppliers found)</option>
+        {:else}
+          {#each data.suppliers as s}
+            <option value={s.id}>{s.name} ({s.code})</option>
+          {/each}
+        {/if}
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="label">Shade</label>
+      <select class="control" bind:value={shade} required>
+        <option value="" disabled>Pick a shade…</option>
+        {#each shades as sh}
+          <option value={sh}>{sh}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="label">Size</label>
+      <select class="control" bind:value={size} required>
+        {#each data.sizes as z}
+          <option value={z}>{z}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="label">Quantity (t)</label>
+      <input class="control" type="number" min="0.01" step="0.01" bind:value={qty} required />
+    </div>
   </div>
 
-  <div class="row">
-    <label for="shade">Shade</label>
-    <select id="shade" name="shade" required>
-      <option value="" disabled selected>Choose shade</option>
-      {#each shadeOptions as opt}
-        <option value={opt} selected={posted.shade === opt}>{opt}</option>
-      {/each}
-    </select>
+  <div class="actions">
+    <button
+      type="submit"
+      class="btn primary"
+      disabled={!data.suppliers.length || !supplierId || !shade || !qty}
+    >
+      Add to {data.mmaCode}
+    </button>
   </div>
-
-  <div class="row">
-    <label for="size">Size</label>
-    <select id="size" name="size" required>
-      <option value="" disabled selected>Choose size</option>
-      {#each sizeOptions as opt}
-        <option value={opt} selected={posted.size === opt}>{opt}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="row">
-    <label for="qty">Quantity (t)</label>
-    <input id="qty" name="qty" type="number" step="0.01" min="0.01" required value={posted.qty ?? ''}/>
-  </div>
-
-  <div class="row">
-    <label for="note">Note</label>
-    <input id="note" name="note" type="text" placeholder="optional"/>
-  </div>
-
-  <button type="submit">Record Purchase</button>
 </form>
+
+<style>
+  /* plays nice with your forms.css */
+  .page-title { margin-bottom: .75rem; }
+  .card { padding: 1rem; }
+  .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .notice.success { color: #1db954; }
+  .notice.error { color: #ff4d4f; }
+</style>
