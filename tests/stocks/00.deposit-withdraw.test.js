@@ -1,6 +1,6 @@
 // tests/stocks/00.deposit-withdraw.test.js — unified schema
 import { describe, it, expect, beforeEach } from 'vitest';
-import { prisma } from '../../src/lib/stocks/index.js';
+import { prisma } from '../../src/lib/stocks/stockEngine.js';
 import Stock from '../../src/lib/stock/Stock.js';
 
 const stock = new Stock({
@@ -21,9 +21,10 @@ async function seedSupplier(name = 'Deposit/Withdraw Sup') {
 }
 
 beforeEach(async () => {
-  // Clear unified tables
+  // Clear tables in safe order for tests
   await prisma.stockTransport.deleteMany();
   await prisma.stockLedger.deleteMany();
+  await prisma.supplier.deleteMany();
 });
 
 describe('Stock — deposit & withdraw (ABS_SCREENED)', () => {

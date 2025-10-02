@@ -1,17 +1,14 @@
 // tests/setup.db.js
 import { beforeEach, afterAll } from 'vitest';
-import { prisma } from '../src/lib/stocks/index.js';
-
-async function safeClear(promise) {
-  try { await promise; } catch { /* ignore if table not found */ }
-}
+import { prisma } from '../src/lib/stocks/stockEngine.js';
 
 beforeEach(async () => {
-  // Clear unified tables sequentially
-  await safeClear(prisma.stockTransport.deleteMany());
-  await safeClear(prisma.stockLedger.deleteMany());
-  // optional: suppliers if you want a fresh slate
-  // await safeClear(prisma.supplier.deleteMany());
+  // wipe in safe order for FK-less sqlite
+  await prisma.$transaction([
+    prisma.stockTransport.deleteMany(),
+    prisma.stockLedger.deleteMany(),
+    prisma.supplier.deleteMany(),
+  ]);
 });
 
 afterAll(async () => {

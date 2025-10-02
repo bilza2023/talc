@@ -1,7 +1,7 @@
 
 // POST /api/receive?transportId=&toMmaCode=&supplierId=&qty=&amount=&shade=
 import { json } from '@sveltejs/kit';
-import { stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '../../../lib/stocks/stockEngine.js';
 
 export async function POST({ url }) {
   try {

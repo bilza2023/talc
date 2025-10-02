@@ -1,7 +1,7 @@
 
 // GET /api/slots?mmaCode=...&positiveOnly=1
 import { json } from '@sveltejs/kit';
-import { stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '../../../lib/stocks/stockEngine.js';
 
 function toBool(v, def = true) {
   if (v == null) return def;

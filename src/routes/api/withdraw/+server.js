@@ -1,7 +1,7 @@
 
 // POST /api/withdraw?fromMmaCode=&supplierId=&shade=&size=ANY&qty=&processId=
 import { json } from '@sveltejs/kit';
-import { stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '../../../lib/stocks/stockEngine.js';
 
 export async function POST({ url }) {
   try {

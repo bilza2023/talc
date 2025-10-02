@@ -1,6 +1,6 @@
 // tests/stocks/01.transport.dispatch.test.js — unified schema
 import { describe, it, expect, beforeEach } from 'vitest';
-import { prisma } from '../../src/lib/stocks/index.js';
+import { prisma } from '../../src/lib/stocks/stockEngine.js';
 import Stock from '../../src/lib/stock/Stock.js';
 
 const stock = new Stock({
@@ -24,6 +24,7 @@ async function seedSupplier(name = 'Dispatch Sup') {
 beforeEach(async () => {
   await prisma.stockTransport.deleteMany();
   await prisma.stockLedger.deleteMany();
+  await prisma.supplier.deleteMany();
 });
 
 describe('Stock — transport: DISPATCH', () => {

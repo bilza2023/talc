@@ -1,7 +1,7 @@
 
 // POST /api/dispatch?fromMmaCode=&toMmaCode=&supplierId=&shade=&size=ANY&qty=&amount=
 import { json } from '@sveltejs/kit';
-import { stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '../../../lib/stocks/stockEngine.js';
 
 export async function POST({ url }) {
   try {

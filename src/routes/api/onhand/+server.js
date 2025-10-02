@@ -1,7 +1,7 @@
 
 // GET /api/onhand?mmaCode=&supplierId=&shade=&size=
 import { json } from '@sveltejs/kit';
-import { stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '../../../lib/stocks/stockEngine.js';
 
 export async function GET({ url }) {
   try {
