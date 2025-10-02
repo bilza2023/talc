@@ -1,11 +1,12 @@
+// tests/stocks/00.deposit-withdraw.test.js — unified schema
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../../src/lib/stocks/index.js';
 import Stock from '../../src/lib/stock/Stock.js';
 
 const stock = new Stock({
   prisma,
-  ledgerModel: 'processedLedger',
-  transportModel: 'processedTransport',
+  ledgerDelegate: 'stockLedger',
+  transportDelegate: 'stockTransport',
   sizeDefault: 'ANY',
 });
 
@@ -20,11 +21,12 @@ async function seedSupplier(name = 'Deposit/Withdraw Sup') {
 }
 
 beforeEach(async () => {
-  await prisma.processedTransport.deleteMany();
-  await prisma.processedLedger.deleteMany();
+  // Clear unified tables
+  await prisma.stockTransport.deleteMany();
+  await prisma.stockLedger.deleteMany();
 });
 
-describe('Stock — deposit & withdraw (screened via ABS_SCREENED)', () => {
+describe('Stock — deposit & withdraw (ABS_SCREENED)', () => {
   it('deposit increases on-hand; audit matches', async () => {
     const sup = await seedSupplier();
 
@@ -36,24 +38,12 @@ describe('Stock — deposit & withdraw (screened via ABS_SCREENED)', () => {
       qty: 10,
     });
 
-    // Engine read
-    const onHand = await stock.onHand({
-      mmaCode: MMA,
-      supplierId: sup.id,
-      shade: SHADE,
-      size: SIZE,
-    });
+    const onHand = await stock.onHand({ mmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE });
     expect(onHand).toBeCloseTo(10, 6);
 
-    // DB-level audit cross-check
-    const sumLed = await prisma.processedLedger.aggregate({
+    const sumLed = await prisma.stockLedger.aggregate({
       _sum: { qtyDelta: true },
-      where: {
-        mmaCode: MMA,
-        supplierId: sup.id,
-        shade: SHADE,
-        size: SIZE,
-      },
+      where: { mmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE },
     });
     expect(onHand).toBeCloseTo(Number(sumLed._sum.qtyDelta ?? 0), 6);
   });
@@ -61,16 +51,8 @@ describe('Stock — deposit & withdraw (screened via ABS_SCREENED)', () => {
   it('withdraw consumes stock and rejects insufficient', async () => {
     const sup = await seedSupplier();
 
-    // Seed 2t
-    await stock.deposit({
-      toMmaCode: MMA,
-      supplierId: sup.id,
-      shade: SHADE,
-      size: SIZE,
-      qty: 2,
-    });
+    await stock.deposit({ toMmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE, qty: 2 });
 
-    // Withdraw 1t with a processId
     await stock.withdraw({
       fromMmaCode: MMA,
       supplierId: sup.id,
@@ -80,24 +62,11 @@ describe('Stock — deposit & withdraw (screened via ABS_SCREENED)', () => {
       processId: 'proc-1',
     });
 
-    const after = await stock.onHand({
-      mmaCode: MMA,
-      supplierId: sup.id,
-      shade: SHADE,
-      size: SIZE,
-    });
+    const after = await stock.onHand({ mmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE });
     expect(after).toBeCloseTo(1, 6);
 
-    // Now try to over-withdraw → should throw
     await expect(
-      stock.withdraw({
-        fromMmaCode: MMA,
-        supplierId: sup.id,
-        shade: SHADE,
-        size: SIZE,
-        qty: 2,
-        processId: 'proc-2',
-      })
+      stock.withdraw({ fromMmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE, qty: 2, processId: 'proc-2' })
     ).rejects.toThrow(/Insufficient/);
   });
 });

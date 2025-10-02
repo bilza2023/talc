@@ -1,63 +1,44 @@
-// src/lib/stock/Stock.js
+// src/lib/stock/Stock.js — unified schema, mmaCode-driven (no `family` field)
 import { PrismaClient } from '@prisma/client';
 import { randomUUID as uuidv4 } from 'crypto';
 
 /**
- * Assumed Prisma models for a given STAGE (e.g., "processed"):
+ * Unified Stock service (station-free, mmaCode-driven).
+ * Uses ONE pair of Prisma delegates that point to unified tables:
+ *   - ledgerDelegate    (default: prisma.stockLedger)
+ *   - transportDelegate (default: prisma.stockTransport)
  *
- * 1) <stage>_ledger (append-only)
- *    - id (PK)
- *    - createdAt       DateTime  @default(now())
- *    - mmaCode         String
- *    - supplierId      Int
- *    - shade           String
- *    - size            String
- *    - qtyDelta        Decimal   // +qty or -qty
- *    - reason          String    // 'DIRECT' | 'PROCESS' | 'TRANSPORT' | 'REVERSAL' | 'ADJUST'
- *    - linkId          String?   // processId or transportId for lineage
- *    - meta            Json?
- *
- * 2) <stage>_transport (append-only)
- *    - id (PK)
- *    - createdAt       DateTime  @default(now())
- *    - transportId     String    // groups DISPATCH/RECEIVE/CANCEL
- *    - type            String    // 'DISPATCH' | 'RECEIVE' | 'CANCEL'
- *    - fromMmaCode     String?
- *    - toMmaCode       String?
- *    - supplierId      Int
- *    - shade           String
- *    - size            String
- *    - qty             Decimal
- *    - amount          Decimal?  // money at that side
- *    - meta            Json?
+ * All commands REQUIRE mmaCode via toMmaCode/fromMmaCode.
  */
 export default class Stock {
   /**
    * @param {Object} opts
-   * @param {string} opts.ledgerModel     // Prisma model name for the stage ledger, e.g. 'processedLedger'
-   * @param {string} opts.transportModel  // Prisma model name for the stage transport, e.g. 'processedTransport'
    * @param {PrismaClient} [opts.prisma]
-   * @param {string} [opts.sizeDefault='ANY'] // unify sizes by defaulting to 'ANY' when omitted
+   * @param {string} [opts.ledgerDelegate='stockLedger']      // Prisma delegate name for unified ledger table
+   * @param {string} [opts.transportDelegate='stockTransport'] // Prisma delegate name for unified transport table
+   * @param {string} [opts.sizeDefault='ANY']
    */
-  constructor({ ledgerModel, transportModel, prisma, sizeDefault = 'ANY' } = {}) {
-    if (!ledgerModel)    throw new Error('Stock requires opts.ledgerModel');
-    if (!transportModel) throw new Error('Stock requires opts.transportModel');
-
+  constructor({
+    prisma,
+    ledgerDelegate = 'stockLedger',
+    transportDelegate = 'stockTransport',
+    sizeDefault = 'ANY',
+  } = {}) {
     this.prisma = prisma ?? new PrismaClient();
-    this.ledgerModel = ledgerModel;
-    this.transportModel = transportModel;
+    this.ledgerDelegate = String(ledgerDelegate);
+    this.transportDelegate = String(transportDelegate);
     this.sizeDefault = String(sizeDefault || 'ANY');
   }
 
   // ---------- tiny helpers ----------
   #Ledger(tx = this.prisma) {
-    const d = tx[this.ledgerModel];
-    if (!d) throw new Error(`Prisma delegate "${this.ledgerModel}" not found`);
+    const d = tx[this.ledgerDelegate];
+    if (!d) throw new Error(`Prisma delegate "${this.ledgerDelegate}" not found`);
     return d;
   }
   #Transport(tx = this.prisma) {
-    const d = tx[this.transportModel];
-    if (!d) throw new Error(`Prisma delegate "${this.transportModel}" not found`);
+    const d = tx[this.transportDelegate];
+    if (!d) throw new Error(`Prisma delegate "${this.transportDelegate}" not found`);
     return d;
   }
   #size(size) { return size ?? this.sizeDefault; }
@@ -73,7 +54,7 @@ export default class Stock {
    */
   async deposit({
     toMmaCode, supplierId, shade, qty, size,
-    processId, reason = 'DIRECT', meta
+    processId, reason = 'DIRECT', meta,
   }) {
     this.#need(toMmaCode, 'toMmaCode');
     this.#need(supplierId, 'supplierId');
@@ -100,11 +81,11 @@ export default class Stock {
   }
 
   /**
-   * withdraw: append -qty in ledger (PROCESS)
+   * withdraw: append -qty in ledger (PROCESS), availability-guarded
    */
   async withdraw({
     fromMmaCode, supplierId, shade, qty, size,
-    processId, reason = 'PROCESS', meta
+    processId, reason = 'PROCESS', meta,
   }) {
     this.#need(fromMmaCode, 'fromMmaCode');
     this.#need(supplierId, 'supplierId');
@@ -136,14 +117,11 @@ export default class Stock {
   }
 
   /**
-   * dispatch: append DISPATCH event (+ ledger -qty)
-   */
-   /**
    * dispatch: create DISPATCH transport and post -qty at source (atomic)
    */
-   async dispatch({
+  async dispatch({
     fromMmaCode, toMmaCode, supplierId, shade, qty, size,
-    amount, meta, transportId
+    amount, meta, transportId,
   }) {
     this.#need(fromMmaCode, 'fromMmaCode');
     this.#need(toMmaCode, 'toMmaCode');
@@ -155,17 +133,13 @@ export default class Stock {
     const tid = transportId ?? uuidv4();
 
     return this.prisma.$transaction(async (tx) => {
-      // optional: ensure available stock to dispatch
-      const available = await this.onHand({
-        mmaCode: fromMmaCode, supplierId, shade, size: finalSize,
-      });
+      // ensure available stock to dispatch
+      const available = await this.onHand({ mmaCode: fromMmaCode, supplierId, shade, size: finalSize });
       if (Number(available) < Number(qty)) {
-        throw new Error(
-          `Insufficient stock at ${fromMmaCode} (available=${available}, requested=${qty})`
-        );
+        throw new Error(`Insufficient stock at ${fromMmaCode} (available=${available}, requested=${qty})`);
       }
 
-      // 1) transport: DISPATCH  (note: NO 'status' column in schema)
+      // 1) transport: DISPATCH
       const tr = await this.#Transport(tx).create({
         data: {
           transportId: tid,
@@ -199,13 +173,12 @@ export default class Stock {
     });
   }
 
-
   /**
-   * receive: append RECEIVE event (+ ledger +qty) — idempotency via unique (transportId,type)
+   * receive: append RECEIVE event (+ ledger +qty) — idempotent per transportId
    */
   async receive({
     transportId, toMmaCode, supplierId, qty, shade,
-    amount, meta
+    amount, meta,
   }) {
     this.#need(transportId, 'transportId');
     this.#need(toMmaCode, 'toMmaCode');
@@ -218,13 +191,13 @@ export default class Stock {
       const dispatch = await T.findFirst({ where: { transportId, type: 'DISPATCH' } });
       if (!dispatch) throw new Error('DISPATCH not found for transportId');
 
-      // Ensure not canceled / not already received
+      // not canceled / not already received
       const alreadyReceive = await T.findFirst({ where: { transportId, type: 'RECEIVE' } });
       if (alreadyReceive) return { transportId, receive: alreadyReceive, posting: null }; // idempotent
       const canceled = await T.findFirst({ where: { transportId, type: 'CANCEL' } });
       if (canceled) throw new Error('Transport is canceled');
 
-      // Defaults from dispatch if not provided
+      // defaults from dispatch if not provided
       const finalQty   = qty   != null ? Number(qty)   : Number(dispatch.qty);
       const finalShade = shade != null ? String(shade) : String(dispatch.shade);
       const finalSize  = String(dispatch.size);
@@ -321,7 +294,7 @@ export default class Stock {
   // ============================================================
 
   /**
-   * onHand math from ledger (Σ qtyDelta) with optional filters
+   * onHand: Σ qtyDelta with optional filters
    */
   async onHand({ mmaCode, supplierId, shade, size } = {}) {
     const L = this.#Ledger();
@@ -336,7 +309,7 @@ export default class Stock {
   }
 
   /**
-   * slots: per-slot balances from ledger (groupBy), filtered to one mmaCode
+   * slots: per-slot balances (groupBy), filtered to one mmaCode
    */
   async slots({ mmaCode, positiveOnly = true } = {}) {
     this.#need(mmaCode, 'mmaCode');
@@ -366,7 +339,7 @@ export default class Stock {
   }
 
   /**
-   * inbound: DISPATCH events targeting this mmaCode that are not RECEIVED/CANCELED
+   * inbound: unsettled DISPATCH events TO this mmaCode
    */
   async inbound({ mmaCode } = {}) {
     this.#need(mmaCode, 'mmaCode');
@@ -382,7 +355,7 @@ export default class Stock {
 
     const settled = await T.findMany({
       where: { transportId: { in: ids }, type: { in: ['RECEIVE', 'CANCEL'] } },
-      select: { transportId: true, type: true },
+      select: { transportId: true },
     });
     const settledSet = new Set(settled.map(x => x.transportId));
 
@@ -390,7 +363,7 @@ export default class Stock {
   }
 
   /**
-   * outbound: DISPATCH events from this mmaCode that are not RECEIVED/CANCELED
+   * outbound: unsettled DISPATCH events FROM this mmaCode
    */
   async outbound({ mmaCode } = {}) {
     this.#need(mmaCode, 'mmaCode');
@@ -414,7 +387,7 @@ export default class Stock {
   }
 
   /**
-   * transportAmounts rollup (money view)
+   * transportAmounts: money rollup buckets
    */
   async transportAmounts({ mmaCode }) {
     this.#need(mmaCode, 'mmaCode');

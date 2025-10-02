@@ -14,12 +14,12 @@ datasource db {
 
 // -------------------- Enums --------------------------
 
-enum Family {
-  RAW
-  SCREENED
-  SORTED
-  PRODUCTION
-}
+// enum Family {
+//   RAW
+//   SCREENED
+//   SORTED
+//   PRODUCTION
+// }
 
 enum Size {
   LUMPS
@@ -68,7 +68,6 @@ model StockLedger {
   id           Int          @id @default(autoincrement())
   createdAt    DateTime     @default(now())
 
-  family       Family
   mmaCode      String
 
   supplierId   Int
@@ -89,7 +88,6 @@ model StockLedger {
   @@index([mmaCode, createdAt])
   @@index([mmaCode, supplierId, shade, size])
   @@index([supplierId, shade, size])
-  @@index([family, mmaCode])
   @@index([linkId])
   @@map("stock_ledger")
 }

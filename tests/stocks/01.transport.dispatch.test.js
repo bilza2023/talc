@@ -1,19 +1,19 @@
-// tests/stocks/01.transport.dispatch.test.js
+// tests/stocks/01.transport.dispatch.test.js — unified schema
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../../src/lib/stocks/index.js';
 import Stock from '../../src/lib/stock/Stock.js';
 
 const stock = new Stock({
   prisma,
-  ledgerModel: 'processedLedger',
-  transportModel: 'processedTransport',
+  ledgerDelegate: 'stockLedger',
+  transportDelegate: 'stockTransport',
   sizeDefault: 'ANY',
 });
 
-const FROM  = 'ABS_SCREENED';
-const TO    = 'PSS_SCREENED';
-const SHADE = 'WHITE';
-const SIZE  = 'ANY';
+const FROM    = 'ABS_SCREENED';
+const TO      = 'PSS_SCREENED';
+const T_SHADE = 'WHITE';
+const T_SIZE  = 'ANY';
 
 async function seedSupplier(name = 'Dispatch Sup') {
   return prisma.supplier.create({
@@ -22,53 +22,37 @@ async function seedSupplier(name = 'Dispatch Sup') {
 }
 
 beforeEach(async () => {
-  // Reset only the stage-specific tables used by this test
-  await prisma.processedTransport.deleteMany();
-  await prisma.processedLedger.deleteMany();
+  await prisma.stockTransport.deleteMany();
+  await prisma.stockLedger.deleteMany();
 });
 
 describe('Stock — transport: DISPATCH', () => {
-  it('creates a DISPATCH and deducts source; destination unchanged until RECEIVE', async () => {
+  it('creates DISPATCH and deducts source; destination unchanged until RECEIVE', async () => {
     const sup = await seedSupplier();
 
-    // Seed 5t to source
-    await stock.deposit({
-      toMmaCode: FROM,
-      supplierId: sup.id,
-      shade: SHADE,
-      size: SIZE,
-      qty: 5,
-    });
+    // Seed 5t at source
+    await stock.deposit({ toMmaCode: FROM, supplierId: sup.id, shade: T_SHADE, size: T_SIZE, qty: 5 });
 
     // Dispatch 3t FROM -> TO
     const { transportId } = await stock.dispatch({
       fromMmaCode: FROM,
       toMmaCode: TO,
       supplierId: sup.id,
-      shade: SHADE,
-      size: SIZE,
+      shade: T_SHADE,
+      size: T_SIZE,
       qty: 3,
     });
 
     // Source reduced immediately
-    const src = await stock.onHand({
-      mmaCode: FROM, supplierId: sup.id, shade: SHADE, size: SIZE,
-    });
+    const src = await stock.onHand({ mmaCode: FROM, supplierId: sup.id, shade: T_SHADE, size: T_SIZE });
     expect(src).toBeCloseTo(2, 6);
 
     // Destination stays 0 until receive
-    const dst = await stock.onHand({
-      mmaCode: TO, supplierId: sup.id, shade: SHADE, size: SIZE,
-    });
+    const dst = await stock.onHand({ mmaCode: TO, supplierId: sup.id, shade: T_SHADE, size: T_SIZE });
     expect(dst).toBeCloseTo(0, 6);
 
-    // Public audit call: should indicate "in transit"
+    // Transport is in transit
     const tr = await stock.auditTransport({ transportId });
     expect(tr.status).toBe('IN_TRANSIT');
-
-    // NOTE: We intentionally don't assert DB row shape here.
-    // Different engines may not persist a DISPATCH row yet,
-    // or may store it with a different 'type' field. The
-    // public contract we rely on is onHand math + audit status.
   });
 });
