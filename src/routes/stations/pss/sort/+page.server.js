@@ -1,37 +1,47 @@
-// /src/routes/stations/pss/sort/+page.server.js
+// PSS — Sorting (SCREENED → SORTED) using unified Stock API
 import { fail } from '@sveltejs/kit';
-import { STATION, FAMILY, getMma, makeFacade } from '$lib/stationKit';
-import sorting from '$lib/processes/sorting.js';
-
-const STATION_CODE = STATION.PSS;
-const FROM_FAMILY  = FAMILY.SCREENED;
-const TO_FAMILY    = FAMILY.SORTED;
+import { stock, prisma } from '$lib/stocks/stockEngine.js';
+import { randomUUID as uuidv4 } from 'crypto';
 
 function num(n, d = undefined) {
   const v = n == null ? NaN : Number(n);
   return Number.isFinite(v) ? v : d;
 }
 
-export async function load({ url }) {
+/** @type {import('./$types').PageServerLoad} */
+export async function load({ url, fetch }) {
   const supplierId = num(url.searchParams.get('supplierId'));
   const shade      = (url.searchParams.get('shade') || '').trim();
   const size       = (url.searchParams.get('size')  || '').trim();
   const urlQty     = num(url.searchParams.get('qty'));
 
-  const fromMma = getMma(STATION_CODE, FROM_FAMILY);
-  const toMma   = getMma(STATION_CODE, TO_FAMILY);
+  const fromMmaCode = 'PSS_SCREENED';
+  const toMmaCode   = 'PSS_SORTED';
 
+  // compute onHand for this exact slot via /api/slots
   let onHand = null;
-  if (supplierId && shade && size) {
-    const facade = makeFacade(STATION_CODE);
-    onHand = await facade.onHand({ family: FROM_FAMILY, supplierId, shade, size });
+  try {
+    const res = await fetch(`/api/slots?mmaCode=${encodeURIComponent(fromMmaCode)}&positiveOnly=1`);
+    const j = await res.json();
+    const slots = j.ok ? j.data : [];
+    if (supplierId && shade && size) {
+      const match = slots.find(
+        (s) =>
+          Number(s.supplierId) === Number(supplierId) &&
+          String(s.shade) === shade &&
+          String(s.size) === size
+      );
+      onHand = match ? Number(match.qty) : 0;
+    }
+  } catch {
+    onHand = null;
   }
 
   return {
-    stationCode: STATION_CODE,
-    lane: `${fromMma.mmaCode} → ${toMma.mmaCode}`,
-    fromMmaCode: fromMma.mmaCode,
-    toMmaCode: toMma.mmaCode,
+    stationCode: 'PSS',
+    lane: `${fromMmaCode} → ${toMmaCode}`,
+    fromMmaCode,
+    toMmaCode,
     supplierId: supplierId || '',
     shade,
     size,
@@ -40,42 +50,78 @@ export async function load({ url }) {
   };
 }
 
+/** @type {import('./$types').Actions} */
 export const actions = {
   sort: async ({ request }) => {
     const form = await request.formData();
 
-    const stationCode  = String(form.get('stationCode') || STATION_CODE);
-    const fromMmaCode  = String(form.get('fromMmaCode'));
-    const toMmaCode    = String(form.get('toMmaCode'));
+    const fromMmaCode  = String(form.get('fromMmaCode') || 'PSS_SCREENED');
+    const toMmaCode    = String(form.get('toMmaCode')   || 'PSS_SORTED');
     const supplierId   = num(form.get('supplierId'));
     const fromShade    = String(form.get('fromShade') || '');
     const fromSize     = String(form.get('fromSize')  || '');
     const qty          = num(form.get('qty'));
 
-    const wastageRaw   = form.get('wastage');
-    const htRaw        = form.get('ht');
+    // optional process meta
+    const wastageRaw   = form.get('wastage'); // %
+    const htRaw        = form.get('ht');      // sieve/height
 
-    if (!fromMmaCode || !toMmaCode) return fail(400, { error: 'Missing lane (mma codes).' });
-    if (!supplierId)                  return fail(400, { error: 'Missing supplierId.' });
-    if (!fromShade || !fromSize)     return fail(400, { error: 'Missing source shade/size.' });
-    if (!qty || qty <= 0)            return fail(400, { error: 'Qty must be > 0.' });
+    if (!supplierId)              return fail(400, { error: 'Missing supplierId.' });
+    if (!fromShade || !fromSize)  return fail(400, { error: 'Missing source shade/size.' });
+    if (!qty || qty <= 0)         return fail(400, { error: 'Qty must be > 0.' });
 
+    const processId = uuidv4();
+    const meta = {
+      ...(wastageRaw !== '' && wastageRaw != null ? { wastage: Number(wastageRaw) } : {}),
+      ...(htRaw !== '' && htRaw != null ? { ht: Number(htRaw) } : {})
+    };
+
+    // atomic: withdraw SCREENED, deposit SORTED, same qty/shade/size
     try {
-      const result = await sorting({
+      await stock.withdraw({
         fromMmaCode,
+        supplierId,
+        shade: fromShade,
+        size: fromSize,
+        qty,
+        processId,
+        reason: 'PROCESS',
+        meta
+      });
+
+      await stock.deposit({
         toMmaCode,
         supplierId,
-        from: { shade: fromShade, size: fromSize, qtyT: qty, stationCode },
-        to:   { shade: fromShade, size: fromSize, qtyT: qty, stationCode },
-        meta: {
-          ...(wastageRaw !== '' && wastageRaw != null ? { wastage: Number(wastageRaw) } : {}),
-          ...(htRaw !== '' && htRaw != null ? { ht: Number(htRaw) } : {})
-        }
+        shade: fromShade,
+        size: fromSize,
+        qty,
+        processId,
+        reason: 'PROCESS',
+        meta
       });
+
+      // (optional) If you add a Prisma model for screening, wire it here:
+      // if (prisma?.screening_tbl) {
+      //   await prisma.screening_tbl.create({
+      //     data: {
+      //       processId,
+      //       fromMmaCode,
+      //       toMmaCode,
+      //       supplierId,
+      //       fromShade: fromShade,
+      //       fromSize: fromSize,
+      //       toShade: fromShade,
+      //       toSize: fromSize,
+      //       qtyT: qty,
+      //       ht: meta.ht ?? null,
+      //       wastage: meta.wastage ?? null
+      //     }
+      //   });
+      // }
 
       return {
         success: true,
-        sorted: { processId: result.processId },
+        sorted: { processId },
         posted: { supplierId, fromShade, fromSize, qty, wastage: wastageRaw, ht: htRaw }
       };
     } catch (e) {

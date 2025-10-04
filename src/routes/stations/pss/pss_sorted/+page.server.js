@@ -1,21 +1,12 @@
-// PSS — SORTED (sorted family)
-import { sortedStock } from '$lib/stocks/index.js';
-
-function stationFrom(mma) {
-  return (mma.split('_')[0] || '').toUpperCase();
-}
-
-export const load = async () => {
+// PSS — Sorted slots (unified /api/slots read)
+export async function load({ fetch }) {
   const mmaCode = 'PSS_SORTED';
-  const positiveOnly = true;
-
-  const slots = await sortedStock.slots({ mmaCode, positiveOnly });
-  const stationCode = stationFrom(mmaCode);
+  const res = await fetch(`/api/slots?mmaCode=${encodeURIComponent(mmaCode)}&positiveOnly=1`);
+  const j = await res.json().catch(() => ({ ok: false, data: [] }));
 
   return {
-    stationCode,
     mmaCode,
-    positiveOnly,
-    slots
+    positiveOnly: true,
+    slots: j.ok ? j.data : []
   };
-};
+}

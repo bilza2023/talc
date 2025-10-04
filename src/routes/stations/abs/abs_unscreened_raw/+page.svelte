@@ -1,39 +1,58 @@
 <script>
-  export let data;
-  const { stationCode, mmaCode, slots = [] } = data;
+  export let data; // { mmaCode, positiveOnly, slots }
 
-  // UNSCREENED_RAW -> (current flow) allow direct dispatch to SORTED lanes
-  // (Matches your tested orchestration where UNSCREENED can be moved out.)
-  const toPssSorted = (s) =>
-    `/stations/abs/dispatch_pss_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
-
-  const toKefSorted = (s) =>
-    `/stations/abs/dispatch_kef_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(s.shade)}&size=${encodeURIComponent(s.size)}`;
+  function params(r) {
+    const p = new URLSearchParams({
+      supplierId: String(r.supplierId),
+      shade: r.shade,
+      size: r.size,
+      qty: String(r.qty) // prefill, editable on dispatch page
+    });
+    return p.toString();
+  }
 </script>
 
-<h1>{stationCode} — Slots: {mmaCode}</h1>
+<h1 class="page-title">ABS — Slots (Unscreened / {data.mmaCode})</h1>
 
-{#if slots.length === 0}
-  <p>No on-hand slots.</p>
+{#if !data.slots.length}
+  <div class="notice">No slots found.</div>
 {:else}
-  <table>
-    <thead>
-      <tr><th>Supplier</th><th>Shade</th><th>Size</th><th>Qty (t)</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {#each slots as s}
+  <div class="card">
+    <table class="table">
+      <thead>
         <tr>
-          <td>{s.supplierId}</td>
-          <td>{s.shade}</td>
-          <td>{s.size}</td>
-          <td>{s.qty}</td>
-          <!-- <td style="white-space:nowrap">
-            <a href={toPssSorted(s)}>Dispatch → PSS_SORTED</a>
-            &nbsp;|&nbsp;
-            <a href={toKefSorted(s)}>Dispatch → KEF_SORTED</a>
-          </td> -->
+          <th>Supplier</th>
+          <th>Shade</th>
+          <th>Size</th>
+          <th style="text-align:right;">Qty (t)</th>
+          <th style="width:160px;">Actions</th>
         </tr>
-      {/each}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {#each data.slots as r}
+          <tr>
+            <td>{r.supplierName ?? r.supplierId}</td>
+            <td>{r.shade}</td>
+            <td>{r.size}</td>
+            <td style="text-align:right;">{r.qty}</td>
+            <td>
+              <a class="btn small"
+                 href={`/stations/abs/dispatch_pss_screened?${params(r)}`}>
+                Dispatch → PSS
+              </a>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
 {/if}
+
+<style>
+  .page-title { margin-bottom: .75rem; }
+  .card { padding: 1rem; }
+  .table { width: 100%; border-collapse: collapse; }
+  .table th, .table td { padding: .5rem; border-bottom: 1px solid #e5e5e5; }
+  .btn.small { padding: .35rem .6rem; font-size: .9rem; }
+  .notice { padding: .75rem 1rem; border: 1px solid #eee; border-radius: .5rem; }
+</style>

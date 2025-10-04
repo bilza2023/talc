@@ -1,21 +1,14 @@
-// ABS — UNSCREENED (raw family)
-import { rawStock } from '$lib/stocks/index.js';
-
-function stationFrom(mma) {
-  return (mma.split('_')[0] || '').toUpperCase();
-}
-
-export const load = async () => {
-  const mmaCode = 'ABS_UNSCREENED_RAW';      // <- aligned to your naming
+// ABS — Unscreened (RAW) slots, via API (no lib imports)
+export async function load({ fetch }) {
+  const mmaCode = 'ABS_RAW';
   const positiveOnly = true;
 
-  const slots = await rawStock.slots({ mmaCode, positiveOnly });
-  const stationCode = stationFrom(mmaCode);
+  const res = await fetch(`/api/slots?mmaCode=${encodeURIComponent(mmaCode)}&positiveOnly=1`);
+  const j = await res.json().catch(() => ({ ok: false, data: [] }));
 
   return {
-    stationCode,
     mmaCode,
     positiveOnly,
-    slots
+    slots: j.ok ? j.data : []
   };
-};
+}

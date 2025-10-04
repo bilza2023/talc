@@ -11,9 +11,7 @@ export const load = async ({ url }) => {
       { icon: '🧾', label: 'Purchase (Unscreened)', href: '/stations/abs/purchase_unscreened' },
       { icon: '🧾', label: 'Purchase (Screened)',   href: '/stations/abs/purchase_screened' },
       { icon: '📦', label: 'Slots — Unscreened',    href: '/stations/abs/abs_unscreened_raw' },
-      { icon: '📦', label: 'Slots — Screened',      href: '/stations/abs/abs_screened' },
-      { icon: '🚚', label: 'Dispatch → PSS',        href: '/stations/abs/dispatch_pss_screened' },
-      { icon: '🚚', label: 'Dispatch → KEF',        href: '/stations/abs/dispatch_kef_screened' }
+      { icon: '📦', label: 'Slots — Screened',      href: '/stations/abs/abs_screened' }
     ]
   };
 

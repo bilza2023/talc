@@ -63,7 +63,7 @@ export const dictionary = {
 		"/stations/abs/screening": [~25,[2,3]],
 		"/stations/kef": [26,[2,4]],
 		"/stations/pss": [27,[2,5]],
-		"/stations/pss/dispatch_sorted_to_kef": [~28,[2,5]],
+		"/stations/pss/dispatch_kef_sorted": [~28,[2,5]],
 		"/stations/pss/pss_screened": [~29,[2,5]],
 		"/stations/pss/pss_sorted": [~30,[2,5]],
 		"/stations/pss/receive_abs_screened": [~31,[2,5]],

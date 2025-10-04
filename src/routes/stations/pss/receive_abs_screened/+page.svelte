@@ -1,17 +1,15 @@
-<!-- /src/routes/stations/pss/receive_screened/+page.svelte -->
 <script>
   export let data; // { stationCode, lane, rows }
   export let form;
 
   const { stationCode, lane, rows = [] } = data;
   const justId = form?.received?.transportId;
+
   const fmt = (ts) => new Date(ts).toLocaleString();
 </script>
 
-<header class="page-h">
-  <h1 class="page-title">{stationCode} — Receive (ABS → PSS_SCREENED)</h1>
-  <p class="page-sub">Lane: <strong>{lane}</strong></p>
-</header>
+<h1>{stationCode} — Receive (ABS → PSS_SCREENED)</h1>
+<p>Lane: <strong>{lane}</strong></p>
 
 {#if form?.success}
   <p class="success" aria-live="polite">
@@ -24,79 +22,62 @@
 {/if}
 
 {#if rows.length === 0}
-  <p class="muted">No inbound dispatches from ABS for <strong>PSS_SCREENED</strong>.</p>
+  <p>No inbound dispatches from ABS for PSS_SCREENED.</p>
 {:else}
-  <div class="stack">
-    {#each rows as r}
-      <section class="card {justId === r.transportId ? 'is-received' : ''}">
-        <header class="card-h">
-          <div class="title">
-            <strong>Dispatch</strong> <code>{r.transportId}</code>
-          </div>
-          <div class="meta">
-            <span>{fmt(r.createdAt)}</span>
-            <span>Supplier #{r.supplierId}</span>
-            <span>{r.shade} / {r.size}</span>
-            <span>Dispatched: {r.dispatchedQty}t</span>
-          </div>
-        </header>
+  <table class="inbound">
+    <thead>
+      <tr>
+        <th>Transport</th>
+        <th>When</th>
+        <th>Supplier</th>
+        <th>Shade</th>
+        <th>Size</th>
+        <th>Dispatched Qty</th>
+        <th>Receive</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each rows as r}
+        <tr>
+          <td><code>{r.transportId}</code></td>
+          <td>{fmt(r.createdAt)}</td>
+          <td>{r.supplierId}</td>
+          <td>{r.shade}</td>
+          <td>{r.size}</td>
+          <td>{r.dispatchedQty}</td>
+          <td>
+            <!-- Call the named action `receiveOne` -->
+            <form method="POST" action="?/receiveOne">
+              <input type="hidden" name="transportId" value={r.transportId} />
+              <input type="hidden" name="supplierId"  value={r.supplierId} />
 
-        <form method="POST" action="?/receiveOne" class="form compact" autocomplete="off">
-          <input type="hidden" name="transportId" value={r.transportId} />
-          <input type="hidden" name="supplierId" value={r.supplierId} />
+              <label>Incoming qty (t)
+                <input name="qty" type="number" min="0.01" step="0.01" required />
+              </label>
 
-          <div class="row">
-            <label class="req" for={`qty-${r.transportId}`}>Incoming Qty (t)</label>
-            <div>
-              <input
-                id={`qty-${r.transportId}`}
-                name="qty"
-                type="number"
-                step="0.001"
-                min="0.001"
-                required
-                value={r.dispatchedQty}
-              />
-              <div class="hint">Defaulted to dispatched; edit if needed</div>
-            </div>
-          </div>
+              <label>Amount (optional)
+                <input name="amount" type="number" step="0.01" />
+              </label>
 
-          <div class="row">
-            <label for={`amount-${r.transportId}`}>Amount</label>
-            <input
-              id={`amount-${r.transportId}`}
-              name="amount"
-              type="number"
-              step="1"
-              inputmode="numeric"
-              placeholder="Optional"
-            />
-          </div>
-
-          <div class="actions">
-            {#if justId === r.transportId}
-              <button type="button" class="secondary" disabled>Received</button>
-            {:else}
-              <input type="submit" class="primary" value="Receive" />
-            {/if}
-          </div>
-        </form>
-      </section>
-    {/each}
-  </div>
+              <button>Receive</button>
+            </form>
+          </td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
 {/if}
 
 <style>
-  /* tiny, page-local polish for headings only (scoped, won't leak) */
-  .page-h { margin: 0 0 12px; }
-  .page-title { margin: 0 0 4px; font-size: clamp(1.05rem, 2.2vw, 1.35rem); }
-  .page-sub { margin: 0; opacity: .8; font-size: .95rem; }
-
-  /* keep meta line subtle; relies on your global tokens */
-  .card-h .title { font-weight: 600; }
-  .card-h .meta { opacity: .85; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 10px; }
-  .card-h .meta span::after { content: "•"; margin: 0 6px; opacity: .5; }
-  .card-h .meta span:last-child::after { content: ""; }
-
-  .muted { opacity: .75; }
+  h1 { margin: 0 0 .5rem; font-size: 1.2rem; }
+  .success { color: #2ecc71; }
+  .error { color: #e74c3c; }
+  table.inbound { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { padding: .45rem .55rem; border-bottom: 1px solid var(--border, #333); text-align: left; }
+  th { font-weight: 700; }
+  form { display: grid; grid-template-columns: 1fr 1fr auto; gap: .4rem; align-items: center; }
+  form label { display: grid; font-size: .9rem; }
+  input, button { padding: .35rem .5rem; }
+  button { border: 1px solid var(--border, #333); border-radius: .35rem; font-weight: 600; }
+  button:hover { outline: 1px solid currentColor; }
 </style>

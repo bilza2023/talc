@@ -1,61 +1,37 @@
-import { fail, redirect } from '@sveltejs/kit';
-import { processedStock } from '$lib/stocks/index.js';
-
+// ABS → PSS dispatch (Screened), API-aligned
 const FROM_MMA = 'ABS_SCREENED';
 const TO_MMA   = 'PSS_SCREENED';
 
-export async function load({ url }) {
+export async function load({ url, fetch }) {
   const supplierId = Number(url.searchParams.get('supplierId') || '');
   const shade      = url.searchParams.get('shade') || '';
   const size       = url.searchParams.get('size') || '';
-  const qty        = Number(url.searchParams.get('qty') || 0); // optional, prefill if present
+  const qty        = Number(url.searchParams.get('qty') || 0); // optional prefill
 
-  if (!supplierId || !shade || !size) {
-    return {
-      error: 'Missing supplierId, shade, or size in URL. Open from the ABS Screened Slots page.',
-      fromMmaCode: FROM_MMA,
-      toMmaCode: TO_MMA
-    };
+  const missing = !supplierId || !shade || !size;
+
+  // fetch actual on-hand for this tuple
+  let available = 0;
+  if (!missing) {
+    const p = new URLSearchParams({
+      mmaCode: FROM_MMA,
+      supplierId: String(supplierId),
+      shade,
+      size
+    });
+    const r = await fetch(`/api/onhand?${p.toString()}`);
+    const j = await r.json().catch(() => ({ ok: false, data: 0 }));
+    available = j.ok ? Number(j.data || 0) : 0;
   }
 
   return {
+    error: missing ? 'Missing supplierId, shade, or size in URL. Open from the ABS Screened Slots page.' : null,
     fromMmaCode: FROM_MMA,
     toMmaCode: TO_MMA,
     supplierId,
     shade,
     size,
-    qty
+    qty: qty > 0 ? qty : 1,
+    available
   };
 }
-
-export const actions = {
-  default: async ({ request }) => {
-    const data = Object.fromEntries(await request.formData());
-    const fromMmaCode = String(data.fromMmaCode || '');
-    const toMmaCode   = String(data.toMmaCode || '');
-    const supplierId  = Number(data.supplierId || 0);
-    const shade       = String(data.shade || '');
-    const size        = String(data.size || '');
-    const qty         = Number(data.qty || 0);
-
-    if (fromMmaCode !== FROM_MMA || toMmaCode !== TO_MMA) {
-      return fail(400, { error: 'Wrong MMA endpoint.', posted: data });
-    }
-    if (!supplierId || !shade || !size || !(qty > 0)) {
-      return fail(400, { error: 'supplierId, shade, size, qty are required', posted: data });
-    }
-
-    await processedStock.dispatch({
-      fromMmaCode: FROM_MMA,
-      toMmaCode: TO_MMA,
-      supplierId,
-      shade,
-      size,
-      qty,
-      fromStationCode: 'ABS',
-      toStationCode: 'PSS'
-    });
-
-    throw redirect(303, '/stations/abs/abs_screened');
-  }
-};

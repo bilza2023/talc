@@ -1,44 +1,40 @@
 <script>
   export let data;
-  export let form;
-
-  const {
-    stationCode, stationName,
-    mmas = [], inboundCounts = {},
-    cards = []
-  } = data;
-
-  const success = form?.success;
-  const error   = form?.error;
+  const { stationCode, stationName, cards = [] } = data;
 </script>
 
-<h1>{stationCode} — Station</h1>
-{#if success}
-  <p class="success" aria-live="polite">OK ✓</p>
-{:else if error}
-  <p class="error" aria-live="assertive">{error}</p>
-{/if}
+<h1>{stationName} — Station</h1>
 
-<section>
-  <h2>MMAs</h2>
-  <ul>
-    {#each mmas as m}
-      <li>
-        <strong>{m.label}</strong>
-        <code>{m.mmaCode}</code>
-        — inbound: {inboundCounts[m.mmaCode] ?? 0}
-      </li>
-    {/each}
-  </ul>
+<section aria-label="Quick Actions" class="cards">
+  {#each cards as c}
+    <a class="card" href={c.href}>
+      <span class="icon" aria-hidden="true">{c.icon}</span>
+      <span class="label">{c.label}</span>
+    </a>
+  {/each}
 </section>
 
-<section>
-  <h2>Actions</h2>
-  <nav>
-    {#each cards as c}
-      <a href={c.href} aria-label={c.label} title={c.label}>
-        <span class="icon">{c.icon}</span> {c.label}
-      </a>
-    {/each}
-  </nav>
-</section>
+<style>
+  /* light, non-invasive styling (same spirit as ABS home) */
+  h1 {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: .75rem;
+  }
+  .card {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    align-items: center;
+    padding: .75rem .9rem;
+    border: 1px solid var(--border, #333);
+    border-radius: .5rem;
+    text-decoration: none;
+  }
+  .card:hover { outline: 1px solid currentColor; }
+  .icon { font-size: 1.4rem; line-height: 1; }
+  .label { font-weight: 600; }
+</style>

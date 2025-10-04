@@ -1,23 +1,27 @@
-// /src/routes/stations/pss/receive_abs_screened/+page.server.js
+// PSS — Receive inbound from ABS into PSS_SCREENED (uses /api/inbound)
 import { fail } from '@sveltejs/kit';
-import { processedStock } from '$lib/stocks/index.js';
+import { stock } from '$lib/stocks/stockEngine.js';
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load() {
-  // Inbound for exact MMA (PSS_SCREENED), then restrict to ABS → PSS
-  const inbound = await processedStock.inbound({ mmaCode: 'PSS_SCREENED' });
+export async function load({ fetch }) {
+  const mmaCode = 'PSS_SCREENED';
 
-  const rows = inbound
-    .filter((t) => t.fromStationCode === 'ABS') // lane
-    .map((t) => ({
-      // minimal fields for display + form
+  // Use API for inbound list
+  const res = await fetch(`/api/inbound?mmaCode=${encodeURIComponent(mmaCode)}`);
+  const j = await res.json().catch(() => ({ ok: false, data: [] }));
+
+  const inboundAll = j.ok ? j.data : [];
+
+  // Keep only ABS → PSS_SCREENED lane
+  const rows = inboundAll
+    .filter(t => t.fromMmaCode === 'ABS_SCREENED' && t.toMmaCode === 'PSS_SCREENED')
+    .map(t => ({
       id: t.id,
       transportId: t.transportId,
       createdAt: t.createdAt,
       supplierId: t.supplierId,
       shade: t.shade,
       size: t.size,
-      // This is DISPATCH qty; user can override with measured "incoming qty"
       dispatchedQty: Number(t.qty)
     }));
 
@@ -34,43 +38,32 @@ export const actions = {
     const fd = await request.formData();
 
     const transportId = fd.get('transportId');
-    const supplierId  = fd.get('supplierId');
-    const qtyStr      = fd.get('qty');     // incoming/measured weight (tons)
-    const amountStr   = fd.get('amount');  // optional money amount
+    const supplierId  = Number(fd.get('supplierId'));
+    const qty         = Number(fd.get('qty'));     // measured at gate/scale
+    const amountRaw   = fd.get('amount');          // optional
+    const amount      = amountRaw == null || String(amountRaw).trim() === '' ? null : Number(amountRaw);
 
     if (!transportId || typeof transportId !== 'string') {
       return fail(400, { error: 'Missing transportId' });
     }
-    const supIdNum = Number(supplierId);
-    if (!supIdNum || Number.isNaN(supIdNum)) {
+    if (!supplierId || Number.isNaN(supplierId)) {
       return fail(400, { error: 'Invalid supplierId' });
     }
-
-    // qty is required: we explicitly *measure* on receive
-    const qtyNum = Number(qtyStr);
-    if (!qtyStr || Number.isNaN(qtyNum) || qtyNum <= 0) {
+    if (!qty || Number.isNaN(qty) || qty <= 0) {
       return fail(400, { error: 'Enter a valid incoming qty (tons) > 0' });
     }
-
-    // amount is optional
-    let amountNum = null;
-    if (amountStr !== null && amountStr !== undefined && String(amountStr).trim() !== '') {
-      const a = Number(amountStr);
-      if (Number.isNaN(a)) {
-        return fail(400, { error: 'Amount must be a number' });
-      }
-      amountNum = a;
+    if (amount !== null && Number.isNaN(amount)) {
+      return fail(400, { error: 'Amount must be a number' });
     }
 
     try {
-      // Record RECEIVE with measured qty/amount.
-      await processedStock.receive({
+      // Idempotent RECEIVE into PSS_SCREENED
+      await stock.receive({
         transportId,
         toMmaCode: 'PSS_SCREENED',
-        toStationCode: 'PSS',
-        supplierId: supIdNum,
-        qty: qtyNum,
-        amount: amountNum
+        supplierId,
+        qty,
+        amount
       });
 
       return { success: true, received: { transportId } };
