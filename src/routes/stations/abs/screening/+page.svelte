@@ -1,16 +1,17 @@
 <script>
   import { enhance } from '$app/forms';
 
-  export let data;   // { stationCode, lane, sizes, fromUrl }
-  export let form;   // { success?, error?, detail?, screeningId?, allocated? }
+  export let data;   // { stationCode, lane, sizes, from }
+  export let form;   // { success?, error?, detail?, screeningId?, allocated?, availableDb? }
 
-  const { stationCode, lane, sizes, fromUrl } = data;
+  const { stationCode, lane, sizes, from } = data;
 
-  // Local inputs for the three size fields
+  // Local inputs
   let qty = Object.fromEntries(sizes.map(s => [s, 0]));
 
   $: allocated = sizes.reduce((sum, s) => sum + Number(qty[s] || 0), 0);
-  $: remaining = Math.max(0, Number(fromUrl.fromQtyT || 0) - allocated);
+  $: available = Number((form?.availableDb ?? from.availableDb) || 0);
+  $: remaining = Math.max(0, available - allocated);
 
   const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 6 });
 </script>
@@ -22,15 +23,15 @@
   <div class="info-grid">
     <div>
       <label>Supplier</label>
-      <div class="ro">{fromUrl.supplierId}</div>
+      <div class="ro">{from.supplierId}</div>
     </div>
     <div>
       <label>Shade</label>
-      <div class="ro">{fromUrl.fromShade}</div>
+      <div class="ro">{from.shade}</div>
     </div>
     <div>
       <label>Available (t)</label>
-      <div class="ro">{fmt(fromUrl.fromQtyT)}</div>
+      <div class="ro">{fmt(available)}</div>
     </div>
     <div>
       <label>Allocated (t)</label>
@@ -54,9 +55,8 @@
 {/if}
 
 <form method="POST" action="?/screen" use:enhance class="form-grid" autocomplete="off">
-  <input type="hidden" name="supplierId" value={fromUrl.supplierId} />
-  <input type="hidden" name="fromShade"   value={fromUrl.fromShade} />
-  <input type="hidden" name="fromQtyT"    value={fromUrl.fromQtyT} />
+  <input type="hidden" name="supplierId" value={from.supplierId} />
+  <input type="hidden" name="fromShade"   value={from.shade} />
 
   <div class="sizes-grid">
     {#each sizes as size}

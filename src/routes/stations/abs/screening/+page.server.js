@@ -1,34 +1,46 @@
 // ABS — Screening (RAW → SCREENED)
-// Open via: /stations/abs/screening?supplierId=1&fromShade=WHITE&fromQtyT=199
+// Page: /stations/abs/screening?supplierId=1&fromShade=WHITE
 import { fail, redirect } from '@sveltejs/kit';
 import screening from '$lib/processes/screening.js';
+import Stock from '$lib/stock/Stock.js';
 
 const SIZES = ['LUMPS', 'CHIPS', 'FINE'];
+const stock = new Stock();
+
+/** authoritative available for the EXACT RAW slot (size MUST be 'ANY') */
+async function fetchAvailableSlot({ supplierId, shade }) {
+  if (!supplierId || !shade) return 0;
+  const s = await stock.slot({
+    mmaCode: 'ABS_RAW',
+    supplierId: Number(supplierId),
+    shade: String(shade),
+    size: 'ANY'
+  });
+  return Number(s.qty || 0);
+}
 
 export async function load({ url }) {
   const supplierId = Number(url.searchParams.get('supplierId') || 0);
   const fromShade  = (url.searchParams.get('fromShade') || '').trim();
-  const fromQtyT   = Number(url.searchParams.get('fromQtyT') || 0);
+
+  const availableDb = await fetchAvailableSlot({ supplierId, shade: fromShade });
 
   return {
     stationCode: 'ABS',
     lane: 'ABS_RAW → ABS_SCREENED',
     sizes: SIZES,
-    fromUrl: {
+    from: {
       supplierId: supplierId || '',
-      fromShade,
-      fromQtyT: (fromQtyT > 0 ? fromQtyT : 0)
+      shade: fromShade,
+      availableDb // single source of truth for Available
     }
   };
 }
 
-// Shared handler for the 'screen' action
 async function handleScreen({ request }) {
   const fd = await request.formData();
-
   const supplierId = Number(fd.get('supplierId') || 0);
   const fromShade  = String(fd.get('fromShade') || '').trim();
-  const fromQtyT   = Number(fd.get('fromQtyT') || 0); // UI "available" hint
 
   if (!supplierId || !fromShade) {
     return fail(400, {
@@ -51,10 +63,12 @@ async function handleScreen({ request }) {
   if (!(allocated > 0)) {
     return fail(400, { error: 'Allocated total must be > 0.' });
   }
-  if (fromQtyT > 0 && allocated > fromQtyT) {
+
+  // Authoritative availability (exact RAW/ANY slot only)
+  const availableDb = await fetchAvailableSlot({ supplierId, shade: fromShade });
+  if (allocated > availableDb) {
     return fail(400, {
-      error: `Allocated (${allocated}) exceeds available (${fromQtyT}).`,
-      detail: 'Reduce allocated amounts to be within Available.'
+      error: `Allocated (${allocated}) exceeds available (${availableDb}).`
     });
   }
 
@@ -64,11 +78,11 @@ async function handleScreen({ request }) {
       supplierId,
       from: { shade: fromShade, qtyT: allocated },
       targets,
-      meta: { ui: 'abs/screening', fixedRows: true, allocated, availableFromUrl: fromQtyT }
+      meta: { ui: 'abs/screening', fixedRows: true, allocated, availableDb }
     });
 
     if (res?.status === 'SUCCESS') {
-      return { success: true, screeningId: res.id, allocated };
+      return { success: true, screeningId: res.id, allocated, availableDb };
     }
     if (res?.status === 'FAILED') {
       return fail(400, { error: res.error });
@@ -81,9 +95,7 @@ async function handleScreen({ request }) {
 }
 
 export const actions = {
-  // Named actions ONLY (no default action allowed when using named)
   screen: handleScreen,
-
   async cancel() {
     throw redirect(303, '/stations/abs');
   }

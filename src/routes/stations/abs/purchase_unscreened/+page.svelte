@@ -1,102 +1,121 @@
 <script>
-  export let data; // { mmaCode, sizes, suppliers }
+  export let data;  // { suppliers, shades, defaults }
+  export let form;  // { success?, error?, posted? }
 
-  const shades = ['WHITE', 'GREY', 'LIGHTGREY', 'GREEN', 'MIXED'];
-
-  // Match screened UX: supplier & size preselected; shade must be chosen
-  let supplierId = data.suppliers[0]?.id ?? '';
-  let shade = '';
-  let size = data.sizes[0];
-  let qty = 1;
-
-  let status = null; // { ok:boolean, msg:string }
-
-  async function onSubmit(e) {
-    e.preventDefault();
-    status = null;
-
-    if (!supplierId) { status = { ok:false, msg:'Please select a supplier.' }; return; }
-    if (!shade)      { status = { ok:false, msg:'Please select a shade.' }; return; }
-    if (!qty || Number(qty) <= 0) { status = { ok:false, msg:'Quantity must be > 0.' }; return; }
-
-    const params = new URLSearchParams({
-      toMmaCode: data.mmaCode,
-      supplierId: String(supplierId),
-      shade,
-      size,
-      qty: String(qty)
-    });
-
-    const res = await fetch(`/api/deposit?${params.toString()}`, { method: 'POST' });
-    const j = await res.json().catch(() => ({ ok:false, error:'Invalid JSON' }));
-
-    status = j.ok ? { ok:true, msg:'Purchase recorded.' } : { ok:false, msg:j.error || 'Failed' };
-    if (j.ok) qty = 1; // keep selections, just reset qty
-  }
+  // Preselect sensible defaults from the server
+  let supplierId = data?.defaults?.supplierId ?? '';
+  let shade      = data?.defaults?.shade ?? (data.shades?.[0] ?? 'WHITE');
+  let qty        = '';
 </script>
 
-<h1 class="page-title">ABS — Purchase (to {data.mmaCode})</h1>
+<h1>ABS — Purchase Unscreened (RAW)</h1>
+<p class="note">RAW purchases are stored with size <strong>ANY</strong>.</p>
 
-{#if status}
-  <div class="notice {status.ok ? 'success' : 'error'}" aria-live="polite">{status.msg}</div>
+{#if form?.success}
+  <p class="flash success" aria-live="polite">
+    Saved: supplier {form.posted.supplierId}, shade {form.posted.shade}, qty {form.posted.qty}t.
+  </p>
+{:else if form?.error}
+  <p class="flash error" aria-live="assertive">{form.error}</p>
 {/if}
 
-<form class="form card" on:submit={onSubmit} autocomplete="off">
-  <div class="grid">
-    <div class="field">
-      <label class="label">Supplier</label>
-      <select class="control" bind:value={supplierId} required>
-        {#if !data.suppliers.length}
-          <option value="" disabled>(no suppliers found)</option>
-        {:else}
-          {#each data.suppliers as s}
-            <option value={s.id}>{s.name} ({s.code})</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
+<form method="POST" action="?/purchase" class="form" autocomplete="off">
+  <label class="field">
+    <span>Supplier</span>
+    <select name="supplierId" bind:value={supplierId} required>
+      {#each data.suppliers as s}
+        <option value={s.id}>{s.name} ({s.code})</option>
+      {/each}
+    </select>
+  </label>
 
-    <div class="field">
-      <label class="label">Shade</label>
-      <select class="control" bind:value={shade} required>
-        <option value="" disabled>Pick a shade…</option>
-        {#each shades as sh}
-          <option value={sh}>{sh}</option>
-        {/each}
-      </select>
-    </div>
+  <label class="field">
+    <span>Shade</span>
+    <select name="shade" bind:value={shade} required>
+      {#each data.shades as sh}
+        <option value={sh}>{sh}</option>
+      {/each}
+    </select>
+  </label>
 
-    <div class="field">
-      <label class="label">Size</label>
-      <select class="control" bind:value={size} required>
-        {#each data.sizes as z}
-          <option value={z}>{z}</option>
-        {/each}
-      </select>
-    </div>
+  <label class="field">
+    <span>Quantity (t)</span>
+    <input type="number" name="qty" step="any" min="0" bind:value={qty} required />
+  </label>
 
-    <div class="field">
-      <label class="label">Quantity (t)</label>
-      <input class="control" type="number" min="0.01" step="0.01" bind:value={qty} required />
-    </div>
-  </div>
+  <!-- No size input: server always writes size="ANY" for ABS_RAW -->
 
   <div class="actions">
-    <button
-      type="submit"
-      class="btn primary"
-      disabled={!data.suppliers.length || !supplierId || !shade || !qty}
-    >
-      Add to {data.mmaCode}
-    </button>
+    <button type="submit" class="btn">Purchase</button>
+    <button type="submit" formaction="?/cancel" formmethod="POST" class="btn secondary">Cancel</button>
   </div>
 </form>
 
 <style>
-  /* plays nice with your forms.css */
-  .page-title { margin-bottom: .75rem; }
-  .card { padding: 1rem; }
-  .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-  .notice.success { color: #1db954; }
-  .notice.error { color: #ff4d4f; }
+  :root{
+    --border:#e2e8f0;
+    --text:#111827;
+    --muted:#6b7280;
+    --brand:#0ea5e9;
+    --brand-weak: rgba(14,165,233,.2);
+    --error:#dc2626;
+    --success:#16a34a;
+    --bg:#fff;
+  }
+
+  .note { margin:.25rem 0 .75rem; color:var(--muted); }
+
+  .flash { margin:.5rem 0; font-weight:600; }
+  .success { color: var(--success); }
+  .error { color: var(--error); }
+
+  /* Mobile-first grid: 1 → 2 → 3 columns */
+  .form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  @media (min-width: 480px) {
+    .form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .actions { grid-column: 1 / -1; }
+  }
+  @media (min-width: 900px) {
+    .form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  .field { display: grid; gap: 6px; }
+  .field > span { font-size: .9rem; color: var(--muted); }
+
+  input[type="number"], select {
+    width: 100%;
+    height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-weak);
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 4px; }
+  .btn {
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--brand);
+    background: var(--brand);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn.secondary {
+    background: transparent;
+    color: var(--brand);
+  }
 </style>
