@@ -1,252 +1,141 @@
-
 // /src/lib/processes/screening.js
-import { randomUUID as uuidv4 } from 'crypto';
-import { prisma, rawStock, processedStock as screenedStock } from '../stocks/index.js';
+// ABS Screening: RAW → SCREENED (1 → many), minimal header table
+import { prisma, stock } from '../stocks/stockEngine.js';
 
-// ───────────────────────── helpers ─────────────────────────
-const fam = (mma) => String(mma).split('_')[1] || ''; // RAW | UNCRENED | SCREENED | PROCESSED ...
-const stationOf = (mma) => String(mma).split('_')[0] || '';
-const normFrom = (f) => (f === 'UNSCREENED' ? 'RAW' : f);
-const normTo   = (f) => (f === 'PROCESSED'   ? 'SCREENED' : f);
-
-function assertLane(fromMmaCode, toMmaCode) {
-  const F = normFrom(fam(fromMmaCode));
-  const T = normTo(fam(toMmaCode));
-  if (!(F === 'RAW' && T === 'SCREENED')) {
-    throw new Error(`screening requires RAW/UNSCREENED → SCREENED/PROCESSED (got ${fam(fromMmaCode)} → ${fam(toMmaCode)})`);
-  }
-  const s1 = stationOf(fromMmaCode);
-  const s2 = stationOf(toMmaCode);
-  if (s1 && s2 && s1 !== s2) throw new Error(`screening: station mismatch '${s1}' → '${s2}'`);
-}
+const FROM_MMA = 'ABS_RAW';
+const TO_MMA   = 'ABS_SCREENED';
+const RAW_SIZE = 'ANY';
 
 /**
- * screening(): one-to-many bridge RAW/UNSCREENED → SCREENED
+ * Run screening with minimal lineage:
+ * - Validate inputs and availability
+ * - Create header (screening_tbl) to get id
+ * - Withdraw RAW, deposit SCREENED per target, all with linkId = String(header.id)
+ * - On success: mark committedAt
+ * - On error: compensate ledger and delete header
  *
- * - Inventory is done ONLY via Stock verbs:
- *    RAW:       rawStock.withdraw({ reason:'SCREEN', processId: screenId, ... })
- *    SCREENED:  screenedStock.deposit({ reason:'SCREEN', processId: screenId, ... })
- * - Exactly one row is written to screening_tbl for lineage/idempotency.
- *
- * Payload (tons):
- * {
- *   screenId?: string,                // optional; generated if missing
- *   fromMmaCode: 'ABS_RAW' | 'ABS_UNSCREENED',
- *   toMmaCode:   'ABS_SCREENED' | 'ABS_PROCESSED',
- *   supplierId: number,
- *   from: { shade: string, size?: string|null, qtyT: number, stationCode?: string|null },
- *   targets: [ { shade: string, size: string, qtyT: number, stationCode?: string|null }, ... ],
- *   toStationCode?: string|null,      // default for targets[].stationCode
- *   meta?: object                     // echoed into screening_tbl and ledger meta
- * }
- *
- * Returns: { screenId, status: 'SUCCESS'|'ROLLED_BACK'|'FAILED', ... }
+ * @param {Object} payload
+ * @param {number} payload.supplierId
+ * @param {{shade:string, qtyT:number}} payload.from
+ * @param {{shade:string, size:string, qtyT:number}[]} payload.targets
+ * @param {any} [payload.meta]
  */
 export default async function screening(payload = {}) {
-  // ── unpack + defaults ──
-  const {
-    screenId = `SCREEN-${uuidv4().slice(0, 8).toUpperCase()}`,
-    fromMmaCode = 'ABS_RAW',
-    toMmaCode   = 'ABS_SCREENED',
-    supplierId,
-    from,
-    targets,
-    toStationCode = null,
-    meta = null,
-  } = payload;
+  const { supplierId, from, targets, meta = null } = payload;
 
-  // ── idempotency ──
-  const existing = await prisma.screening_tbl.findUnique({ where: { screenId } }).catch(() => null);
-  if (existing) {
-    return {
-      screenId,
-      status: existing.status,
-      from: {
-        mmaCode: existing.fromMmaCode,
-        shade: existing.sourceShade,
-        size: existing.sourceSize,
-        qtyT: Number(existing.sourceQtyT),
-        stationCode: existing.fromStationCode ?? null
-      },
-      to: {
-        mmaCode: existing.toMmaCode,
-        qtyT: Number(existing.targetsQtyT),
-        stationCode: existing.toStationCode ?? null
-      }
-    };
-  }
-
-  // ── validate lane + inputs ──
-  assertLane(fromMmaCode, toMmaCode);
-
+  // 1) Validate shape
   if (!supplierId) throw new Error('screening: supplierId is required');
-  if (!from || !from.shade || !from.qtyT) throw new Error('screening: from {shade, qtyT} is required');
+  if (!from || !from.shade || from.qtyT == null) throw new Error('screening: from {shade, qtyT} is required');
   if (!Array.isArray(targets) || targets.length === 0) throw new Error('screening: targets[] is required');
 
   const srcQty = Number(from.qtyT);
   if (!(srcQty > 0)) throw new Error('screening: from.qtyT must be > 0');
 
-  const sumTargets = targets.reduce((s, t) => s + Number(t.qtyT || 0), 0);
-  const eps = 1e-6;
-  if (Math.abs(sumTargets - srcQty) > eps) {
-    throw new Error(`screening: targets sum (${sumTargets}) must equal source qty (${srcQty})`);
-  }
-
   const fromShade = String(from.shade);
-  const fromSize = from.size ?? null;             // RAW defaults to 'ANY' inside Stock
-  const fromStationCode = from.stationCode ?? null;
-
   const targetList = targets.map(t => ({
     shade: String(t.shade),
     size:  String(t.size ?? 'ANY'),
     qtyT:  Number(t.qtyT),
-    stationCode: t.stationCode ?? toStationCode ?? null
   }));
 
-  // ── bookkeeping for rollback ──
-  let rawWithdrawn = false;
-  const screenedPosted = [];
+  const sumTargets = targetList.reduce((s, t) => s + (t.qtyT || 0), 0);
+  if (Math.abs(sumTargets - srcQty) > 1e-6) {
+    throw new Error(`screening: targets sum (${sumTargets}) must equal source qty (${srcQty})`);
+  }
 
-  // ── do the bridge with compensations ──
+  // 2) Availability preflight (no header yet if we already know it fails)
+  const available = await stock.onHand({
+    mmaCode: FROM_MMA,
+    supplierId,
+    shade: fromShade,
+    size: RAW_SIZE,
+  });
+  if (srcQty > Number(available)) {
+    return {
+      status: 'FAILED',
+      error: `Insufficient stock at ${FROM_MMA} (available=${available}, requested=${srcQty})`,
+    };
+  }
+
+  // 3) Create header to get an id we can link ledger rows to
+  const header = await prisma.screening_tbl.create({
+    data: {
+      qtyT: srcQty,
+      meta,
+    },
+  });
+  const linkId = String(header.id);
+
+  // 4) Effects + compensation guard
+  let sourceWithdrawn = false;
+  const postedTargets = [];
+
   try {
-    // 1) consume RAW
-    await rawStock.withdraw({
-      fromMmaCode,
+    // Withdraw RAW
+    await stock.withdraw({
+      fromMmaCode: FROM_MMA,
       supplierId,
       shade: fromShade,
-      size: fromSize,            // Stock will normalize null → 'ANY'
+      size: RAW_SIZE,
       qty: srcQty,
-      processId: screenId,       // linkId in ledgers = screenId
-      reason: 'SCREEN',          // no 'process' wording in ledgers
-      fromStationCode,
-      meta: { ...meta, step: 'screening.consume' }
+      processId: linkId,
+      meta: { ...meta, step: 'screening.withdraw' },
     });
-    rawWithdrawn = true;
+    sourceWithdrawn = true;
 
-    // 2) produce SCREENED (many)
+    // Deposit SCREENED per target
     for (const t of targetList) {
-      const res = await screenedStock.deposit({
-        toMmaCode,
+      const res = await stock.deposit({
+        toMmaCode: TO_MMA,
         supplierId,
         shade: t.shade,
         size: t.size,
         qty: t.qtyT,
-        processId: screenId,
-        reason: 'SCREEN',
-        toStationCode: t.stationCode,
-        meta: { ...meta, step: 'screening.produce' }
+        processId: linkId,
+        meta: { ...meta, step: 'screening.deposit' },
       });
-      screenedPosted.push({ ...t, posting: res.posting });
+      postedTargets.push({ ...t, posting: res.posting });
     }
 
-    // 3) single lineage row
-    const log = await prisma.screening_tbl.create({
-      data: {
-        screenId,
-        screenType: 'SCREENING',
-        fromMmaCode,
-        toMmaCode,
-        supplierId: Number(supplierId),
-        fromStationCode,
-        toStationCode,
-        sourceShade: fromShade,
-        sourceSize:  String(fromSize ?? 'ANY'),
-        sourceQtyT:   srcQty,
-        targetsQtyT:  sumTargets,
-        targets:      targetList.map(({ stationCode, ...x }) => ({ ...x, stationCode })),
-        status:       'SUCCESS',
-        error:        null,
-        meta,
-        committedAt:  new Date()
-      }
+    // Mark header committed
+    await prisma.screening_tbl.update({
+      where: { id: header.id },
+      data: { committedAt: new Date() },
     });
 
-    return {
-      screenId,
-      status: 'SUCCESS',
-      posted: { raw: { qtyT: srcQty, shade: fromShade, size: String(fromSize ?? 'ANY') }, screened: screenedPosted },
-      log
-    };
+    return { id: header.id, status: 'SUCCESS' };
   } catch (err) {
-    // rollback
+    // Best-effort compensation
     try {
-      // undo SCREENED
-      for (const t of screenedPosted.reverse()) {
-        await screenedStock.withdraw({
-          fromMmaCode: toMmaCode,
+      // Undo targets
+      for (const t of postedTargets.reverse()) {
+        await stock.withdraw({
+          fromMmaCode: TO_MMA,
           supplierId,
           shade: t.shade,
           size: t.size,
           qty: t.qtyT,
-          processId: screenId,
-          reason: 'SCREEN',
-          fromStationCode: t.stationCode ?? null,
-          meta: { ...meta, step: 'screening.rollback.target' }
+          processId: linkId,
+          meta: { ...meta, step: 'screening.rollback.target' },
         });
       }
-      // re-credit RAW
-      if (rawWithdrawn) {
-        await rawStock.deposit({
-          toMmaCode: fromMmaCode,
+      // Put RAW back if we took it
+      if (sourceWithdrawn) {
+        await stock.deposit({
+          toMmaCode: FROM_MMA,
           supplierId,
           shade: fromShade,
-          size: fromSize,
+          size: RAW_SIZE,
           qty: srcQty,
-          processId: screenId,
-          reason: 'SCREEN',
-          toStationCode: fromStationCode,
-          meta: { ...meta, step: 'screening.rollback.source' }
+          processId: linkId,
+          meta: { ...meta, step: 'screening.rollback.source' },
         });
       }
-
-      const log = await prisma.screening_tbl.create({
-        data: {
-          screenId,
-          screenType: 'SCREENING',
-          fromMmaCode,
-          toMmaCode,
-          supplierId: Number(supplierId),
-          fromStationCode,
-          toStationCode,
-          sourceShade: fromShade,
-          sourceSize:  String(fromSize ?? 'ANY'),
-          sourceQtyT:   srcQty,
-          targetsQtyT:  sumTargets,
-          targets:      targetList,
-          status:       'ROLLED_BACK',
-          error:        String(err?.message ?? err),
-          meta,
-          committedAt:  new Date()
-        }
-      });
-
-      return { screenId, status: 'ROLLED_BACK', error: String(err?.message ?? err), log };
-    } catch (rbErr) {
-      await prisma.screening_tbl.create({
-        data: {
-          screenId,
-          screenType: 'SCREENING',
-          fromMmaCode,
-          toMmaCode,
-          supplierId: Number(supplierId),
-          fromStationCode,
-          toStationCode,
-          sourceShade: fromShade,
-          sourceSize:  String(fromSize ?? 'ANY'),
-          sourceQtyT:   srcQty,
-          targetsQtyT:  sumTargets,
-          targets:      targetList,
-          status:       'FAILED',
-          error:        `do: ${String(err?.message ?? err)} | rollback: ${String(rbErr?.message ?? rbErr)}`,
-          meta,
-          committedAt:  new Date()
-        }
-      }).catch(() => null);
-
-      const combined = new Error(
-        `screening failed and rollback failed; manual repair needed. root=${String(err?.message ?? err)}; rollback=${String(rbErr?.message ?? rbErr)}`
-      );
-      throw combined;
+    } finally {
+      // Remove header so failed runs leave no lineage
+      await prisma.screening_tbl.delete({ where: { id: header.id } }).catch(() => null);
     }
+
+    return { status: 'ROLLED_BACK', error: String(err?.message ?? err) };
   }
 }

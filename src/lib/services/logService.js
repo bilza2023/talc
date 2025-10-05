@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
+
 export async function log(level, type, metadata = {}) {
   return prisma.log.create({
     data: { level, type, metadata }

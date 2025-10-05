@@ -40,7 +40,16 @@
                  href={`/stations/abs/dispatch_pss_screened?${params(r)}`}>
                 Dispatch → PSS
               </a>
+
+                <a
+                  href={`/stations/abs/screening?supplierId=${r.supplierId}&fromShade=${encodeURIComponent(r.shade)}&fromQtyT=${r.qty}&fromStationCode=ABS`}
+                >
+                  Screen
+                </a>
+ 
+              
             </td>
+            
           </tr>
         {/each}
       </tbody>
