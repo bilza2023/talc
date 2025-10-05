@@ -339,6 +339,36 @@ export default class Stock {
   }
 
   /**
+ * slot: exact-bucket balance for a single tuple
+ * Returns { mmaCode, supplierId, shade, size, qty } with strict, exact matching.
+ * Note: For RAW buckets, callers must pass size: 'ANY' explicitly.
+ */
+  async slot({ mmaCode, supplierId, shade, size } = {}) {
+    this.#need(mmaCode, 'mmaCode');
+    this.#need(supplierId, 'supplierId');
+    this.#need(shade, 'shade');
+    this.#need(size, 'size');
+
+    const L = this.#Ledger();
+    const where = {
+      mmaCode: String(mmaCode),
+      supplierId: Number(supplierId),
+      shade: String(shade),
+      size: String(this.#size(size))
+    };
+    const ag = await L.aggregate({ _sum: { qtyDelta: true }, where });
+    const qty = Number(ag._sum.qtyDelta ?? 0);
+
+    return {
+      mmaCode: where.mmaCode,
+      supplierId: where.supplierId,
+      shade: where.shade,
+      size: where.size,
+      qty
+    };
+  }
+  
+  /**
    * inbound: unsettled DISPATCH events TO this mmaCode
    */
   async inbound({ mmaCode } = {}) {

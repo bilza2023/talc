@@ -1,35 +1,51 @@
 <script>
-  export let data; // { stationCode, lane, sizes, fromUrl }
-  export let form;
+  import { enhance } from '$app/forms';
 
-  const { stationCode, lane, sizes = [], fromUrl = {} } = data;
+  export let data;   // { stationCode, lane, sizes, fromUrl }
+  export let form;   // { success?, error?, detail?, screeningId?, allocated? }
 
-  // Prefill from URL/loader
-  let supplierId = fromUrl.supplierId ?? '';
-  let fromShade  = fromUrl.fromShade ?? '';
-  let available  = fromUrl.fromQtyT ?? 0;   // Available = fromQtyT from URL
+  const { stationCode, lane, sizes, fromUrl } = data;
 
-  // Fixed rows as individual reactive vars
-  let qty_LUMPS = '';
-  let qty_CHIPS = '';
-  let qty_FINE  = '';
+  // Local inputs for the three size fields
+  let qty = Object.fromEntries(sizes.map(s => [s, 0]));
 
-  const num = (x) => {
-    const n = Number(x);
-    return Number.isFinite(n) ? n : 0;
-  };
+  $: allocated = sizes.reduce((sum, s) => sum + Number(qty[s] || 0), 0);
+  $: remaining = Math.max(0, Number(fromUrl.fromQtyT || 0) - allocated);
 
-  const allocated = () => num(qty_LUMPS) + num(qty_CHIPS) + num(qty_FINE);
-  const remaining = () => +(Number(available) - allocated()).toFixed(6);
-  const disabled = () => !(allocated() > 0) || allocated() > Number(available);
+  const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 6 });
 </script>
 
 <h1>{stationCode} — Screening</h1>
 <p>Lane: <strong>{lane}</strong></p>
 
+<section class="panel">
+  <div class="info-grid">
+    <div>
+      <label>Supplier</label>
+      <div class="ro">{fromUrl.supplierId}</div>
+    </div>
+    <div>
+      <label>Shade</label>
+      <div class="ro">{fromUrl.fromShade}</div>
+    </div>
+    <div>
+      <label>Available (t)</label>
+      <div class="ro">{fmt(fromUrl.fromQtyT)}</div>
+    </div>
+    <div>
+      <label>Allocated (t)</label>
+      <div class="ro">{fmt(allocated)}</div>
+    </div>
+    <div>
+      <label>Remaining (t)</label>
+      <div class="ro">{fmt(remaining)}</div>
+    </div>
+  </div>
+</section>
+
 {#if form?.success}
   <p class="success" aria-live="polite">
-    ✅ Screened. <code>{form.screenId}</code>
+    Screening posted. Header ID: <code>{form.screeningId}</code> — Allocated: <strong>{fmt(form.allocated)}</strong>t
   </p>
 {:else if form?.error}
   <p class="error" aria-live="assertive">
@@ -37,118 +53,62 @@
   </p>
 {/if}
 
-<form method="POST" action="?/screen" autocomplete="off">
-  <!-- Hidden identity + Available from URL -->
-  <input type="hidden" name="supplierId" value={supplierId} />
-  <input type="hidden" name="fromShade" value={fromShade} />
-  <input type="hidden" name="fromQtyT" value={available} />
+<form method="POST" action="?/screen" use:enhance class="form-grid" autocomplete="off">
+  <input type="hidden" name="supplierId" value={fromUrl.supplierId} />
+  <input type="hidden" name="fromShade"   value={fromUrl.fromShade} />
+  <input type="hidden" name="fromQtyT"    value={fromUrl.fromQtyT} />
 
-  <fieldset>
-    <legend>Source</legend>
-    <div class="grid">
-      <div class="read">
-        <label>Supplier</label>
-        <div class="pill">#{supplierId}</div>
+  <div class="sizes-grid">
+    {#each sizes as size}
+      <div class="size-card">
+        <label>{size}</label>
+        <input
+          type="number"
+          name={"qty_" + size}
+          step="any"
+          min="0"
+          bind:value={qty[size]}
+          placeholder="0"
+        />
       </div>
-      <div class="read">
-        <label>Shade</label>
-        <div class="pill">{fromShade}</div>
-      </div>
-      <div class="read">
-        <label>Available (t)</label>
-        <div class="pill">{Number(available)}</div>
-      </div>
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>Allocate by Size (SCREENED)</legend>
-    <table class="targets">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Size</th>
-          <th>Qty (t)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1</td>
-          <td><strong>LUMPS</strong></td>
-          <td>
-            <input
-              name="qty_LUMPS"
-              bind:value={qty_LUMPS}
-              type="number"
-              step="0.000001"
-              min="0"
-              placeholder="0"
-            />
-          </td>
-        </tr>
-        <tr>
-          <td>2</td>
-          <td><strong>CHIPS</strong></td>
-          <td>
-            <input
-              name="qty_CHIPS"
-              bind:value={qty_CHIPS}
-              type="number"
-              step="0.000001"
-              min="0"
-              placeholder="0"
-            />
-          </td>
-        </tr>
-        <tr>
-          <td>3</td>
-          <td><strong>FINE</strong></td>
-          <td>
-            <input
-              name="qty_FINE"
-              bind:value={qty_FINE}
-              type="number"
-              step="0.000001"
-              min="0"
-              placeholder="0"
-            />
-          </td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3">
-            <strong>Allocated:</strong> {+allocated().toFixed(6)}t
-            &nbsp;|&nbsp;
-            <strong>Cap remaining:</strong> {+remaining().toFixed(6)}t
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </fieldset>
+    {/each}
+  </div>
 
   <div class="actions">
-    <button type="submit" >
-      Screen
-    </button>
-    <button formmethod="POST" formaction="?/cancel" class="secondary" type="submit">Cancel</button>
+    <button type="submit" disabled={allocated <= 0}>Run Screening</button>
+    <button type="submit" formaction="?/cancel" formmethod="POST" class="secondary">Cancel</button>
   </div>
 </form>
 
 <style>
-  form { display: grid; gap: 1rem; }
-  fieldset { border: 1px solid var(--border-color, #333); padding: .75rem 1rem; border-radius: .5rem; }
-  legend { font-weight: 600; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; }
-  .read label { display: block; font-size: .85rem; opacity: .9; margin-bottom: .25rem; }
-  .pill { border: 1px solid #333; padding: .4rem .6rem; border-radius: .35rem; background: #1b1b1b; }
-  table.targets { width: 100%; border-collapse: collapse; }
-  table.targets th, table.targets td { border-bottom: 1px solid #333; padding: .4rem .5rem; }
-  table.targets tfoot td { font-weight: 600; }
-  .actions { display: flex; gap: .5rem; }
+  /* summary panel */
+  .panel { margin: 1rem 0; padding: .9rem; border: 1px solid var(--accents-2); border-radius: .6rem; }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: .6rem;
+    align-items: end;
+  }
+  .ro { padding: .45rem .6rem; border: 1px dashed var(--accents-3); border-radius: .45rem; font-weight: 600; }
+
+  /* form layout */
+  .form-grid { display: grid; gap: 1rem; }
+  .sizes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 220px)); /* three neat columns */
+    gap: .9rem;
+  }
+  .size-card {
+    display: grid;
+    gap: .35rem;
+    padding: .9rem;
+    border: 1px solid var(--accents-2);
+    border-radius: .6rem;
+  }
+  .size-card input { padding: .55rem .65rem; }
+
+  .actions { display: flex; gap: .6rem; }
+  .success { color: var(--success); margin-top: .25rem; }
+  .error { color: var(--error); margin-top: .25rem; }
   .secondary { opacity: .85; }
-  .success { color: #4caf50; }
-  .error { color: #ff6b6b; }
-  input { width: 100%; }
-  code { padding: 0 .25rem; background: #222; border-radius: .25rem; }
 </style>

@@ -10,9 +10,7 @@ export const load = async ({ url }) => {
     cards: [
       // Home actions (keep simple, anchor links only—same style as ABS)
       { icon: '📥', label: 'Receive (ABS → PSS_SCREENED)', href: '/stations/pss/receive_abs_screened' },
-      { icon: '🧰', label: 'Sorting (SCREENED → SORTED)',  href: '/stations/pss/sort' },
-
-      // Slots (match your existing route names, like ABS)
+    
       { icon: '📦', label: 'Slots — Screened', href: '/stations/pss/pss_screened' },
       { icon: '📦', label: 'Slots — Sorted',   href: '/stations/pss/pss_sorted' }
     ]
