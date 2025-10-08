@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
 
-  export let items = [];      // ['dashboards'] or [{ name:'dashboards', icon:'🚀', label:'Dashboards' }]
+  export let items = [];      // ['dashboards'] or [{ name, icon, label }]
   export let value = '';
   export let iconMap = {};    // { dashboards:'🚀', stations:'🏗️', admin:'⚙️' }
 
@@ -39,46 +39,73 @@
 </nav>
 
 <style>
+  /* Container */
   .home-nav {
     display: flex;
-    gap: var(--spaceSm, 12px);
-    padding: var(--spaceSm, 12px);
+    gap: 12px;
+    padding: 12px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    background: var(--backgroundColor);
   }
+
   .item {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spaceXs, 6px);
+    gap: 6px;
     min-width: 72px;
   }
+
+  /* Pill buttons */
   .pill {
     width: var(--navBtnSize, 64px);
     height: var(--navBtnSize, 64px);
     border-radius: 9999px;
-    border: 1px solid var(--borderColor, #2b3a36);
-    background: color-mix(in srgb, var(--surfaceColor, #0f1a16) 80%, transparent);
-    color: var(--primaryText, #e6ebf1);
+    border: 1px solid var(--borderColor);
+    background: var(--surfaceColor);
+    color: var(--baseTextColor);     /* ✅ text follows theme base text */
     display: grid;
     place-items: center;
-    box-shadow: var(--shadowSm, 0 2px 8px rgba(0,0,0,.2));
-    transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease, color .12s ease;
   }
-  .pill:hover { transform: translateY(-1px); box-shadow: var(--shadowMd, 0 6px 14px rgba(0,0,0,.25)); }
-  .pill:active { transform: translateY(0); box-shadow: var(--shadowSm, 0 2px 8px rgba(0,0,0,.2)); }
+
+  .pill:hover {
+    transform: translateY(-1px);
+    border-color: var(--primaryColor);
+  }
+
+  .pill:active {
+    transform: translateY(0);
+  }
+
+  .pill:focus-visible {
+    outline: 2px solid var(--primaryColor);
+    outline-offset: 3px;
+  }
+
   .pill.active {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brandColor, #0bb37d) 85%, white 15%),
-      color-mix(in srgb, var(--brandColor, #0bb37d) 70%, black 10%)
-    );
-    color: var(--onBrand, #0b1813);
-    border-color: transparent;
+    background: var(--primaryColor);
+    border-color: var(--primaryColor);
+    color: var(--backgroundColor); /* good contrast when active */
   }
-  .icon { font-size: clamp(1.1rem, 4.5vw, 1.6rem); line-height: 1; }
-  .label { font-size: .8rem; color: var(--secondaryText, #cfe0f5); text-transform: capitalize; }
-  .label.active { color: var(--primaryText, #e6ebf1); font-weight: 600; }
-  .pill:focus-visible { outline: 2px solid var(--focusColor, #66afe9); outline-offset: 3px; }
+
+  /* Labels */
+  .icon {
+    font-size: clamp(1.1rem, 4.5vw, 1.6rem);
+    line-height: 1;
+  }
+
+  .label {
+    font-size: 0.8rem;
+    color: var(--baseTextColor);   /* ✅ now uses baseTextColor */
+    text-transform: capitalize;
+    transition: color .12s ease;
+  }
+
+  .label.active {
+    color: var(--baseTextColor);   /* stays same, not black */
+    font-weight: 600;
+  }
 </style>

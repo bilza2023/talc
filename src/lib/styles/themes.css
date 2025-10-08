@@ -11,6 +11,21 @@
     --fontHeading: "Palatino Linotype", serif;
     --fontBase: "Helvetica", sans-serif;
   }
+/* === Theme: Green === */
+.theme-green {
+  --backgroundColor: #2F5A30;    /* dark-green — deep background tone */
+  --baseTextColor: #f3faf4;      /* secondary-green — readable on dark bg */
+  --headingColor: #BFC5BA;       /* neutral-gray — softer heading highlight */
+  --bulletColor: #3D7B3F;        /* primary-green — bullets or accents */
+  --primaryColor: #3D7B3F;       /* primary-green — main brand/action color */
+  --secondaryColor: #E7F2E8;     /* secondary-green — light accent surface */
+  --borderColor: #BFC5BA;        /* neutral-gray — consistent subtle border */
+  --shadowColor: rgba(61, 123, 63, 0.3); /* translucent primary-green */
+  --fontHeading: "Palatino Linotype", serif;
+  --fontBase: "Helvetica", sans-serif;
+}
+
+  
   
   /* === Theme: Neon Dark === */
   .theme-neonDark {

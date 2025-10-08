@@ -1,10 +1,10 @@
 <script>
-  export let title = "Northwest Minerals";
-  export let theme = "theme-royalBlue";
+  export let theme = "theme-green";
 
   const THEME_OPTIONS = [
     { label: "Light", value: "theme-light" },
     { label: "Dark", value: "theme-dark" },
+    { label: "Green", value: "theme-green" },
     { label: "Dracula", value: "theme-dracula" },
     { label: "Nord", value: "theme-nord" },
     { label: "GitHub Dim", value: "theme-github-dim" },
@@ -15,7 +15,9 @@
 </script>
 
 <nav class="nav">
-  <div class="left"><a class="title-href" href="/">Northwest Minerals</a></div>
+  <div class="left">
+    <a class="title-href" href="/">Northwest Minerals</a>
+  </div>
 
   <div class="right">
     <label class="theme">
@@ -32,104 +34,102 @@
 </nav>
 
 <style>
-
+  /* Green bar with white text */
   .nav {
     position: sticky;
     top: 0;
     z-index: 50;
+
     display: flex;
     align-items: center;
     justify-content: space-between;
+
     padding: var(--spaceSm, 12px) var(--spaceMd, 16px);
-    background: color-mix(
-      in srgb,
-      var(--surfaceColor, #0f1a16) 88%,
-      transparent
-    );
-    border-bottom: 1px solid var(--borderColor, #2b3a36);
-    backdrop-filter: blur(var(--blurSm, 6px)) saturate(115%);
-    -webkit-backdrop-filter: blur(var(--blurSm, 6px)) saturate(115%);
+    background: var(--primaryColor);                  /* main green */
+    color: #fff;                                       /* white text across */
+
+    border-bottom: 1px solid rgba(255,255,255,0.15);   /* light divider */
+    backdrop-filter: saturate(110%);                   /* subtle (no blur) */
   }
+
   .left {
-    font-size: 1.06rem;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    color: var(--primaryText, #e6ebf1);
+    font-size: clamp(1rem, 3.2vw, 1.2rem);
+    font-weight: 700;
+    letter-spacing: .2px;
   }
+
+  .title-href {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    text-decoration: none;
+    color: #fff;                                       /* keep text white */
+    padding: .2rem .4rem;
+    border-radius: var(--radiusXl, 16px);
+    transition: opacity .12s ease, text-decoration-color .12s ease;
+  }
+  .title-href:hover {
+    opacity: .9;                                       /* very light effect */
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(255,255,255,0.75);
+  }
+  .title-href:focus-visible {
+    outline: 2px solid rgba(255,255,255,0.85);
+    outline-offset: 2px;
+  }
+
   .right {
     display: flex;
     align-items: center;
     gap: var(--spaceSm, 12px);
   }
 
+  /* Minimal, light select: transparent with thin white border */
   .sel {
     appearance: none;
-    background: var(--surfaceColor, #0f1a16);
-    color: var(--primaryText, #e6ebf1);
-    border: 1px solid var(--borderColor, #2b3a36);
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
     border-radius: var(--radiusXl, 16px);
-    padding: 0.5rem 0.8rem;
-    box-shadow: var(--shadowSm, 0 2px 8px rgba(0, 0, 0, 0.2));
+    padding: 0.45rem 0.8rem;
   }
   .sel:focus-visible {
-    outline: 2px solid var(--focusColor, #66afe9);
+    outline: 2px solid rgba(255,255,255,0.85);
     outline-offset: 2px;
+    border-color: rgba(255,255,255,0.45);
   }
+  /* Make options readable on native popups; browsers handle the popup bg */
+  .sel option { color: initial; }
 
+  /* Light login pill: translucent bg, white text */
   .login {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0.5rem 0.9rem;
     border-radius: 9999px;
-    border: 1px solid var(--borderColor, #2b3a36);
-    background: color-mix(
-      in srgb,
-      var(--surfaceColor, #0f1a16) 90%,
-      transparent
-    );
-    color: var(--primaryText, #e6ebf1);
+
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.10);               /* very light */
+    color: #fff;
     text-decoration: none;
-    box-shadow: var(--shadowSm, 0 2px 8px rgba(0, 0, 0, 0.2));
+    transition: background .12s ease, border-color .12s ease;
   }
   .login:hover {
-    filter: brightness(1.08);
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.35);
+  }
+  .login:focus-visible {
+    outline: 2px solid rgba(255,255,255,0.85);
+    outline-offset: 2px;
   }
 
   .sr-only {
     position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .left {
-    font-size: clamp(1rem, 3.2vw, 1.2rem);
-    font-weight: 700;
-    letter-spacing: .2px;
-  }
-  .title-href {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    text-decoration: none;
-    color: var(--primaryText);
-    padding: .2rem .4rem;
-    border-radius: var(--radiusXl, 16px);
-    transition: color .12s ease, background-color .12s ease, box-shadow .12s ease;
-  }
-  .title-href:hover {
-    color: var(--primaryColor);
-    text-decoration: underline;
-    text-decoration-color: var(--primaryColor);
-    text-underline-offset: 3px;
-  }
-  .title-href:focus-visible {
-    outline: 2px solid var(--focusColor);
-    outline-offset: 2px;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
   }
 </style>
