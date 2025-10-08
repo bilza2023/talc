@@ -1,40 +1,86 @@
 <script>
+  // Reuse the same Card component you used on ABS
+  import Card from '$lib/components/Card.svelte';
   export let data;
-  const { stationCode, stationName, cards = [] } = data;
+
+  const stationCode = data.stationCode ?? 'PSS';
+  const stationName = data.stationName ?? 'Peshawar (PSS)';
+
+  // PSS hard-coded MMAs (no loops)
+  const MMA1 = { code: 'PSS_SCREENED', label: 'Screened' };
+  const MMA2 = { code: 'PSS_SORTED',   label: 'Sorted'   };
 </script>
 
-<h1>{stationName} — Station</h1>
+<h1 style="margin:0.25rem 0 0;">{stationCode} — Station Home</h1>
+<p style="margin:0.25rem 0 1rem; opacity:0.9;">{stationName}</p>
 
-<section aria-label="Quick Actions" class="cards">
-  {#each cards as c}
-    <a class="card" href={c.href}>
-      <span class="icon" aria-hidden="true">{c.icon}</span>
-      <span class="label">{c.label}</span>
-    </a>
-  {/each}
+<section style="margin-top:0.5rem;">
+  <h2 class="section-title">MMAs</h2>
+  <div class="mmas">
+    <span class="mma">{MMA1.label} <small>({MMA1.code})</small></span>
+    <span class="mma">{MMA2.label} <small>({MMA2.code})</small></span>
+  </div>
+</section>
+
+<section style="margin-top:1rem;">
+  <h2 class="section-title">Actions</h2>
+
+  <!-- No loops: three explicit cards -->
+  <div class="actions-grid">
+    <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive (ABS → PSS_SCREENED)" />
+    <Card href="/stations/pss/pss_screened"         icon="📦" label="Slots — Screened" />
+    <Card href="/stations/pss/pss_sorted"           icon="📦" label="Slots — Sorted" />
+  </div>
 </section>
 
 <style>
-  /* light, non-invasive styling (same spirit as ABS home) */
-  h1 {
-    margin: 0 0 1rem;
-    font-size: 1.5rem;
+  :global(body) {
+    background: var(--backgroundColor);
+    color: var(--primaryText);
   }
-  .cards {
+  h1 { font-size: 1.25rem; line-height: 1.2; }
+  p  { font-size: 0.95rem; }
+
+  .section-title {
+    font-size: 1rem;
+    margin: 0 0 0.5rem;
+    opacity: 0.95;
+  }
+
+  /* MMA badges (no loops; just two spans) */
+  .mmas {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .mma {
+    background: var(--cardBg, rgba(255,255,255,0.06));
+    border: 1px solid var(--cardBorder, rgba(255,255,255,0.12));
+    padding: 0.4rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+  .mma small {
+    opacity: 0.75;
+    font-size: 0.8em;
+    margin-left: 0.25rem;
+  }
+
+  /* Mobile-first: 3 cards in one row, centered, with side padding */
+  .actions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: .75rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    align-items: stretch;
+    justify-items: center;
+    padding: 0 0.5rem;
   }
-  .card {
-    display: grid;
-    grid-template-columns: 2.5rem 1fr;
-    align-items: center;
-    padding: .75rem .9rem;
-    border: 1px solid var(--border, #333);
-    border-radius: .5rem;
-    text-decoration: none;
+
+  /* Ensure Card stays compact when placed in a 3-col grid */
+  :global(.card) {
+    width: 100%;
+    max-width: 120px;
+    min-height: 90px;
+    text-align: center;
   }
-  .card:hover { outline: 1px solid currentColor; }
-  .icon { font-size: 1.4rem; line-height: 1; }
-  .label { font-weight: 600; }
 </style>

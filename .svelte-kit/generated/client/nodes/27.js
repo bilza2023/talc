@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/stations/kef/kef_sorted/+page.svelte";
+export { default as component } from "../../../../src/routes/reports/stocks/suppliers/+page.svelte";
