@@ -1,106 +1,71 @@
-<!-- /src/routes/stations/abs/+page.svelte -->
 <script>
-  import Card from '$lib/components/Card.svelte';
+  import ImgCard from '$lib/components/ImgCard.svelte';
+
   export let data = {};
 
   const stationCode = data.stationCode ?? 'ABS';
   const stationName = data.stationName ?? 'Abbottabad';
 </script>
 
+<br/>
 <header class="station-header">
   <h1>{stationCode}</h1>
-  <p class="subtitle">{stationName}</p>
 </header>
 
-<!-- Row 1: Raw / Unscreened -->
-<section class="row">
-  <h2 class="row-title">Raw/Unscreened</h2>
-  <div class="actions-row">
-    <div class="item">
-      <Card icon="🧾" label="Purchase (Unscreened)" href="/stations/abs/purchase_unscreened" />
-    </div>
-    <div class="item">
-      <Card icon="📦" label="Slots Unscreened" href="/stations/abs/abs_unscreened_raw" />
-    </div>
-  </div>
-</section>
-
-<!-- Row 2: Screened -->
-<section class="row">
-  <h2 class="row-title">Screened</h2>
-  <div class="actions-row">
-    <div class="item">
-      <Card icon="🧾" label="Purchase (Screened)" href="/stations/abs/purchase_screened" />
-    </div>
-    <div class="item">
-      <Card icon="📦" label="Slots Screened" href="/stations/abs/abs_screened" />
-    </div>
-  </div>
-</section>
+<br/>
+<!-- stacked icons -->
+<div class="stack">
+  <ImgCard icon="▦" label="Screened" href="/stations/abs/abs_screened" />
+  <ImgCard icon="⛰️" label="Unscreened" href="/stations/abs/abs_unscreened_raw" />
+</div>
 
 <style>
   :global(body) {
     background: var(--backgroundColor);
     color: var(--primaryText);
-  }
-
-  .row {
-    padding: 0 12px;     /* comfy side padding on mobile */
-    margin-top: 1rem;
-  }
-
-  .row-title {
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
-    opacity: 0.95;
-  }
-
-  /* Mobile-first: center the two fixed buttons per row */
-  .actions-row {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  /* Flexible, tappable size without getting huge */
-  .item {
-    flex: 0 1 140px;
-    min-width: 120px;
-    display: flex;
-  }
-
-  /* Ensure Card fills its wrapper width */
-  .item :global(a),
-  .item :global(button),
-  .item :global(.card) {
-    width: 100%;
+    margin: 0;
   }
 
   .station-header {
     text-align: center;
-    margin-top: 0.75rem;
-    margin-bottom: 1.25rem;
+    margin: 1.5rem 0;
   }
 
   .station-header h1 {
-    font-size: 1.35rem;
+    font-size: 1.6rem;
     font-weight: 700;
-    margin: 0;
     color: var(--primaryAccent, var(--primaryText));
-    letter-spacing: 0.5px;
+    margin: 0;
   }
 
-  .station-header .subtitle {
-    margin-top: 0.25rem;
-    font-size: 0.95rem;
-    font-weight: 400;
-    opacity: 0.8;
+  /* stacked layout */
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;              /* space between icons */
+    margin-top: 2rem;
+  }
+
+  /* make the cards bigger */
+  :global(.card) {
+    width: clamp(160px, 60vw, 220px);
+    aspect-ratio: 1 / 1;
+    font-size: 1.2rem;
+  }
+
+  /* enlarge emoji/icon inside the card */
+  :global(.card .icon) {
+    font-size: clamp(3rem, 12vw, 4rem);
   }
 
   @media (min-width: 640px) {
-    .station-header h1 { font-size: 1.6rem; }
-    .station-header .subtitle { font-size: 1.05rem; }
+    .stack {
+      gap: 3rem;
+      margin-top: 3rem;
+    }
+    :global(.card) {
+      width: 240px;
+    }
   }
 </style>

@@ -17,7 +17,7 @@
     { title: 'KEF', url: '/stations/kef', icon: '📦',  category: 'stations' },
 
 
-    { title: 'Ore',            url: '/dashboard/ore',            icon: '🪨', category: 'dashboards' },
+    { title: 'Overview',            url: '/reports/overview',            icon: '🪨', category: 'dashboards' },
     { title: 'Talc',           url: '/dashboard/talc',           icon: '🧼', category: 'dashboards' },
     { title: 'Transportation', url: '/dashboard/transportation', icon: '🚚', category: 'dashboards' },
     { title: 'Ore Batches',    url: '/dashboard/ore_batches',    icon: '📦', category: 'dashboards' },

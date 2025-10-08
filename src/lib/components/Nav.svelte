@@ -1,5 +1,5 @@
 <script>
-  export let title = "Northwest Transport";
+  export let title = "Northwest Minerals";
   export let theme = "theme-royalBlue";
 
   const THEME_OPTIONS = [
@@ -15,7 +15,7 @@
 </script>
 
 <nav class="nav">
-  <div class="left"><a class="title-href" href="/">{title}</a></div>
+  <div class="left"><a class="title-href" href="/">Northwest Minerals</a></div>
 
   <div class="right">
     <label class="theme">

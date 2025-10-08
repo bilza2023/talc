@@ -45,7 +45,7 @@
     }));
   </script>
   
-  <ReportShell title="Transport — Overview" dateRange="Live Data" {tabs}>
+  <ReportShell title="Logistics" dateRange="Live Data" {tabs}>
     <KPIBar items={kpis} />
   
     <h2 style="margin:1.25rem 0 .5rem;">Lane Summary</h2>

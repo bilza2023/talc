@@ -1,5 +1,4 @@
 <script>
-  // Reuse the same Card component you used on ABS
   import Card from '$lib/components/Card.svelte';
   export let data;
 
@@ -26,7 +25,7 @@
   <h2 class="section-title">Actions</h2>
 
   <!-- No loops: three explicit cards -->
-  <div class="actions-grid">
+  <div class="actions-flex">
     <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive (ABS → PSS_SCREENED)" />
     <Card href="/stations/pss/pss_screened"         icon="📦" label="Slots — Screened" />
     <Card href="/stations/pss/pss_sorted"           icon="📦" label="Slots — Sorted" />
@@ -38,6 +37,7 @@
     background: var(--backgroundColor);
     color: var(--primaryText);
   }
+
   h1 { font-size: 1.25rem; line-height: 1.2; }
   p  { font-size: 0.95rem; }
 
@@ -47,7 +47,7 @@
     opacity: 0.95;
   }
 
-  /* MMA badges (no loops; just two spans) */
+  /* MMA badges */
   .mmas {
     display: flex;
     gap: 0.5rem;
@@ -66,20 +66,19 @@
     margin-left: 0.25rem;
   }
 
-  /* Mobile-first: 3 cards in one row, centered, with side padding */
-  .actions-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
-    align-items: stretch;
-    justify-items: center;
+  /* FLEX version of actions container */
+  .actions-flex {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
     padding: 0 0.5rem;
   }
 
-  /* Ensure Card stays compact when placed in a 3-col grid */
+  /* Ensure each Card stays compact and centered */
   :global(.card) {
-    width: 100%;
-    max-width: 120px;
+    flex: 0 1 120px;
+    max-width: 140px;
     min-height: 90px;
     text-align: center;
   }
