@@ -8,10 +8,10 @@
     { title: 'PSS',  url: '/stations/pss',  icon: '🗺️', category: 'stations' },
     { title: 'KEF',  url: '/stations/kef',  icon: '📦', category: 'stations' },
 
-    { title: 'Overview',       url: '/reports/overview',         icon: '🪨', category: 'dashboards' },
-    { title: 'Talc',           url: '/dashboard/talc',           icon: '🧼', category: 'dashboards' },
-    { title: 'Transportation', url: '/dashboard/transportation', icon: '🚚', category: 'dashboards' },
-    { title: 'Ore Batches',    url: '/dashboard/ore_batches',    icon: '📦', category: 'dashboards' },
+    { title: 'Report',       url: '/reports',         icon: '🪨', category: 'reports' },
+    { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
+    { title: 'Transportation', url: '/reports/transportation', icon: '🚚', category: 'reports' },
+    { title: 'Ore Batches',    url: '/reports/ore_batches',    icon: '📦', category: 'reports' },
 
     { title: 'Tables',         url: '/dashboard/ore_batches',    icon: '📦', category: 'tables' },
 
@@ -23,7 +23,7 @@
 
   const categories = [...new Set(entries.map(e => e.category))];
   let selected = categories[0] ?? '';
-  const iconMap = { stations:'🏗️', dashboards:'🚀', tables:'📅', admin:'⚙️' };
+  const iconMap = { stations:'🏗️', reports:'🚀', tables:'📅', admin:'⚙️' };
 
   $: visible = selected ? entries.filter(e => e.category === selected) : entries;
 </script>
