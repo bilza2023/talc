@@ -21,9 +21,10 @@ async function seedSupplier(name = 'Deposit/Withdraw Sup') {
 }
 
 beforeEach(async () => {
-  // Clear tables in safe order for tests
+  // Clear tables in FK-safe order for tests
   await prisma.stockTransport.deleteMany();
   await prisma.stockLedger.deleteMany();
+  await prisma.purchase_tbl?.deleteMany?.().catch(() => {}); // NEW: purchase rows
   await prisma.supplier.deleteMany();
 });
 
@@ -36,7 +37,8 @@ describe('Stock — deposit & withdraw (ABS_SCREENED)', () => {
       supplierId: sup.id,
       shade: SHADE,
       size: SIZE,
-      qty: 10,
+      reason: 'PURCHASE',                       // DIRECT removed → use PURCHASE
+      purchase: { docDate: new Date(), lumps: 10, chips: 0, fines: 0 }
     });
 
     const onHand = await stock.onHand({ mmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE });
@@ -52,7 +54,14 @@ describe('Stock — deposit & withdraw (ABS_SCREENED)', () => {
   it('withdraw consumes stock and rejects insufficient', async () => {
     const sup = await seedSupplier();
 
-    await stock.deposit({ toMmaCode: MMA, supplierId: sup.id, shade: SHADE, size: SIZE, qty: 2 });
+    await stock.deposit({
+      toMmaCode: MMA,
+      supplierId: sup.id,
+      shade: SHADE,
+      size: SIZE,
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), lumps: 2, chips: 0, fines: 0 }
+    });
 
     await stock.withdraw({
       fromMmaCode: MMA,

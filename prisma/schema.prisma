@@ -60,6 +60,8 @@ model Supplier {
   // unified back-relations
   stockLedgerRows    StockLedger[]    @relation("SupplierToStockLedger")
   stockTransportRows StockTransport[] @relation("SupplierToStockTransport")
+
+  purchases          purchase_tbl[]   @relation("SupplierToPurchase")
 }
 
 // -------------------- UNIFIED STOCK TABLES ------------
@@ -81,6 +83,7 @@ model StockLedger {
   linkId       String?      // processId or transportId (for audit chains)
   meta         Json?
 
+ purchaseDeposits purchase_tbl[] @relation("PurchaseDeposit")
   @@index([mmaCode, createdAt])
   @@index([mmaCode, supplierId, shade, size])
   @@index([supplierId, shade, size])
@@ -116,6 +119,42 @@ model StockTransport {
   @@map("stock_transport")
 }
 
+// 2) purchase table (unscreened RAW → deposit only)
+model purchase_tbl {
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  docDate         DateTime
+
+  supplierId Int
+  supplier   Supplier @relation("SupplierToPurchase", fields: [supplierId], references: [id])
+
+  toMmaCode       String    // e.g., "ABS_RAW"
+  shade           Shade
+  size            Size      @default(ANY) // RAW = ANY
+
+  // quantity breakdown (tons)
+  lumps           Float     @default(0)
+  chips           Float     @default(0)
+  fines           Float     @default(0)
+  qtyTotal        Float
+
+  // commercials
+  paymentMode     String?
+  ratePerMt       Float?
+  freightPerMt    Float?
+  supplierFreight Float?
+  roadExp         Float?
+  cashPaid        Float?
+  remarks         String?
+  meta            Json?
+
+  // hard FK to the ledger row that booked this deposit (+qty)
+  depositLedgerId Int       @unique
+  depositLedger   StockLedger @relation("PurchaseDeposit", fields: [depositLedgerId], references: [id])
+
+  @@index([supplierId, docDate])
+  @@index([toMmaCode, docDate])
+}
 // -------------------- PROCESS TABLES (aligned) --------
 
 model sorting_tbl {

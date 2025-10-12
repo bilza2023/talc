@@ -10,26 +10,20 @@ async function resetDb() {
   // wipe in FK-safe order
   await prisma.stockTransport.deleteMany({});
   await prisma.stockLedger.deleteMany({});
-  await prisma.screening_tbl?.deleteMany?.().catch(() => {}); // ignore if not present
-  await prisma.sorting_tbl?.deleteMany?.().catch(() => {});   // ignore if not present
+  await prisma.purchase_tbl?.deleteMany?.().catch(() => {}); // NEW
+  await prisma.screening_tbl?.deleteMany?.().catch(() => {});
+  await prisma.sorting_tbl?.deleteMany?.().catch(() => {});
   await prisma.supplier.deleteMany({});
 }
 
 async function mkSupplier(code = 'SUP', name = 'Supplier') {
-  const s = await prisma.supplier.create({
-    data: { code, name }
-  });
+  const s = await prisma.supplier.create({ data: { code, name } });
   return s.id;
 }
 
 describe('Stock.slot (exact bucket balance)', () => {
-  beforeEach(async () => {
-    await resetDb();
-  });
-
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
+  beforeEach(async () => { await resetDb(); });
+  afterAll(async () => { await prisma.$disconnect(); });
 
   it('returns qty=0 when no rows exist for the exact tuple', async () => {
     const supId = await mkSupplier('S0', 'Zero');
@@ -56,8 +50,8 @@ describe('Stock.slot (exact bucket balance)', () => {
       supplierId: supId,
       shade: 'WHITE',
       size: 'ANY',
-      qty: 200,
-      reason: 'DIRECT'
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), lumps: 200, chips: 0, fines: 0 }
     });
 
     await stock.withdraw({
@@ -88,8 +82,8 @@ describe('Stock.slot (exact bucket balance)', () => {
       supplierId: supA,
       shade: 'WHITE',
       size: 'ANY',
-      qty: 75,
-      reason: 'DIRECT'
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), lumps: 75, chips: 0, fines: 0 }
     });
 
     // Mismatch supplierId
@@ -101,14 +95,13 @@ describe('Stock.slot (exact bucket balance)', () => {
     });
     expect(s1.qty).toBe(0);
 
-    // Mismatch shade
-      // Mismatch shade (must still be a valid enum)
-      const s2 = await stock.slot({
-        mmaCode: 'ABS_RAW',
-        supplierId: supA,
-        shade: 'LIGHTGREY',
-        size: 'ANY'
-      });
+    // Mismatch shade (must still be a valid enum)
+    const s2 = await stock.slot({
+      mmaCode: 'ABS_RAW',
+      supplierId: supA,
+      shade: 'LIGHTGREY',
+      size: 'ANY'
+    });
     expect(s2.qty).toBe(0);
 
     // Mismatch size
@@ -129,8 +122,8 @@ describe('Stock.slot (exact bucket balance)', () => {
       supplierId: supId,
       shade: 'GREY',
       size: 'ANY',
-      qty: 33,
-      reason: 'DIRECT'
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), lumps: 33, chips: 0, fines: 0 }
     });
 
     const wrong = await stock.slot({
@@ -158,8 +151,8 @@ describe('Stock.slot (exact bucket balance)', () => {
       supplierId: supId,
       shade: 'WHITE',
       size: 'CHIPS',
-      qty: 10.5,
-      reason: 'DIRECT'
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), lumps: 10.5, chips: 0, fines: 0 }
     });
 
     const s = await stock.slot({
