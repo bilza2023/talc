@@ -37,11 +37,11 @@ enum Shade {
 }
 
 enum LedgerReason {
-  DIRECT
   PROCESS
   TRANSPORT
   REVERSAL
   ADJUST
+  PURCHASE 
 }
 
 enum TransportEventType {
