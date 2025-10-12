@@ -1,4 +1,4 @@
-// /api/deposit
+// /api/deposit — unchanged; already supports ratePerMt, freightPerMt, remarks
 import { json } from '@sveltejs/kit';
 import { stock } from '../../../lib/stocks/stockEngine.js';
 
@@ -13,8 +13,8 @@ export async function POST({ url }) {
     const qty        = n(url.searchParams.get('qty'));
     const reason     = (url.searchParams.get('reason') || '').toUpperCase();
 
-    // Optional purchase fields (all via query to keep consistency with your APIs)
-    const docDate         = url.searchParams.get('docDate'); // ISO or yyyy-mm-dd
+    // Purchase fields (already present)
+    const docDate         = url.searchParams.get('docDate') || url.searchParams.get('date');
     const paymentMode     = url.searchParams.get('paymentMode') || null;
     const lumps           = n(url.searchParams.get('lumps'));
     const chips           = n(url.searchParams.get('chips'));
@@ -26,12 +26,10 @@ export async function POST({ url }) {
     const cashPaid        = n(url.searchParams.get('cashPaid'));
     const remarks         = url.searchParams.get('remarks') || null;
 
-    // Basic guards (common)
     if (!toMmaCode || !supplierId || !shade) {
       return json({ ok: false, error: 'Missing required params: toMmaCode, supplierId, shade' }, { status: 400 });
     }
 
-    // Decide path: PURCHASE if any breakdown is provided or reason=PURCHASE; else legacy qty path
     const hasBreakdown = (lumps ?? 0) > 0 || (chips ?? 0) > 0 || (fines ?? 0) > 0;
     const isPurchase   = hasBreakdown || reason === 'PURCHASE';
 
@@ -47,7 +45,7 @@ export async function POST({ url }) {
         shade,
         size,
         reason: 'PURCHASE',
-        qty: qty ?? undefined, // optional; Stock.deposit will sum breakdown if not given
+        qty: qty ?? undefined,
         purchase: {
           docDate,
           paymentMode,
@@ -66,7 +64,6 @@ export async function POST({ url }) {
       return json({ ok: true, data: result });
     }
 
-    // Legacy / generic deposit (e.g., ADJUST). Qty required.
     if (!(qty > 0)) {
       return json({ ok: false, error: 'qty must be > 0' }, { status: 400 });
     }

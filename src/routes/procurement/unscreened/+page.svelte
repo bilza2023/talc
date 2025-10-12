@@ -2,7 +2,7 @@
   export let data;
   const { suppliers = [], defaults = {} } = data;
 
-  // Ensure the select has a real initial value
+  // Ensure a real initial value so supplierId doesn’t submit as empty/0
   let supplierId = defaults?.supplierId ?? (suppliers[0]?.id ?? '');
   let toMmaCode  = 'ABS_RAW';                 // only option for now
   let shade      = defaults?.shade ?? 'WHITE';
@@ -61,12 +61,12 @@
 
   <div class="row">
     <label>Rate / mt</label>
-    <input type="number" step="0.01" name="rate" required />
+    <input type="number" step="0.01" name="ratePerMt" required />
   </div>
 
   <div class="row">
     <label>Freight / mt</label>
-    <input type="number" step="0.01" name="freightMt" required />
+    <input type="number" step="0.01" name="freightPerMt" required />
   </div>
 
   <div class="row">
@@ -82,6 +82,12 @@
   <div class="row">
     <label>Cash Paid</label>
     <input type="number" step="0.01" name="cashPaid" required />
+  </div>
+
+  <!-- NEW: Remarks -->
+  <div class="row stack">
+    <label>Remarks</label>
+    <textarea name="remarks" placeholder="Optional notes..."></textarea>
   </div>
 
   <!-- Hidden context for API -->
