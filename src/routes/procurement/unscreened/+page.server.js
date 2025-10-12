@@ -1,62 +1,67 @@
-// ABS — Purchase Unscreened (RAW → deposit ANY)
+// Purchase Unscreened (RAW) — server action posts JSON to /api/deposit
 import { fail, redirect } from '@sveltejs/kit';
-import Stock from '$lib/stock/Stock.js';
 
-const stock = new Stock();
-// If you have a canonical enum list on the server, swap this with that.
-const SHADES = ['WHITE', 'LIGHTGREY', 'GREY', 'BLACK', 'BROWN'];
+const n = v => (v === null || v === undefined || v === '' ? null : Number(v));
 
 export async function load({ fetch, url }) {
-  // Suppliers for the dropdown
   const res = await fetch('/api/suppliers');
   const j = await res.json().catch(() => ({ ok: false, data: [] }));
   const suppliers = j.ok ? j.data : [];
 
-  // Optional preselects from URL
+  const SHADES = ['WHITE', 'LIGHTGREY', 'GREY', 'BLACK', 'BROWN'];
   const qsSupplier = Number(url.searchParams.get('supplierId') || 0);
-  const qsShade    = (url.searchParams.get('shade') || '').trim().toUpperCase();
-
-  const defaultSupplierId = qsSupplier || (suppliers[0]?.id ?? '');
-  const defaultShade      = qsShade || SHADES[0];
+  const qsShade = (url.searchParams.get('shade') || '').trim().toUpperCase();
 
   return {
-    mmaCode: 'ABS_RAW',
     suppliers,
-    shades: SHADES,
     defaults: {
-      supplierId: defaultSupplierId,
-      shade: defaultShade
+      supplierId: qsSupplier || (suppliers[0]?.id ?? ''), // helps initial selection
+      shade: qsShade || SHADES[0]
     }
   };
 }
 
 export const actions = {
-  async purchase({ request }) {
+  async purchase({ request, fetch }) {
     const fd = await request.formData();
-    const supplierId = Number(fd.get('supplierId') || 0);
-    const shade = String(fd.get('shade') || '').trim().toUpperCase();
-    const qty = Number(fd.get('qty') || 0);
-
-    if (!supplierId || !shade) {
-      return fail(400, { error: 'Supplier and shade are required.' });
+  
+    const sidRaw = fd.get('supplierId');
+    if (!sidRaw) return fail(400, { error: 'Please choose a supplier.' });
+    const supplierId = Number(sidRaw);
+    if (!Number.isFinite(supplierId) || supplierId <= 0) {
+      return fail(400, { error: 'Invalid supplier.' });
     }
-    if (!(qty > 0)) {
-      return fail(400, { error: 'Quantity must be > 0.' });
-    }
-
-    // Force ANY for RAW (server-side guard)
-    await stock.deposit({
-      toMmaCode: 'ABS_RAW',
-      supplierId,
+  
+    const toMmaCode = String(fd.get('toMmaCode') || 'ABS_RAW');
+    const shade = String(fd.get('shade') || 'WHITE').toUpperCase();
+    const size = String(fd.get('size') || 'ANY').toUpperCase();
+  
+    // Build query string for API
+    const params = new URLSearchParams({
+      toMmaCode,
+      supplierId: String(supplierId),
       shade,
-      qty,
-      size: 'ANY' // reason omitted → Stock.deposit defaults to 'DIRECT'
+      size,
+      reason: 'PURCHASE',
+      date: fd.get('date') || new Date().toISOString().slice(0, 10),
+      paymentMode: fd.get('paymentMode') || '',
+      lumps: fd.get('lumps') || '0',
+      chips: fd.get('chips') || '0',
+      fines: fd.get('fines') || '0',
+      rate: fd.get('rate') || '',
+      freightMt: fd.get('freightMt') || '',
+      supplierFreight: fd.get('supplierFreight') || '',
+      roadExp: fd.get('roadExp') || '',
+      cashPaid: fd.get('cashPaid') || ''
     });
-
-    return { success: true, posted: { supplierId, shade, qty } };
-  },
-
-  async cancel() {
-    throw redirect(303, '/stations/abs');
+  
+    const res = await fetch(`/api/deposit?${params.toString()}`, { method: 'POST' });
+    const j = await res.json().catch(() => ({ ok: false }));
+    if (!j.ok) {
+      return fail(res.status || 500, { error: j.error || 'Failed to record purchase.' });
+    }
+  
+    throw redirect(303, `/procurement/unscreened?ok=1&id=${j.data?.purchase?.id || ''}`);
   }
+  
 };
