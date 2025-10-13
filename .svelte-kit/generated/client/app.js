@@ -51,7 +51,8 @@ export const nodes = [
 	() => import('./nodes/47'),
 	() => import('./nodes/48'),
 	() => import('./nodes/49'),
-	() => import('./nodes/50')
+	() => import('./nodes/50'),
+	() => import('./nodes/51')
 ];
 
 export const server_loads = [4,5,6];
@@ -82,25 +83,26 @@ export const dictionary = {
 		"/reports/stocks/overview": [~29,[2]],
 		"/reports/stocks/slots": [~30,[2]],
 		"/reports/stocks/suppliers": [~31,[2]],
-		"/settings": [32],
-		"/stations/abs": [33,[3,4]],
-		"/stations/abs/abs_screened": [~34,[3,4]],
-		"/stations/abs/abs_unscreened_raw": [~35,[3,4]],
-		"/stations/abs/dispatch_kef_screened": [~36,[3,4]],
-		"/stations/abs/dispatch_pss_screened": [~37,[3,4]],
-		"/stations/abs/purchase_screened": [~38,[3,4]],
-		"/stations/abs/purchase_unscreened": [~39,[3,4]],
-		"/stations/abs/screening": [~40,[3,4]],
-		"/stations/kef": [41,[3,5]],
-		"/stations/kef/kef_sorted": [~42,[3,5]],
-		"/stations/kef/receive_pss_sorted": [~43,[3,5]],
-		"/stations/pss": [44,[3,6]],
-		"/stations/pss/dispatch_kef_sorted": [~45,[3,6]],
-		"/stations/pss/pss_screened": [~46,[3,6]],
-		"/stations/pss/pss_sorted": [~47,[3,6]],
-		"/stations/pss/receive_abs_screened": [~48,[3,6]],
-		"/stations/pss/sort": [~49,[3,6]],
-		"/suppliers": [~50]
+		"/reports/supplier_ledger": [~32,[2]],
+		"/settings": [33],
+		"/stations/abs": [34,[3,4]],
+		"/stations/abs/abs_screened": [~35,[3,4]],
+		"/stations/abs/abs_unscreened_raw": [~36,[3,4]],
+		"/stations/abs/dispatch_kef_screened": [~37,[3,4]],
+		"/stations/abs/dispatch_pss_screened": [~38,[3,4]],
+		"/stations/abs/purchase_screened": [~39,[3,4]],
+		"/stations/abs/purchase_unscreened": [~40,[3,4]],
+		"/stations/abs/screening": [~41,[3,4]],
+		"/stations/kef": [42,[3,5]],
+		"/stations/kef/kef_sorted": [~43,[3,5]],
+		"/stations/kef/receive_pss_sorted": [~44,[3,5]],
+		"/stations/pss": [45,[3,6]],
+		"/stations/pss/dispatch_kef_sorted": [~46,[3,6]],
+		"/stations/pss/pss_screened": [~47,[3,6]],
+		"/stations/pss/pss_sorted": [~48,[3,6]],
+		"/stations/pss/receive_abs_screened": [~49,[3,6]],
+		"/stations/pss/sort": [~50,[3,6]],
+		"/suppliers": [~51]
 	};
 
 export const hooks = {
