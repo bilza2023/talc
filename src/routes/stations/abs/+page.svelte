@@ -1,6 +1,6 @@
 <script>
   import ImgCard from '$lib/components/ImgCard.svelte';
-
+  import H1 from '$lib/components/H1.svelte';
   export let data = {};
 
   const stationCode = data.stationCode ?? 'ABS';
@@ -8,11 +8,9 @@
 </script>
 
 <br/>
-<header class="station-header">
-  <h1>{stationCode}</h1>
-</header>
 
-<br/>
+<H1 text="ABS" size="2rem" />
+
 <!-- stacked icons -->
 <div class="stack">
   <ImgCard icon="▦" label="Screened" href="/stations/abs/abs_screened" />
@@ -26,17 +24,6 @@
     margin: 0;
   }
 
-  .station-header {
-    text-align: center;
-    margin: 1.5rem 0;
-  }
-
-  .station-header h1 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--primaryAccent, var(--primaryText));
-    margin: 0;
-  }
 
   /* stacked layout */
   .stack {

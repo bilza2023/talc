@@ -1,5 +1,6 @@
 <script>
   import Card from '$lib/components/Card.svelte';
+  import H1 from '$lib/components/H1.svelte';
   export let data;
 
   const stationCode = data.stationCode ?? 'PSS';
@@ -11,15 +12,13 @@
 </script>
 
 <br/>
-<header class="station-header">
-  <h1>{stationCode}</h1>
-</header>
 
+<H1 text="PSS" size="2rem" />
 
 <section style="margin-top:1rem;">
 
   <!-- No loops: three explicit cards -->
-  <div class="actions-flex">
+  <div class="stack">
     <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive" />
     <Card href="/stations/pss/pss_screened"         icon="📦" label="Screened" />
     <Card href="/stations/pss/pss_sorted"           icon="📦" label="Sorted" />
@@ -32,18 +31,14 @@
     color: var(--primaryText);
   }
 
-  .station-header {
-    text-align: center;
-    margin: 1.5rem 0;
+  /* stacked layout */
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;              /* space between icons */
+    margin-top: 2rem;
   }
-
-  .station-header h1 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--primaryText);
-    margin: 0;
-  }
-
 
 
 

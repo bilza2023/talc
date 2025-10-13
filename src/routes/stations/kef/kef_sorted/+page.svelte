@@ -1,37 +1,22 @@
 <script>
-  export let data; // { mmaCode, slots }
-  const { mmaCode, slots = [] } = data;
+  import Slots from '$lib/components/Slots.svelte';
+  export let data; // { mmaCode:'KEF_SORTED', slots:[...] }
+
+  const rows = data?.slots ?? [];
+
+  // Actions for KEF_SORTED
+  const actions = [
+    {
+      label: 'Receive ➜ KEF (Sorted)',
+      icon: '📦',
+      href: (r) =>
+        `/stations/kef/receive_sorted?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
+    }
+  ];
 </script>
 
-<h1>{mmaCode} — Slots</h1>
-
-{#if slots.length === 0}
-  <p>No stock on hand for {mmaCode}.</p>
-{:else}
-  <table>
-    <thead>
-      <tr>
-        <th>Supplier</th>
-        <th>Shade</th>
-        <th>Size</th>
-        <th style="text-align:right;">Qty (t)</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each slots as s}
-        <tr>
-          <td>{s.supplierId}</td>
-          <td>{s.shade}</td>
-          <td>{s.size}</td>
-          <td style="text-align:right;">{s.qty}</td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if}
-
-<style>
-  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-  th, td { padding: 0.5rem; border-bottom: 1px solid var(--border, #333); }
-  th { text-align: left; }
-</style>
+<Slots
+  title="KEF — Sorted Slots"
+  rows={rows}
+  actions={actions}
+/>

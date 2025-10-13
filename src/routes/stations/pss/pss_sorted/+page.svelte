@@ -1,57 +1,22 @@
 <script>
-  export let data;
-  const { mmaCode, slots = [] } = data;
+  import Slots from '$lib/components/Slots.svelte';
+  export let data; // { mmaCode:'PSS_SORTED', slots:[...] }
 
-  // PSS_SORTED → KEF_SORTED dispatch flow (same pattern as ABS pages)
-  const toDispatchKef = (s) =>
-    `/stations/pss/dispatch_kef_sorted?supplierId=${s.supplierId}&shade=${encodeURIComponent(
-      s.shade
-    )}&size=${encodeURIComponent(s.size)}&qty=${s.qty}`;
+  const rows = data?.slots ?? [];
+
+  // Row actions for PSS_SORTED
+  const actions = [
+    {
+      label: 'Dispatch ➜ KEF (Sorted)',
+      icon: '🚚',
+      href: (r) =>
+        `/stations/pss/dispatch_kef_sorted?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
+    }
+  ];
 </script>
 
-<h1>{mmaCode} — Slots</h1>
-
-{#if slots.length === 0}
-  <p>No stock available.</p>
-{:else}
-  <table class="slots">
-    <thead>
-      <tr>
-        <th>Supplier ID</th>
-        <th>Shade</th>
-        <th>Size</th>
-        <th>Qty (t)</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each slots as s}
-        <tr>
-          <td>{s.supplierId}</td>
-          <td>{s.shade}</td>
-          <td>{s.size}</td>
-          <td>{s.qty}</td>
-          <td>
-            <a class="btn" href={toDispatchKef(s)}>Dispatch → KEF_SORTED</a>
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if}
-
-<style>
-  h1 { margin: 0 0 1rem; font-size: 1.25rem; }
-  table.slots { border-collapse: collapse; width: 100%; }
-  th, td { padding: .5rem .6rem; border-bottom: 1px solid var(--border, #333); text-align: left; }
-  th { font-weight: 700; }
-  .btn {
-    display: inline-block;
-    padding: .35rem .6rem;
-    border: 1px solid var(--border, #333);
-    border-radius: .4rem;
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .btn:hover { outline: 1px solid currentColor; }
-</style>
+<Slots
+  title="PSS — Sorted Slots"
+  rows={rows}
+  actions={actions}
+/>
