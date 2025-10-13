@@ -8,7 +8,7 @@
     { title: 'PSS',  url: '/stations/pss',  icon: '🗺️', category: 'stations' },
     { title: 'KEF',  url: '/stations/kef',  icon: '📦', category: 'stations' },
 
-    { title: 'Report',       url: '/reports',         icon: '🪨', category: 'reports' },
+    { title: 'Suppliers Ledger',       url: '/reports/supplier_ledger',         icon: '🪨', category: 'reports' },
     { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
     { title: 'Transportation', url: '/reports/transportation', icon: '🚚', category: 'reports' },
     { title: 'Ore Batches',    url: '/reports/ore_batches',    icon: '📦', category: 'reports' },
