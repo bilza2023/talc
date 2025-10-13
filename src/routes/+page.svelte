@@ -8,22 +8,24 @@
     { title: 'PSS',  url: '/stations/pss',  icon: '🗺️', category: 'stations' },
     { title: 'KEF',  url: '/stations/kef',  icon: '📦', category: 'stations' },
 
+
     { title: 'Suppliers Ledger',       url: '/reports/supplier_ledger',         icon: '🪨', category: 'reports' },
     { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
     { title: 'Transportation', url: '/reports/transportation', icon: '🚚', category: 'reports' },
     { title: 'Ore Batches',    url: '/reports/ore_batches',    icon: '📦', category: 'reports' },
 
-    { title: 'Tables',         url: '/dashboard/ore_batches',    icon: '📦', category: 'tables' },
+
+    { title: 'Settings',         url: '/dashboard/ore_batches',    icon: '📦', category: 'settings' },
 
     { title: 'Help',      url: '/help/dashboard', icon: '❓', category: 'admin' },
-    { title: 'Mines',     url: '/mines',          icon: '⛏️', category: 'admin' },
+    // { title: 'Mines',     url: '/mines',          icon: '⛏️', category: 'admin' },
     { title: 'Suppliers', url: '/suppliers',      icon: '👥', category: 'admin' },
-    { title: 'Settings',  url: '/settings',       icon: '⚙️',  category: 'admin' }
+    // { title: 'Settings',  url: '/settings',       icon: '⚙️',  category: 'admin' }
   ];
 
   const categories = [...new Set(entries.map(e => e.category))];
   let selected = categories[0] ?? '';
-  const iconMap = { stations:'🏗️', reports:'🚀', tables:'📅', admin:'⚙️' };
+  const iconMap = { stations:'🏗️', reports:'🚀', settings:'⛏️', admin:'⚙️' };
 
   $: visible = selected ? entries.filter(e => e.category === selected) : entries;
 </script>
