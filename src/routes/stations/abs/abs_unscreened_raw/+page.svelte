@@ -10,7 +10,7 @@
       label: 'Process ➜ Screened',
       icon: '🛠️',
       href: (r) =>
-        `/stations/abs/process_raw_to_screened?supplierId=${r.supplierId}&shade=${r.shade}&qty=${r.qty}`
+        `/stations/abs/screening?supplierId=${r.supplierId}&shade=${r.shade}&qty=${r.qty}`
     }
   ];
 </script>

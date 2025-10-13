@@ -7,9 +7,9 @@
     export let data;
   
     const tabs = [
-      { label: 'Overview',       href: '/reports/transport/overview' },
-      { label: 'In-Transit',     href: '/reports/transport/in-transit' },
-      { label: 'Reconciliation', href: '/reports/transport/reconciliation' },
+      { label: 'Overview',       href: '/reports/logistics/overview' },
+      { label: 'In-Transit',     href: '/reports/logistics/in-transit' },
+      { label: 'Reconciliation', href: '/reports/logistics/reconciliation' },
     ];
   
     const kpis = data.kpis ?? [];

@@ -1,133 +1,193 @@
 <script>
+  import { page } from '$app/stores';
+
   export let data;
-  const { suppliers = [], defaults = {} } = data;
+  export let form;
 
-  // Ensure a real initial value so supplierId doesn’t submit as empty/0
-  let supplierId = defaults?.supplierId ?? (suppliers[0]?.id ?? '');
-  let toMmaCode  = 'ABS_RAW';                 // only option for now
-  let shade      = defaults?.shade ?? 'WHITE';
+  const suppliers = data?.suppliers ?? [];
+  const shades = data?.shades ?? ['WHITE','LIGHTGREY','GREY','MIXED'];
+  const d = data?.defaults ?? {};
 
-  // If suppliers load after hydration and supplierId is empty, pick the first
-  $: if (!supplierId && suppliers.length) {
-    supplierId = suppliers[0].id;
-  }
+  const today = new Date().toISOString().slice(0, 10);
+  $: ok = $page.url.searchParams.get('ok');
+  $: legs = $page.url.searchParams.get('legs') || '';
 </script>
 
-<h1>Purchase — Unscreened (RAW)</h1>
+<h1 class="title">Purchase — Screened (multi-size)</h1>
 
-<form method="POST" action="?/purchase" class="form spacious">
-  <!-- Supplier -->
+{#if form?.error}
+  <div class="alert">{form.error}</div>
+{/if}
+
+<form method="POST" action="?/purchase" class="form">
+  <!-- Required trio -->
   <div class="row">
-    <label>Supplier</label>
-    <select name="supplierId" bind:value={supplierId} required>
+    <label for="supplier">Supplier</label>
+    <select id="supplier" name="supplierId" required>
       {#each suppliers as s}
-        <option value={s.id}>{s.name}</option>
+        <option value={s.id} selected={String(s.id) === String(d.supplierId)}>{s.name}</option>
       {/each}
     </select>
   </div>
 
-  <!-- Station / MMA (fixed option for now) -->
   <div class="row">
-    <label>Station</label>
-    <select name="toMmaCode" bind:value={toMmaCode} required>
-      <option value="ABS_RAW">ABS — Unscreened (RAW)</option>
+    <label for="shade">Shade</label>
+    <select id="shade" name="shade" required>
+      {#each shades as sh}
+        <option value={sh} selected={sh === d.shade}>{sh}</option>
+      {/each}
     </select>
   </div>
 
-  <div class="row">
-    <label>Date</label>
-    <input type="date" name="date" required />
+  <!-- Screened MMA -->
+  <input type="hidden" name="toMmaCode" value={d.toMmaCode || 'ABS_SCREENED'} />
+
+  <!-- Stacked qty per size -->
+  <div class="stack">
+    <div class="row">
+      <label for="lumps">Lumps (t)</label>
+      <input id="lumps" name="lumps" type="number" step="0.01" min="0" placeholder="0" />
+    </div>
+    <div class="row">
+      <label for="chips">Chips (t)</label>
+      <input id="chips" name="chips" type="number" step="0.01" min="0" placeholder="0" />
+    </div>
+    <div class="row">
+      <label for="fines">Fines (t)</label>
+      <input id="fines" name="fines" type="number" step="0.01" min="0" placeholder="0" />
+    </div>
   </div>
 
+  <!-- Date & payment -->
   <div class="row">
-    <label>Mode of Payment</label>
-    <input type="text" name="paymentMode" placeholder="Cash / Credit" required />
-  </div>
-
-  <div class="row">
-    <label>Lumps (t)</label>
-    <input type="number" step="0.01" name="lumps" required />
-  </div>
-
-  <div class="row">
-    <label>Chips (t)</label>
-    <input type="number" step="0.01" name="chips" required />
-  </div>
-
-  <div class="row">
-    <label>Fines (t)</label>
-    <input type="number" step="0.01" name="fines" required />
-  </div>
-
-  <div class="row">
-    <label>Rate / mt</label>
-    <input type="number" step="0.01" name="ratePerMt" required />
+    <label for="date">Date</label>
+    <input id="date" name="date" type="date" value={today} />
   </div>
 
   <div class="row">
-    <label>Freight / mt</label>
-    <input type="number" step="0.01" name="freightPerMt" required />
+    <label for="paymentMode">Payment Mode</label>
+    <select id="paymentMode" name="paymentMode">
+      <option value="">—</option>
+      <option value="cash">Cash</option>
+      <option value="bank">Bank</option>
+      <option value="deferred">Deferred</option>
+    </select>
+  </div>
+
+  <!-- Optional numeric costs -->
+  <div class="row">
+    <label for="ratePerMt">Rate per MT</label>
+    <input id="ratePerMt" name="ratePerMt" type="number" step="0.01" placeholder="— optional —" />
   </div>
 
   <div class="row">
-    <label>Supplier Freight</label>
-    <input type="number" step="0.01" name="supplierFreight" required />
+    <label for="freightPerMt">Freight per MT</label>
+    <input id="freightPerMt" name="freightPerMt" type="number" step="0.01" placeholder="— optional —" />
   </div>
 
   <div class="row">
-    <label>Road Expense</label>
-    <input type="number" step="0.01" name="roadExp" required />
+    <label for="supplierFreight">Supplier Freight</label>
+    <input id="supplierFreight" name="supplierFreight" type="number" step="0.01" placeholder="— optional —" />
   </div>
 
   <div class="row">
-    <label>Cash Paid</label>
-    <input type="number" step="0.01" name="cashPaid" required />
+    <label for="roadExp">Road Expense</label>
+    <input id="roadExp" name="roadExp" type="number" step="0.01" placeholder="— optional —" />
   </div>
 
-  <!-- NEW: Remarks -->
-  <div class="row stack">
-    <label>Remarks</label>
-    <textarea name="remarks" placeholder="Optional notes..."></textarea>
+  <div class="row">
+    <label for="cashPaid">Cash Paid</label>
+    <input id="cashPaid" name="cashPaid" type="number" step="0.01" placeholder="— optional —" />
   </div>
 
-  <!-- Hidden context for API -->
-  <input type="hidden" name="shade" value={shade} />
-  <input type="hidden" name="size" value="ANY" />
+  <!-- Remarks -->
+  <div class="row">
+    <label for="remarks">Remarks</label>
+    <textarea id="remarks" name="remarks" rows="2" placeholder="— optional —"></textarea>
+  </div>
 
   <div class="actions">
-    <input type="submit" value="Submit Purchase" class="primary" disabled={!suppliers.length} />
-    <button type="submit" formaction="?/cancel" formmethod="POST">Cancel</button>
+    <button type="submit" class="btn primary">Save Purchase</button>
+    <button type="submit" formaction="?/cancel" class="btn">Cancel</button>
   </div>
-
-  {#if !suppliers.length}
-    <p class="muted" style="text-align:center;margin-top:8px">Add a supplier first to enable submission.</p>
-  {/if}
 </form>
 
-<style>
-  @import '$lib/styles/forms.css';
-  @import '$lib/styles/tokens.css';
+{#if ok}
+  <p class="ok">Saved {legs ? `(${legs} legs)` : ''}.</p>
+{/if}
 
-  h1 {
+<style>
+  :global(body){
+    background: var(--backgroundColor);
     color: var(--primaryText);
-    background: var(--surfaceColor);
-    border: 1px solid var(--borderColor);
-    border-radius: 10px;
-    text-align: center;
-    font-size: 1.4rem;
-    font-weight: 600;
-    padding: 0.6rem 0.8rem;
-    margin: 1rem auto 1.25rem;
-    max-width: 520px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   }
-  h1::after {
-    content: "";
-    display: block;
-    height: 3px;
-    margin: 6px auto 0;
-    width: 72px;
-    background: var(--primaryColor);
-    border-radius: 999px;
+  .title{
+    text-align:center;
+    margin: 0.5rem 0 1rem;
+    color: var(--baseTextColor, var(--primaryText));
   }
-  .form { max-width: 520px; margin: 1.5rem auto; }
+  .alert{
+    background: color-mix(in oklab, var(--danger, #b00020) 15%, transparent);
+    border: 1px solid var(--danger, #b00020);
+    color: var(--dangerText, #fff);
+    padding: .5rem .75rem;
+    border-radius: .5rem;
+    margin: 0 0 1rem;
+  }
+  .ok{ color: var(--success, #0a0); }
+
+  .form{
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 1rem;
+    background: var(--surfaceColor, #111);
+    border: 1px solid var(--borderColor, #333);
+    border-radius: 12px;
+  }
+  .row{
+    display:flex;
+    flex-direction:column;
+    gap:.25rem;
+    margin-bottom:.75rem;
+  }
+  .stack{
+    display:flex;
+    flex-direction:column;
+    gap:.5rem;
+    margin-bottom:.5rem;
+  }
+  label{ font-size:.9rem; opacity:.9; }
+  input, select, textarea{
+    background: var(--inputBg, color-mix(in oklab, var(--surfaceColor,#111) 85%, var(--backgroundColor,#000)));
+    color: var(--primaryText);
+    border: 1px solid var(--borderColor,#333);
+    border-radius: .5rem;
+    padding: .55rem .7rem;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus{
+    border-color: var(--accent, #46a);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent,#46a) 30%, transparent);
+  }
+  .actions{
+    display:flex;
+    gap:.5rem;
+    justify-content:center;
+    margin-top:1rem;
+  }
+  .btn{
+    background: var(--surfaceColor, #111);
+    color: var(--primaryText);
+    border: 1px solid var(--borderColor,#333);
+    padding:.6rem 1rem;
+    border-radius:.75rem;
+    cursor:pointer;
+  }
+  .btn.primary{
+    background: var(--accent, #46a);
+    border-color: var(--accent, #46a);
+    color: var(--buttonText, #fff);
+  }
+  .btn:hover{ opacity:.95; }
 </style>

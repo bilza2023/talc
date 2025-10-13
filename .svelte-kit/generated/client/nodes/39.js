@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/stations/abs/dispatch_pss_screened/+page.svelte";
+export { default as component } from "../../../../src/routes/stations/kef/receive_pss_sorted/+page.svelte";

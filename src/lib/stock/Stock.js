@@ -49,82 +49,68 @@ export default class Stock {
   //                         VERBS (mutations)
   // ============================================================
 
-  /**
-   * deposit:
-   * - PROCESS path (unchanged): requires processId → reason='PROCESS', linkId=processId
-   * - PURCHASE path (new): creates ledger(+qty) then purchase_tbl, then backfills ledger.linkId=purchase.id
-   * - GENERIC path: for ADJUST or other reasons
-   */
   async deposit({
     toMmaCode,
     supplierId,
     shade,
     qty,
     size,
-    processId,                 // if present → PROCESS path
-    reason,                    // 'PURCHASE' | 'ADJUST' | ... (enum)
+    processId,
+    reason,
     meta,
-    // optional structured purchase payload (form fields)
-    purchase,                  // {
-                               //   docDate, paymentMode, lumps, chips, fines,
-                               //   ratePerMt, freightPerMt, supplierFreight, roadExp,
-                               //   cashPaid, remarks, meta
-                               // }
+    purchase
   }) {
     this.#need(toMmaCode, 'toMmaCode');
     this.#need(supplierId, 'supplierId');
     this.#need(shade, 'shade');
-
+  
     const finalSize = this.#size(size);
-
-    // ---------------- PROCESS path (unchanged) ----------------
+    const nQty = (v) => (v == null ? null : Number(v));
+  
+    // normalize qty once
+    const qtyDirect = nQty(qty);
+    const qtyPurchase = nQty(purchase?.quantity);
+    const finalQty = qtyDirect ?? qtyPurchase;
+  
+    // ---------------- PROCESS path ----------------
     if (processId) {
-      this.#needPos(qty);
-      const post = await this.#Ledger().create({
-        data: {
-          mmaCode: String(toMmaCode),
-          supplierId: Number(supplierId),
-          shade: String(shade),
-          size: String(finalSize),
-          qtyDelta: Number(qty),
-          reason: 'PROCESS',
-          linkId: String(processId),
-          meta: meta ?? null,
-        },
-      });
-      return { posting: post };
-    }
-
-    // decide if this is a PURCHASE: either explicit reason or a purchase payload present
-    const isPurchase = String(reason || '').toUpperCase() === 'PURCHASE' || !!purchase;
-
-    // ---------------- PURCHASE path (new) ----------------
-    if (isPurchase) {
-      // qty can come from explicit qty, or from breakdown (lumps+chips+fines)
-      const lumps = Number(purchase?.lumps ?? 0);
-      const chips = Number(purchase?.chips ?? 0);
-      const fines = Number(purchase?.fines ?? 0);
-      const qtyFromBreakdown = lumps + chips + fines;
-      const finalQty = qty != null ? Number(qty) : Number(qtyFromBreakdown);
-
       this.#needPos(finalQty);
-
+      return {
+        posting: await this.#Ledger().create({
+          data: {
+            mmaCode: String(toMmaCode),
+            supplierId: Number(supplierId),
+            shade: String(shade),
+            size: String(finalSize),
+            qtyDelta: finalQty,
+            reason: 'PROCESS',
+            linkId: String(processId),
+            meta: meta ?? null,
+          },
+        }),
+      };
+    }
+  
+    // ---------------- PURCHASE path ----------------
+    const isPurchase =
+      String(reason || '').toUpperCase() === 'PURCHASE' || !!purchase;
+  
+    if (isPurchase) {
+      this.#needPos(finalQty);
       return this.prisma.$transaction(async (tx) => {
-        // 1) ledger first (linkId null for now), reason = 'PURCHASE'
         const led = await this.#Ledger(tx).create({
           data: {
             mmaCode: String(toMmaCode),
             supplierId: Number(supplierId),
             shade: String(shade),
-            size: String(finalSize),           // RAW→ANY by default
-            qtyDelta: Number(finalQty),
+            size: String(finalSize),
+            qtyDelta: finalQty,
             reason: 'PURCHASE',
-            linkId: null,                      // filled after we create purchase row
+            linkId: null,
             meta: meta ?? null,
           },
         });
-
-        // 2) purchase row with strict FK to ledger
+  
         const pur = await tx.purchase_tbl.create({
           data: {
             docDate: purchase?.docDate ? new Date(purchase.docDate) : new Date(),
@@ -132,54 +118,49 @@ export default class Stock {
             toMmaCode: String(toMmaCode),
             shade: String(shade),
             size: String(finalSize),
-
-            lumps,
-            chips,
-            fines,
-            qtyTotal: Number(finalQty),
-
-            paymentMode:     purchase?.paymentMode ?? null,
-            ratePerMt:       purchase?.ratePerMt != null ? Number(purchase.ratePerMt) : null,
-            freightPerMt:    purchase?.freightPerMt != null ? Number(purchase.freightPerMt) : null,
+            quantity: finalQty,
+            paymentMode: purchase?.paymentMode ?? null,
+            ratePerMt: purchase?.ratePerMt != null ? Number(purchase.ratePerMt) : null,
+            freightPerMt: purchase?.freightPerMt != null ? Number(purchase.freightPerMt) : null,
             supplierFreight: purchase?.supplierFreight != null ? Number(purchase.supplierFreight) : null,
-            roadExp:         purchase?.roadExp != null ? Number(purchase.roadExp) : null,
-            cashPaid:        purchase?.cashPaid != null ? Number(purchase.cashPaid) : null,
-            remarks:         purchase?.remarks ?? null,
-            meta:            purchase?.meta ?? meta ?? null,
-
+            roadExp: purchase?.roadExp != null ? Number(purchase.roadExp) : null,
+            cashPaid: purchase?.cashPaid != null ? Number(purchase.cashPaid) : null,
+            remarks: purchase?.remarks ?? null,
+            meta: purchase?.meta ?? meta ?? null,
             depositLedgerId: led.id,
           },
         });
-
-        // 3) backfill ledger.linkId with purchase id for uniform audits
+  
         await this.#Ledger(tx).update({
           where: { id: led.id },
           data: { linkId: pur.id },
         });
-
+  
         return { posting: led, purchase: pur };
       });
     }
-
-    // ---------------- GENERIC path (e.g., ADJUST) ----------------
-    this.#needPos(qty);
-    const finalReason = String(reason || 'ADJUST'); // enum-safe default after DIRECT removal
-    const post = await this.#Ledger().create({
+  
+    // ---------------- GENERIC path ----------------
+    // in tests, qty is mandatory here
+    if (finalQty == null) throw new Error('qty is required');
+    this.#needPos(finalQty);
+  
+    const finalReason = String(reason || 'ADJUST');
+    const posting = await this.#Ledger().create({
       data: {
         mmaCode: String(toMmaCode),
         supplierId: Number(supplierId),
         shade: String(shade),
         size: String(finalSize),
-        qtyDelta: Number(qty),
+        qtyDelta: finalQty,
         reason: finalReason,
         linkId: null,
         meta: meta ?? null,
       },
     });
-    return { posting: post };
+    return { posting };
   }
-
-
+  
   /**
    * withdraw: append -qty in ledger (PROCESS), availability-guarded
    */

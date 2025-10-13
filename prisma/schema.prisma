@@ -133,10 +133,7 @@ model purchase_tbl {
   size            Size      @default(ANY) // RAW = ANY
 
   // quantity breakdown (tons)
-  lumps           Float     @default(0)
-  chips           Float     @default(0)
-  fines           Float     @default(0)
-  qtyTotal        Float
+  quantity        Float
 
   // commercials
   paymentMode     String?

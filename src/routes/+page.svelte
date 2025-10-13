@@ -11,12 +11,12 @@
 
     { title: 'Suppliers Ledger',       url: '/reports/supplier_ledger',         icon: '🪨', category: 'reports' },
     { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
-    { title: 'Transportation', url: '/reports/transportation', icon: '🚚', category: 'reports' },
-    { title: 'Ore Batches',    url: '/reports/ore_batches',    icon: '📦', category: 'reports' },
-
-
+    
+    
     { title: 'Settings',         url: '/dashboard/ore_batches',    icon: '📦', category: 'settings' },
-
+    
+    { title: 'Purchase Raw', url: '/procurement/unscreened', icon: '🚚', category: 'admin' },
+    { title: 'Purchase Screened', url: '/procurement/screened', icon: '🚚', category: 'admin' },
     { title: 'Help',      url: '/help/dashboard', icon: '❓', category: 'admin' },
     // { title: 'Mines',     url: '/mines',          icon: '⛏️', category: 'admin' },
     { title: 'Suppliers', url: '/suppliers',      icon: '👥', category: 'admin' },

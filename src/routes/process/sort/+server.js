@@ -1,5 +1,5 @@
 
-import { processes } from '$lib/mma/process.js';
+import { processes } from '$lib/processes/process.js';
 
 export const POST = async ({ request }) => {
   const body = await request.json();

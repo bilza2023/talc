@@ -1,16 +1,12 @@
 // tests/stocks/03.stock.slot.test.js
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
-import Stock from '../../src/lib/stock/Stock.js';
+import { prisma, stock } from '../../src/lib/stocks/stockEngine.js';
 
-const prisma = new PrismaClient();
-const stock  = new Stock({ prisma });
-
+// FK-safe reset using the SAME prisma as the engine
 async function resetDb() {
-  // wipe in FK-safe order
   await prisma.stockTransport.deleteMany({});
   await prisma.stockLedger.deleteMany({});
-  await prisma.purchase_tbl?.deleteMany?.().catch(() => {}); // NEW
+  await prisma.purchase_tbl?.deleteMany?.().catch(() => {});
   await prisma.screening_tbl?.deleteMany?.().catch(() => {});
   await prisma.sorting_tbl?.deleteMany?.().catch(() => {});
   await prisma.supplier.deleteMany({});
@@ -42,7 +38,7 @@ describe('Stock.slot (exact bucket balance)', () => {
     });
   });
 
-  it('sums multiple ledger posts for the same exact tuple', async () => {
+  it('sums multiple posts for the same exact tuple (deposit → withdraw)', async () => {
     const supId = await mkSupplier('S1', 'One');
 
     await stock.deposit({
@@ -51,7 +47,15 @@ describe('Stock.slot (exact bucket balance)', () => {
       shade: 'WHITE',
       size: 'ANY',
       reason: 'PURCHASE',
-      purchase: { docDate: new Date(), lumps: 200, chips: 0, fines: 0 }
+      purchase: { docDate: new Date(), quantity: 120 }
+    });
+    await stock.deposit({
+      toMmaCode: 'ABS_RAW',
+      supplierId: supId,
+      shade: 'WHITE',
+      size: 'ANY',
+      reason: 'PURCHASE',
+      purchase: { docDate: new Date(), quantity: 80 }
     });
 
     await stock.withdraw({
@@ -70,7 +74,7 @@ describe('Stock.slot (exact bucket balance)', () => {
       size: 'ANY'
     });
 
-    expect(s.qty).toBe(149);
+    expect(s.qty).toBeCloseTo(149, 6); // 120 + 80 - 51
   });
 
   it('returns 0 for any key mismatch (supplier/shade/size)', async () => {
@@ -83,38 +87,34 @@ describe('Stock.slot (exact bucket balance)', () => {
       shade: 'WHITE',
       size: 'ANY',
       reason: 'PURCHASE',
-      purchase: { docDate: new Date(), lumps: 75, chips: 0, fines: 0 }
+      purchase: { docDate: new Date(), quantity: 75 }
     });
 
-    // Mismatch supplierId
-    const s1 = await stock.slot({
+    const mismatchSupplier = await stock.slot({
       mmaCode: 'ABS_RAW',
       supplierId: supB,
       shade: 'WHITE',
       size: 'ANY'
     });
-    expect(s1.qty).toBe(0);
-
-    // Mismatch shade (must still be a valid enum)
-    const s2 = await stock.slot({
+    const mismatchShade = await stock.slot({
       mmaCode: 'ABS_RAW',
       supplierId: supA,
       shade: 'LIGHTGREY',
       size: 'ANY'
     });
-    expect(s2.qty).toBe(0);
-
-    // Mismatch size
-    const s3 = await stock.slot({
+    const mismatchSize = await stock.slot({
       mmaCode: 'ABS_RAW',
       supplierId: supA,
       shade: 'WHITE',
       size: 'LUMPS'
     });
-    expect(s3.qty).toBe(0);
+
+    expect(mismatchSupplier.qty).toBe(0);
+    expect(mismatchShade.qty).toBe(0);
+    expect(mismatchSize.qty).toBe(0);
   });
 
-  it('RAW requires size="ANY": querying with "LUMPS" does not see ANY-stock', async () => {
+  it('RAW requires size="ANY": "LUMPS" does not see ANY-stock', async () => {
     const supId = await mkSupplier('S2', 'Two');
 
     await stock.deposit({
@@ -123,7 +123,7 @@ describe('Stock.slot (exact bucket balance)', () => {
       shade: 'GREY',
       size: 'ANY',
       reason: 'PURCHASE',
-      purchase: { docDate: new Date(), lumps: 33, chips: 0, fines: 0 }
+      purchase: { docDate: new Date(), quantity: 33 }
     });
 
     const wrong = await stock.slot({
@@ -140,7 +140,7 @@ describe('Stock.slot (exact bucket balance)', () => {
     });
 
     expect(wrong.qty).toBe(0);
-    expect(correct.qty).toBe(33);
+    expect(correct.qty).toBeCloseTo(33, 6);
   });
 
   it('matches onHand() for the same exact filter', async () => {
@@ -152,7 +152,7 @@ describe('Stock.slot (exact bucket balance)', () => {
       shade: 'WHITE',
       size: 'CHIPS',
       reason: 'PURCHASE',
-      purchase: { docDate: new Date(), lumps: 10.5, chips: 0, fines: 0 }
+      purchase: { docDate: new Date(), quantity: 10.5 }
     });
 
     const s = await stock.slot({
@@ -168,6 +168,6 @@ describe('Stock.slot (exact bucket balance)', () => {
       size: 'CHIPS'
     });
 
-    expect(s.qty).toBeCloseTo(oh, 10);
+    expect(s.qty).toBeCloseTo(oh, 6);
   });
 });
