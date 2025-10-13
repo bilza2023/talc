@@ -7,10 +7,24 @@
   const rows = Array.isArray(data?.rows) ? data.rows : [];
 </script>
 
-<h1>Supplier Purchase Ledger</h1>
-<p>
-  {#if supplier?.name}Supplier: {supplier.name} · {/if}
-  Period: {period?.from || '—'} → {period?.to || '—'}
-</p>
+<h1 class="center-heading">Supplier Ledger Report</h1>
 
-<SupplierLedgerTable rows={rows} showTotals={true} />
+<div class="dbl">
+  <SupplierLedgerTable rows={rows} showTotals={true} />
+
+</div>
+
+<style>
+
+  .dbl{
+    font-size: 2.75rem;
+  }
+
+  .center-heading {
+    text-align: center;
+    margin: 1rem 0 1.5rem;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+</style>

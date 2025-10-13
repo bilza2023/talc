@@ -10,25 +10,19 @@
   const MMA2 = { code: 'PSS_SORTED',   label: 'Sorted'   };
 </script>
 
-<h1 style="margin:0.25rem 0 0;">{stationCode} — Station Home</h1>
-<p style="margin:0.25rem 0 1rem; opacity:0.9;">{stationName}</p>
+<br/>
+<header class="station-header">
+  <h1>{stationCode}</h1>
+</header>
 
-<section style="margin-top:0.5rem;">
-  <h2 class="section-title">MMAs</h2>
-  <div class="mmas">
-    <span class="mma">{MMA1.label} <small>({MMA1.code})</small></span>
-    <span class="mma">{MMA2.label} <small>({MMA2.code})</small></span>
-  </div>
-</section>
 
 <section style="margin-top:1rem;">
-  <h2 class="section-title">Actions</h2>
 
   <!-- No loops: three explicit cards -->
   <div class="actions-flex">
-    <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive (ABS → PSS_SCREENED)" />
-    <Card href="/stations/pss/pss_screened"         icon="📦" label="Slots — Screened" />
-    <Card href="/stations/pss/pss_sorted"           icon="📦" label="Slots — Sorted" />
+    <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive" />
+    <Card href="/stations/pss/pss_screened"         icon="📦" label="Screened" />
+    <Card href="/stations/pss/pss_sorted"           icon="📦" label="Sorted" />
   </div>
 </section>
 
@@ -38,33 +32,20 @@
     color: var(--primaryText);
   }
 
-  h1 { font-size: 1.25rem; line-height: 1.2; }
-  p  { font-size: 0.95rem; }
-
-  .section-title {
-    font-size: 1rem;
-    margin: 0 0 0.5rem;
-    opacity: 0.95;
+  .station-header {
+    text-align: center;
+    margin: 1.5rem 0;
   }
 
-  /* MMA badges */
-  .mmas {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+  .station-header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--primaryText);
+    margin: 0;
   }
-  .mma {
-    background: var(--cardBg, rgba(255,255,255,0.06));
-    border: 1px solid var(--cardBorder, rgba(255,255,255,0.12));
-    padding: 0.4rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
-  }
-  .mma small {
-    opacity: 0.75;
-    font-size: 0.8em;
-    margin-left: 0.25rem;
-  }
+
+
+
 
   /* FLEX version of actions container */
   .actions-flex {
