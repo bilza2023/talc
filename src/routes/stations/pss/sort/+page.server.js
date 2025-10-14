@@ -1,5 +1,5 @@
 // PSS → Sort page
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import sorting from '$lib/processes/sorting.js';
 
 export const load = async ({ url }) => {
@@ -21,7 +21,7 @@ export const load = async ({ url }) => {
 };
 
 export const actions = {
-  default: async ({ request }) =>{
+  default: async ({ request }) => {
     const form = await request.formData();
 
     const supplierId = Number(form.get('supplierId'));
@@ -58,11 +58,8 @@ export const actions = {
         });
       }
 
-      return {
-        success: true,
-        sorted: { id: res.id },
-        posted: { supplierId, fromShade, fromSize, qtyT, ht, wastage }
-      };
+      // ✅ redirect on success to PSS sorted page
+      throw redirect(303, '/stations/pss/pss_sorted');
     } catch (e) {
       return fail(400, {
         error: 'Sort failed',

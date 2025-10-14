@@ -23,7 +23,8 @@
   </div>
 {/if}
 
-<form method="POST" action="?/sort" class="form compact">
+<form method="POST" class="form compact">
+<!-- <form method="POST" action="?/sort" class="form compact"> -->
   <!-- Supplier (readonly, still submitted) -->
   <div class="row">
     <label for="supplierId">Supplier ID</label>
