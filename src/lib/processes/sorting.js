@@ -6,131 +6,114 @@ const FROM_MMA = 'PSS_SCREENED';
 const TO_MMA   = 'PSS_SORTED';
 
 /**
- * Run sorting with minimal lineage:
- * - Validate inputs and availability
- * - Create header (sorting_tbl) with ht & wastage to get id
- * - Withdraw from PSS_SCREENED, deposit to PSS_SORTED, both with linkId = String(header.id)
- * - On success: mark committedAt
- * - On error: compensate ledger and delete header
- *
  * @param {Object} payload
  * @param {number} payload.supplierId
- * @param {{shade:string, size:string, qtyT:number}} payload.from
- * @param {number|null} [payload.ht]        // optional attribute
- * @param {number|null} [payload.wastage]   // optional attribute (tag only; no math change)
+ * @param {{ shade:string, size:string, qtyT:number }} payload.from
+ * @param {number|null|undefined} payload.ht
+ * @param {number|null|undefined} payload.wastage
  * @param {any} [payload.meta]
+ * @returns {Promise<{ status:'SUCCESS'|'FAILED'|'ROLLED_BACK', id?:number, error?:string }>}
  */
-export default async function sorting(payload = {}) {
-  const { supplierId, from, meta = null } = payload;
+export default async function sorting({ supplierId, from, ht, wastage, meta } = {}) {
+  // 1) Validate inputs (matches tests)
+  if (!supplierId) throw new Error('supplierId is required');
+  if (!from?.shade) throw new Error('from.shade is required');
+  if (!from?.size)  throw new Error('from.size is required');
 
-  // 1) Validate shape
-  if (!supplierId) throw new Error('sorting: supplierId is required');
-  if (!from || !from.shade || !from.size || from.qtyT == null) {
-    throw new Error('sorting: from {shade, size, qtyT} is required');
-  }
+  const qtyT = Number(from?.qtyT ?? 0);
+  if (!(qtyT > 0)) throw new Error('qtyT must be > 0');
 
-  const shade = String(from.shade);
-  const size  = String(from.size);
-  const qtyT  = Number(from.qtyT);
-
-  if (!(qtyT > 0)) {
-    throw new Error('sorting: qtyT must be > 0');
-  }
-
-  // normalize attributes (nullable)
-  const attrHt = payload.ht == null ? null : Number(payload.ht);
-  const attrW  = payload.wastage == null ? null : Number(payload.wastage);
-
-  // 2) Availability preflight
+  // 2) Availability guard (no writes if insufficient)
   const available = await stock.onHand({
     mmaCode: FROM_MMA,
     supplierId,
-    shade,
-    size
+    shade: from.shade,
+    size: from.size,
   });
-  if (qtyT > Number(available)) {
-    return {
-      status: 'FAILED',
-      error: `Insufficient stock at ${FROM_MMA} (available=${available}, requested=${qtyT})`,
-    };
+  if (Number(available) < qtyT) {
+    return { status: 'FAILED', error: `Insufficient stock: have ${available}, need ${qtyT}` };
   }
 
-  // 3) Create header to get an id we can link ledger rows to
+  // 3) Create minimal header FIRST (schema stores only ht, wastage, meta; qty lives in ledger)
   const header = await prisma.sorting_tbl.create({
     data: {
-      ht: attrHt,
-      wastage: attrW,
-      meta,
+      ht: ht == null ? null : Number(ht),
+      wastage: wastage == null ? null : Number(wastage),
+      meta: meta ?? null,
+      // committedAt is set after both ledger posts succeed
     },
   });
   const linkId = String(header.id);
 
-  // 4) Effects + compensation guard
-  let sourceWithdrawn = false;
-  let targetDeposited = false;
-
+  // 4) Ledger mutations, both linked to header.id
   try {
     // Withdraw from SCREENED
     await stock.withdraw({
       fromMmaCode: FROM_MMA,
       supplierId,
-      shade,
-      size,
+      shade: from.shade,
+      size: from.size,
       qty: qtyT,
       processId: linkId,
-      meta: { ...meta, step: 'sorting.withdraw' },
+      reason: 'PROCESS',
+      meta: { ...meta, process: 'sorting', step: 'withdraw' },
     });
-    sourceWithdrawn = true;
 
-    // Deposit into SORTED
+    // Deposit to SORTED
     await stock.deposit({
       toMmaCode: TO_MMA,
       supplierId,
-      shade,
-      size,
+      shade: from.shade,
+      size: from.size,
       qty: qtyT,
       processId: linkId,
-      meta: { ...meta, step: 'sorting.deposit' },
+      reason: 'PROCESS',
+      meta: { ...meta, process: 'sorting', step: 'deposit' },
     });
-    targetDeposited = true;
 
-    // Mark header committed
+    // 5) Mark header committed (happy path)
     await prisma.sorting_tbl.update({
       where: { id: header.id },
       data: { committedAt: new Date() },
     });
 
-    return { id: header.id, status: 'SUCCESS' };
+    return { status: 'SUCCESS', id: header.id };
   } catch (err) {
-    // Best-effort compensation
+    // 6) Best-effort rollback: try to reverse withdraw if it happened, then drop header
     try {
-      if (targetDeposited) {
+      const have = await stock.onHand({
+        mmaCode: TO_MMA, supplierId, shade: from.shade, size: from.size
+      });
+      if (have >= qtyT) {
+        // reverse deposit from SORTED
         await stock.withdraw({
           fromMmaCode: TO_MMA,
           supplierId,
-          shade,
-          size,
+          shade: from.shade,
+          size: from.size,
           qty: qtyT,
           processId: linkId,
-          meta: { ...meta, step: 'sorting.rollback.target' },
+          meta: { ...meta, step: 'sorting.rollback.dest' },
         });
       }
-      if (sourceWithdrawn) {
+      // put back to SCREENED if we had withdrawn
+      const lost = await stock.onHand({
+        mmaCode: FROM_MMA, supplierId, shade: from.shade, size: from.size
+      });
+      if (lost < available) {
         await stock.deposit({
           toMmaCode: FROM_MMA,
           supplierId,
-          shade,
-          size,
+          shade: from.shade,
+          size: from.size,
           qty: qtyT,
           processId: linkId,
           meta: { ...meta, step: 'sorting.rollback.source' },
         });
       }
     } finally {
-      // Remove header so failed runs leave no lineage
       await prisma.sorting_tbl.delete({ where: { id: header.id } }).catch(() => null);
     }
-
     return { status: 'ROLLED_BACK', error: String(err?.message ?? err) };
   }
 }

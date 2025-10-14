@@ -1,134 +1,73 @@
-// PSS — Sorting (SCREENED → SORTED) using unified Stock API
+// PSS → Sort page
 import { fail } from '@sveltejs/kit';
-import { stock, prisma } from '$lib/stocks/stockEngine.js';
-import { randomUUID as uuidv4 } from 'crypto';
+import sorting from '$lib/processes/sorting.js';
 
-function num(n, d = undefined) {
-  const v = n == null ? NaN : Number(n);
-  return Number.isFinite(v) ? v : d;
-}
-
-/** @type {import('./$types').PageServerLoad} */
-export async function load({ url, fetch }) {
-  const supplierId = num(url.searchParams.get('supplierId'));
-  const shade      = (url.searchParams.get('shade') || '').trim();
-  const size       = (url.searchParams.get('size')  || '').trim();
-  const urlQty     = num(url.searchParams.get('qty'));
-
-  const fromMmaCode = 'PSS_SCREENED';
-  const toMmaCode   = 'PSS_SORTED';
-
-  // compute onHand for this exact slot via /api/slots
-  let onHand = null;
-  try {
-    const res = await fetch(`/api/slots?mmaCode=${encodeURIComponent(fromMmaCode)}&positiveOnly=1`);
-    const j = await res.json();
-    const slots = j.ok ? j.data : [];
-    if (supplierId && shade && size) {
-      const match = slots.find(
-        (s) =>
-          Number(s.supplierId) === Number(supplierId) &&
-          String(s.shade) === shade &&
-          String(s.size) === size
-      );
-      onHand = match ? Number(match.qty) : 0;
-    }
-  } catch {
-    onHand = null;
-  }
+export const load = async ({ url }) => {
+  const supplierId = Number(url.searchParams.get('supplierId') ?? '');
+  const shade      = String(url.searchParams.get('shade') ?? '');
+  const size       = String(url.searchParams.get('size') ?? '');
+  const qty        = Number(url.searchParams.get('qty') ?? '');
 
   return {
-    stationCode: 'PSS',
-    lane: `${fromMmaCode} → ${toMmaCode}`,
-    fromMmaCode,
-    toMmaCode,
-    supplierId: supplierId || '',
-    shade,
-    size,
-    urlQty: urlQty || '',
-    onHand
+    defaults: {
+      supplierId: Number.isFinite(supplierId) ? supplierId : null,
+      shade: shade || '',
+      size: size || '',
+      qty: Number.isFinite(qty) && qty > 0 ? qty : null,
+      ht: null,
+      wastage: null
+    }
   };
-}
+};
 
-/** @type {import('./$types').Actions} */
 export const actions = {
-  sort: async ({ request }) => {
+  default: async ({ request }) =>{
     const form = await request.formData();
 
-    const fromMmaCode  = String(form.get('fromMmaCode') || 'PSS_SCREENED');
-    const toMmaCode    = String(form.get('toMmaCode')   || 'PSS_SORTED');
-    const supplierId   = num(form.get('supplierId'));
-    const fromShade    = String(form.get('fromShade') || '');
-    const fromSize     = String(form.get('fromSize')  || '');
-    const qty          = num(form.get('qty'));
+    const supplierId = Number(form.get('supplierId'));
+    const fromShade  = String(form.get('shade') ?? '').trim();
+    const fromSize   = String(form.get('size') ?? '').trim();
+    const qtyRaw     = form.get('qty');
+    const htRaw      = form.get('ht');
+    const wastageRaw = form.get('wastage');
 
-    // optional process meta
-    const wastageRaw   = form.get('wastage'); // %
-    const htRaw        = form.get('ht');      // sieve/height
+    const qtyT    = qtyRaw == null || qtyRaw === '' ? NaN : Number(qtyRaw);
+    const ht      = htRaw == null || htRaw === '' ? null : Number(htRaw);
+    const wastage = wastageRaw == null || wastageRaw === '' ? null : Number(wastageRaw);
 
-    if (!supplierId)              return fail(400, { error: 'Missing supplierId.' });
-    if (!fromShade || !fromSize)  return fail(400, { error: 'Missing source shade/size.' });
-    if (!qty || qty <= 0)         return fail(400, { error: 'Qty must be > 0.' });
+    // Early validation (mirrors tests)
+    if (!supplierId) throw new Error('supplierId is required');
+    if (!fromShade)  throw new Error('shade is required');
+    if (!fromSize)   throw new Error('size is required');
+    if (!(qtyT > 0)) throw new Error('qtyT must be > 0');
 
-    const processId = uuidv4();
-    const meta = {
-      ...(wastageRaw !== '' && wastageRaw != null ? { wastage: Number(wastageRaw) } : {}),
-      ...(htRaw !== '' && htRaw != null ? { ht: Number(htRaw) } : {})
-    };
-
-    // atomic: withdraw SCREENED, deposit SORTED, same qty/shade/size
     try {
-      await stock.withdraw({
-        fromMmaCode,
+      const res = await sorting({
         supplierId,
-        shade: fromShade,
-        size: fromSize,
-        qty,
-        processId,
-        reason: 'PROCESS',
-        meta
+        from: { shade: fromShade, size: fromSize, qtyT },
+        ht,
+        wastage,
+        meta: { page: 'pss/sort' }
       });
 
-      await stock.deposit({
-        toMmaCode,
-        supplierId,
-        shade: fromShade,
-        size: fromSize,
-        qty,
-        processId,
-        reason: 'PROCESS',
-        meta
-      });
-
-      // (optional) If you add a Prisma model for screening, wire it here:
-      // if (prisma?.screening_tbl) {
-      //   await prisma.screening_tbl.create({
-      //     data: {
-      //       processId,
-      //       fromMmaCode,
-      //       toMmaCode,
-      //       supplierId,
-      //       fromShade: fromShade,
-      //       fromSize: fromSize,
-      //       toShade: fromShade,
-      //       toSize: fromSize,
-      //       qtyT: qty,
-      //       ht: meta.ht ?? null,
-      //       wastage: meta.wastage ?? null
-      //     }
-      //   });
-      // }
+      if (res.status !== 'SUCCESS') {
+        return fail(400, {
+          error: 'Sort failed',
+          detail: res.error || 'Unknown error',
+          posted: { supplierId, fromShade, fromSize, qtyT, ht, wastage }
+        });
+      }
 
       return {
         success: true,
-        sorted: { processId },
-        posted: { supplierId, fromShade, fromSize, qty, wastage: wastageRaw, ht: htRaw }
+        sorted: { id: res.id },
+        posted: { supplierId, fromShade, fromSize, qtyT, ht, wastage }
       };
     } catch (e) {
       return fail(400, {
         error: 'Sort failed',
         detail: String(e?.message || e),
-        posted: { supplierId, fromShade, fromSize, qty, wastage: wastageRaw, ht: htRaw }
+        posted: { supplierId, fromShade, fromSize, qtyT, ht, wastage }
       });
     }
   }
