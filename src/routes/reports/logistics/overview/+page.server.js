@@ -1,47 +1,44 @@
-
-// Transport — Overview (live): KPIs, lane summary, recent movements
+// Logistics → Overview (URL-paginated): KPIs, lane summary (unpaged), recent movements (paged)
 import { prisma } from '$lib/stocks/stockEngine.js';
+import { parsePagination, resolveOrderBy, paginateQuery, makeEnvelope } from '$lib/reportEngine/index.js';
 
-export const load = async () => {
-  // --- Helpers
-  const now = new Date();
+export const load = async ({ url }) => {
+  // 1) Pagination & sorting for the "recent movements" table
+  const { page, pageSize, sort, dir } = parsePagination(url, {
+    defaultSort: 'createdAt',
+    defaultDir: 'desc',
+    allowedSorts: ['createdAt', 'qty', 'amount', 'transportId', 'id'],
+    idField: 'id'
+  });
+  const orderBy = resolveOrderBy({ sort, dir, idField: 'id' });
 
-  // Distinct transportId counts by type
-  const [dispatchIds, receiveIds, cancelIds] = await Promise.all([
+  // 2) KPIs (unpaged, whole scope)
+  const [dispatchIds, receiveRows, cancelIds] = await Promise.all([
     prisma.stockTransport.findMany({ where: { type: 'DISPATCH' }, select: { transportId: true } }),
     prisma.stockTransport.findMany({ where: { type: 'RECEIVE' },  select: { transportId: true, createdAt: true } }),
     prisma.stockTransport.findMany({ where: { type: 'CANCEL' },   select: { transportId: true } }),
   ]);
   const setDispatch = new Set(dispatchIds.map(x => x.transportId));
-  const setReceive  = new Set(receiveIds.map(x => x.transportId));
+  const setReceive  = new Set(receiveRows.map(x => x.transportId));
   const setCancel   = new Set(cancelIds.map(x => x.transportId));
-
   const inTransitIds = [...setDispatch].filter(id => !setReceive.has(id) && !setCancel.has(id));
 
-  // In-transit qty (sum dispatched qty for unsettled)
   const unsettledDispatches = inTransitIds.length
     ? await prisma.stockTransport.findMany({
         where: { type: 'DISPATCH', transportId: { in: inTransitIds } },
         select: { qty: true }
       })
     : [];
-  const inTransitQty = unsettledDispatches.reduce((s, r) => s + Number(r.qty ?? 0), 0);
+  const inTransitQty = unsettledDispatches.reduce((s, r) => s + Number(r?.qty ?? 0), 0);
 
-  // KPI: totals
   const totalDispatch = setDispatch.size;
   const totalReceived = setReceive.size;
-  const totalCanceled = setCancel.size;
-  const inTransitCnt  = inTransitIds.length;
   const reconciledPct = totalDispatch ? (totalReceived / totalDispatch) * 100 : 0;
 
-  // Avg days-in-transit (for received transports only)
+  // Avg days in transit (received only)
   let avgDaysTransit = 0;
   if (totalReceived) {
-    const recvList = await prisma.stockTransport.findMany({
-      where: { type: 'RECEIVE' },
-      select: { transportId: true, createdAt: true }
-    });
-    const ids = recvList.map(r => r.transportId);
+    const ids = receiveRows.map(r => r.transportId);
     const dispForRecv = ids.length
       ? await prisma.stockTransport.findMany({
           where: { type: 'DISPATCH', transportId: { in: ids } },
@@ -49,7 +46,7 @@ export const load = async () => {
         })
       : [];
     const dispMap = new Map(dispForRecv.map(d => [d.transportId, d.createdAt]));
-    const diffs = recvList
+    const diffs = receiveRows
       .map(r => {
         const d = dispMap.get(r.transportId);
         if (!d) return null;
@@ -57,11 +54,18 @@ export const load = async () => {
         return ms / (1000 * 60 * 60 * 24);
       })
       .filter(v => v != null);
-    const sum = diffs.reduce((s, v) => s + v, 0);
-    avgDaysTransit = diffs.length ? sum / diffs.length : 0;
+    avgDaysTransit = diffs.length ? (diffs.reduce((s, v) => s + v, 0) / diffs.length) : 0;
   }
 
-  // Lane summary: dispatched vs received per (from,to)
+  const kpis = {
+    inTransitQty,
+    inTransitJobs: inTransitIds.length,
+    reconciledPct,
+    totals: { dispatch: totalDispatch, received: totalReceived },
+    avgDaysTransit
+  };
+
+  // 3) Lane summary (unpaged)
   const [byLaneD, byLaneR] = await Promise.all([
     prisma.stockTransport.groupBy({
       by: ['fromMmaCode', 'toMmaCode'],
@@ -77,12 +81,7 @@ export const load = async () => {
   const laneMap = new Map();
   for (const r of byLaneD) {
     const key = `${r.fromMmaCode}→${r.toMmaCode}`;
-    laneMap.set(key, {
-      from: r.fromMmaCode,
-      to: r.toMmaCode,
-      dispatched: Number(r._sum.qty ?? 0),
-      received: 0
-    });
+    laneMap.set(key, { from: r.fromMmaCode, to: r.toMmaCode, dispatched: Number(r._sum.qty ?? 0), received: 0 });
   }
   for (const r of byLaneR) {
     const key = `${r.fromMmaCode}→${r.toMmaCode}`;
@@ -92,45 +91,45 @@ export const load = async () => {
   }
   const lanes = [...laneMap.values()]
     .map(x => ({ ...x, delta: Number(x.dispatched) - Number(x.received) }))
-    .sort((a, b) => (b.dispatched - a.dispatched));
+    .sort((a, b) => b.dispatched - a.dispatched);
 
-  // Recent movements: latest 25 DISPATCH with computed status & deltas
-  const recentDispatches = await prisma.stockTransport.findMany({
+  // 4) Recent movements (paged DISPATCH rows)
+  const select = {
+    id: true, transportId: true, createdAt: true,
+    fromMmaCode: true, toMmaCode: true,
+    supplierId: true, shade: true, size: true, qty: true, amount: true
+  };
+  const { rows: dispatchRows, paging } = await paginateQuery(prisma.stockTransport, {
     where: { type: 'DISPATCH' },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: 25,
-    select: {
-      transportId: true, createdAt: true,
-      fromMmaCode: true, toMmaCode: true,
-      supplierId: true, shade: true, size: true, qty: true, amount: true
-    }
+    orderBy,
+    page, pageSize,
+    select,
+    totalMode: 'none'
   });
-  const rIds = recentDispatches.map(d => d.transportId);
-  const recentSettlements = rIds.length
+
+  // Fetch matching RECEIVE/CANCEL for only the paged set
+  const ids = dispatchRows.map(d => d.transportId);
+  const settlements = ids.length
     ? await prisma.stockTransport.findMany({
-        where: { transportId: { in: rIds }, type: { in: ['RECEIVE', 'CANCEL'] } },
+        where: { transportId: { in: ids }, type: { in: ['RECEIVE', 'CANCEL'] } },
         select: { transportId: true, type: true, qty: true, amount: true, createdAt: true, shade: true }
       })
     : [];
   const recMap = new Map();
   const canMap = new Map();
-  for (const e of recentSettlements) {
+  for (const e of settlements) {
     if (e.type === 'RECEIVE') recMap.set(e.transportId, e);
     else if (e.type === 'CANCEL') canMap.set(e.transportId, e);
   }
 
-  const recent = recentDispatches.map(d => {
+  const now = new Date();
+  const rows = dispatchRows.map(d => {
     const rec = recMap.get(d.transportId);
     const can = canMap.get(d.transportId);
     const status = can ? 'CANCELED' : rec ? 'RECEIVED' : 'IN_TRANSIT';
-
-    const ageHrs =
-      status === 'IN_TRANSIT'
-        ? (now.getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60)
-        : (new Date(rec?.createdAt ?? d.createdAt).getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60);
-
-    const qtyDelta = rec ? Number(rec.qty ?? 0) - Number(d.qty ?? 0) : 0;
-    const amountDelta = (rec?.amount ?? 0) - (d.amount ?? 0);
+    const ageHrs = status === 'IN_TRANSIT'
+      ? (now.getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60)
+      : (new Date((rec?.createdAt ?? d.createdAt)).getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60);
 
     return {
       date: d.createdAt,
@@ -144,19 +143,41 @@ export const load = async () => {
       ageHrs: Number(ageHrs.toFixed(1)),
       amountDispatch: d.amount ?? null,
       amountReceive: rec?.amount ?? null,
-      qtyDelta,
-      amountDelta
+      qtyDelta: rec ? Number(rec.qty ?? 0) - Number(d.qty ?? 0) : 0,
+      amountDelta: (rec?.amount ?? 0) - (d.amount ?? 0),
     };
   });
 
-  return {
-    kpis: [
-      { label: 'In-Transit (qty)', value: `${inTransitQty.toFixed(1)} t`, icon: '🚛' },
-      { label: 'In-Transit (jobs)', value: `${inTransitCnt}`, icon: '📦' },
-      { label: 'Reconciled', value: `${reconciledPct.toFixed(1)}%`, sub: `${totalReceived}/${totalDispatch}`, icon: '✅' },
-      { label: 'Avg Days in Transit', value: `${avgDaysTransit.toFixed(1)}`, icon: '⏱️' },
-    ],
-    lanes,
-    recent
+  const schema = {
+    columns: [
+      { key: 'date',           label: 'Date',        type: 'datetime' },
+      { key: 'transportId',    label: 'TID' },
+      { key: 'lane',           label: 'Lane' },
+      { key: 'supplierId',     label: 'Supplier' },
+      { key: 'shade',          label: 'Shade' },
+      { key: 'size',           label: 'Size' },
+      { key: 'qty',            label: 'Qty (t)' },
+      { key: 'status',         label: 'Status' },
+      { key: 'ageHrs',         label: 'Age (hrs)' },
+      { key: 'amountDispatch', label: 'Amount (D)' },
+      { key: 'amountReceive',  label: 'Amount (R)' },
+      { key: 'qtyDelta',       label: 'Δ Qty' },
+      { key: 'amountDelta',    label: 'Δ Amount' },
+    ]
   };
+
+  const envelope = makeEnvelope({
+    meta: {
+      reportId: 'logistics_overview',
+      title: 'Logistics — Overview',
+      defaultSort: { key: 'createdAt', dir: 'desc' }
+    },
+    kpis,
+    facets: {},
+    schema,
+    rows,
+    paging
+  });
+
+  return { envelope, lanes };
 };

@@ -1,85 +1,276 @@
-
 <script>
-    import ReportShell from '$lib/components/reports/ReportShell.svelte';
-    import KPIBar from '$lib/components/reports/KPIBar.svelte';
-    import FacetPanel from '$lib/components/reports/FacetPanel.svelte';
-    import SmartTable from '$lib/components/reports/SmartTable.svelte';
-    import { goto } from '$app/navigation';
-  
-    export let data;
-  
-    const tabs = [
-      { label: 'Overview',       href: '/reports/transport/overview' },
-      { label: 'In-Transit',     href: '/reports/transport/in-transit' },
-      { label: 'Reconciliation', href: '/reports/transport/reconciliation' },
-    ];
-  
-    const { filters, options, kpis, lanes } = data;
-  
-    // Build facets
-    const facets = [
-      { key: 'from',       label: 'From MMA',   type: 'select', options: [''].concat(options.fromOpts  || []), value: filters.from },
-      { key: 'to',         label: 'To MMA',     type: 'select', options: [''].concat(options.toOpts    || []), value: filters.to },
-      { key: 'supplierId', label: 'Supplier',   type: 'select', options: [''].concat(options.supOpts   || []), value: filters.supplierId },
-      { key: 'shade',      label: 'Shade',      type: 'select', options: [''].concat(options.shadeOpts || []), value: filters.shade },
-      { key: 'size',       label: 'Size',       type: 'select', options: [''].concat(options.sizeOpts  || []), value: filters.size },
-      { key: 'ageHrsMin',  label: 'Min Age (h)',type: 'chips',  options: options.ageOpts || [], value: filters.ageHrsMin },
-    ];
-    function pretty(opt) { return opt === '' ? 'All' : opt; }
-    facets.forEach(f => f.options = f.options.map(pretty));
-  
-    function onFacetChange(e) {
-      const next = e.detail || {};
-      for (const k of Object.keys(next)) if (next[k] === 'All') next[k] = '';
-      const qs = new URLSearchParams();
-      if (next.from)       qs.set('from', next.from);
-      if (next.to)         qs.set('to', next.to);
-      if (next.supplierId) qs.set('supplierId', next.supplierId);
-      if (next.shade)      qs.set('shade', next.shade);
-      if (next.size)       qs.set('size', next.size);
-      if (next.ageHrsMin)  qs.set('ageHrsMin', next.ageHrsMin);
-      const q = qs.toString();
-      goto(q ? `?${q}` : '?', { replaceState: true });
-    }
-  
-    // Lanes table
-    const laneCols = [
-      { key: 'from', label: 'From', align: 'left' },
-      { key: 'to',   label: 'To',   align: 'left' },
-      { key: 'jobs', label: 'Jobs', align: 'right' },
-      { key: 'qty',  label: 'Qty (t)', align: 'right' },
-    ];
-  
-    // Dispatch rows table
-    const cols = [
-      { key: 'createdAt',   label: 'Date',        align: 'left' },
-      { key: 'transportId', label: 'Transport',   align: 'left' },
-      { key: 'fromMmaCode', label: 'From',        align: 'left' },
-      { key: 'toMmaCode',   label: 'To',          align: 'left' },
-      { key: 'supplierId',  label: 'Supplier',    align: 'right', width: '90px' },
-      { key: 'shade',       label: 'Shade',       align: 'left' },
-      { key: 'size',        label: 'Size',        align: 'left' },
-      { key: 'qty',         label: 'Qty (t)',     align: 'right' },
-      { key: 'ageHrs',      label: 'Age (hrs)',   align: 'right' },
-    ];
-  
-    const rows = (data.rows || []).map(r => ({
-      ...r,
-      createdAt: new Date(r.createdAt).toISOString().slice(0,10),
-    }));
-  </script>
-  
-  <ReportShell title="Transport — In-Transit" dateRange="Live Data" {tabs}>
-    <KPIBar items={kpis} />
-  
-    <div style="margin:1rem 0;">
-      <FacetPanel facets={facets} on:change={onFacetChange} />
+  import { page } from '$app/stores';
+  export let data;
+
+  const env = data.envelope;
+  const lanes = data.lanes ?? [];
+  const filters = data.filters ?? {};
+  const opts = data.options ?? {};
+  $: paging = env.paging ?? { page: 1, pageSize: 25, hasPrev: false, hasNext: false };
+
+  // Build hrefs preserving current query
+  $: current = $page.url;
+  function withParam(key, val) {
+    const u = new URL(current);
+    if (val == null || val === '') u.searchParams.delete(key);
+    else u.searchParams.set(key, String(val));
+    return `${u.pathname}?${u.searchParams.toString()}`;
+  }
+  function pageHref(n) {
+    const u = new URL(current);
+    u.searchParams.set('page', String(n));
+    u.searchParams.set('pageSize', String(paging.pageSize));
+    return `${u.pathname}?${u.searchParams.toString()}`;
+  }
+</script>
+
+<h1 class="page-title">{env.meta?.title || 'Logistics — In-Transit'}</h1>
+
+<!-- Filters (GET) -->
+<form class="form compact filters" method="GET">
+  <div class="row">
+    <label>From</label>
+    <select name="from">
+      <option value="">All</option>
+      {#each opts.fromOpts || [] as v}
+        <option value={v} selected={v === filters.from}>{v}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>To</label>
+    <select name="to">
+      <option value="">All</option>
+      {#each opts.toOpts || [] as v}
+        <option value={v} selected={v === filters.to}>{v}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Supplier</label>
+    <select name="supplierId">
+      <option value="">All</option>
+      {#each opts.supOpts || [] as v}
+        <option value={v} selected={v === String(filters.supplierId)}>{v}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Shade</label>
+    <select name="shade">
+      <option value="">All</option>
+      {#each opts.shadeOpts || [] as v}
+        <option value={v} selected={v === filters.shade}>{v}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Size</label>
+    <select name="size">
+      <option value="">All</option>
+      {#each opts.sizeOpts || [] as v}
+        <option value={v} selected={v === filters.size}>{v}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Min Age (hrs)</label>
+    <select name="ageHrsMin">
+      {#each opts.ageOpts || [] as v}
+        <option value={v} selected={String(v) === String(filters.ageHrsMin)}>{v || '—'}</option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="actions">
+    <button class="btn" type="submit">Apply</button>
+    <a class="btn ghost" href={withParam('page','1')}>Reset</a>
+  </div>
+</form>
+
+<!-- KPI strip -->
+<section class="kpis">
+  <div class="kpi">
+    <div class="kpi-label">In-Transit Jobs</div>
+    <div class="kpi-value">{env.kpis?.jobs ?? 0}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">In-Transit Qty</div>
+    <div class="kpi-value">{(env.kpis?.qty ?? 0).toFixed(1)} t</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Oldest (hrs)</div>
+    <div class="kpi-value">{(env.kpis?.oldestHrs ?? 0).toFixed(1)}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">≥ 48h</div>
+    <div class="kpi-value">{env.kpis?.overdue48 ?? 0}</div>
+  </div>
+</section>
+
+<!-- Lane summary -->
+<section class="panel">
+  <h2 class="panel-title">Lane Summary (Unsettled)</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>From</th><th>To</th><th class="num">Jobs</th><th class="num">Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#if lanes.length === 0}
+          <tr><td colspan="4" class="muted">No lanes.</td></tr>
+        {:else}
+          {#each lanes as r}
+            <tr>
+              <td>{r.from}</td>
+              <td>{r.to}</td>
+              <td class="num">{r.jobs}</td>
+              <td class="num">{r.qty}</td>
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Unsettled table (paged) -->
+<section class="panel">
+  <div class="panel-head">
+    <h2 class="panel-title">Unsettled Dispatches</h2>
+    <div class="pager">
+      {#if paging.hasPrev}
+        <a class="btn" rel="prev" href={pageHref(paging.page - 1)}>Prev</a>
+      {/if}
+      <span class="muted">Page {paging.page}</span>
+      {#if paging.hasNext}
+        <a class="btn" rel="next" href={pageHref(paging.page + 1)}>Next</a>
+      {/if}
     </div>
-  
-    <h2 style="margin:1.25rem 0 .5rem;">Unsettled by Lane</h2>
-    <SmartTable columns={laneCols} rows={lanes} />
-  
-    <h2 style="margin:1.25rem 0 .5rem;">Open Dispatches</h2>
-    <SmartTable columns={cols} rows={rows} />
-  </ReportShell>
-  
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          {#each env.schema?.columns || [] as c}
+            <th class:num={['qty','ageHrs','amount'].includes(c.key)}>{c.label}</th>
+          {/each}
+        </tr>
+      </thead>
+      <tbody>
+        {#if (env.rows || []).length === 0}
+          <tr><td colspan={(env.schema?.columns || []).length} class="muted">Nothing in transit.</td></tr>
+        {:else}
+          {#each env.rows as r}
+            <tr>
+              <td>{new Date(r.createdAt).toLocaleString()}</td>
+              <td class="mono">{r.transportId}</td>
+              <td>{r.fromMmaCode}</td>
+              <td>{r.toMmaCode}</td>
+              <td>{r.supplierId}</td>
+              <td>{r.shade}</td>
+              <td>{r.size}</td>
+              <td class="num">{r.qty}</td>
+              <td class="num">{r.ageHrs}</td>
+              <td class="num">{r.amount ?? '—'}</td>
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+  /* Base — tokens first, mobile-first */
+  :global(body) {
+    color: var(--primaryText, var(--baseTextColor, #e5e5e5));
+    background: var(--backgroundColor, #0e0e10);
+  }
+  .page-title {
+    margin: 0.5rem 0 0.75rem;
+    text-align: center;
+    font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+    color: var(--primaryText, inherit);
+  }
+
+  /* Filters (form.css alignment) */
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  @media (min-width: 720px) {
+    .filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  }
+  .filters .actions {
+    grid-column: 1 / -1;
+    display: flex; gap: 0.5rem; justify-content: flex-end;
+  }
+
+  /* KPI cards */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  @media (min-width: 720px) {
+    .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  .kpi {
+    background: var(--surfaceColor, #16161a);
+    border: 1px solid var(--borderColor, #2a2a2a);
+    border-radius: 12px;
+    padding: 0.75rem;
+  }
+  .kpi-label { font-size: 0.8rem; color: var(--mutedText, #9aa0a6); margin-bottom: 0.25rem; }
+  .kpi-value { font-size: 1.05rem; font-weight: 600; }
+  .muted { color: var(--mutedText, #9aa0a6); }
+
+  /* Panels */
+  .panel {
+    background: var(--surfaceColor, #16161a);
+    border: 1px solid var(--borderColor, #2a2a2a);
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;
+  }
+  .panel-title { margin: 0; font-size: 1rem; }
+
+  /* Pager */
+  .pager { display: inline-flex; gap: 0.5rem; align-items: center; }
+  .btn {
+    padding: 0.4rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid var(--borderColor, #2a2a2a);
+    background: var(--buttonBg, var(--surfaceColor, #16161a));
+    color: var(--primaryText, inherit);
+    text-decoration: none;
+  }
+  .btn.ghost { background: transparent; }
+
+  /* Tables */
+  .table-wrap { overflow: auto; border-radius: 10px; }
+  .table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  .table th, .table td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--borderColor, #2a2a2a);
+    white-space: nowrap;
+  }
+  .table thead th { position: sticky; top: 0; background: var(--surfaceColor, #16161a); z-index: 1; }
+  .num { text-align: right; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+</style>
