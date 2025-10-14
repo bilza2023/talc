@@ -15,8 +15,7 @@
     
     { title: 'Settings',         url: '/dashboard/ore_batches',    icon: '📦', category: 'settings' },
     
-    { title: 'Purchase Raw', url: '/procurement/unscreened', icon: '🚚', category: 'admin' },
-    { title: 'Purchase Screened', url: '/procurement', icon: '🚚', category: 'admin' },
+    { title: 'Purchase', url: '/procurement', icon: '🚚', category: 'admin' },
     { title: 'Help',      url: '/help/dashboard', icon: '❓', category: 'admin' },
     // { title: 'Mines',     url: '/mines',          icon: '⛏️', category: 'admin' },
     { title: 'Suppliers', url: '/suppliers',      icon: '👥', category: 'admin' },

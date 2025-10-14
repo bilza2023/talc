@@ -7,7 +7,7 @@ export async function load({ fetch, url }) {
   const j = await res.json().catch(() => ({ ok: false, data: [] }));
   const suppliers = j.ok ? j.data : [];
 
-  const SHADES = ['WHITE', 'LIGHTGREY', 'GREY', 'BLACK', 'BROWN'];
+  const SHADES = ['WHITE', 'GREY', 'LIGHTGREY',  'GREEN', 'MIXED'];
   const SIZES  = ['ANY', 'LUMPS', 'CHIPS', 'FINE'];
 
   return {
