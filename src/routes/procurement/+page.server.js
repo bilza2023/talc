@@ -38,7 +38,7 @@ export const actions = {
     }
 
     // pick MMA based on size
-    const toMmaCode = size === 'ANY' ? 'PSS_UNSCREENED' : 'PSS_SCREENED';
+    const toMmaCode = size === 'ANY' ? 'ABS_RAW' : 'ABS_SCREENED';
 
     // optional numeric fields
     const ratePerMt       = n(fd.get('ratePerMt'));
