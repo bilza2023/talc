@@ -59,8 +59,15 @@ export const actions = {
       }
 
       // ✅ redirect on success to PSS sorted page
-      throw redirect(303, '/stations/pss/pss_sorted');
+      // Don't wrap redirect in try-catch - let it throw naturally
+      throw redirect(303, '/stations/pss/pss_screened');
+      
     } catch (e) {
+      // Re-throw redirects - they should not be caught
+      if (e?.status && e?.location) {
+        throw e;
+      }
+      
       return fail(400, {
         error: 'Sort failed',
         detail: String(e?.message || e),

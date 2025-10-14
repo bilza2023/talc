@@ -1,5 +1,10 @@
 <script>
+  import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
+  
   export let data;
+  export let form;
+  
   const d = data?.defaults ?? {};
 
   // Normalize defaults
@@ -9,9 +14,11 @@
   const qty        = d?.qty ?? '';
   const ht         = d?.ht ?? '';
   const wastage    = d?.wastage ?? '';
+  
+  let isSubmitting = false;
 </script>
 
-<h1 class="title">PSS — Sort (Screened → Sorted)</h1>
+<h1 class="title">PSS – Sort (Screened → Sorted)</h1>
 
 {#if supplierId || shade || size || qty}
   <div class="prefill">
@@ -23,7 +30,34 @@
   </div>
 {/if}
 
-<form method="POST" class="form compact">
+{#if form?.error}
+  <div class="error-message">
+    <strong>Error:</strong> {form.error}
+    {#if form.detail}
+      <br /><small>{form.detail}</small>
+    {/if}
+  </div>
+{/if}
+
+<form 
+  method="POST" 
+  class="form compact"
+  use:enhance={() => {
+    isSubmitting = true;
+    
+    return async ({ result, update }) => {
+      isSubmitting = false;
+      
+      // If redirect, navigate to the new location
+      if (result.type === 'redirect') {
+        goto(result.location);
+      } else {
+        // For other results (failure, error), update the form normally
+        await update();
+      }
+    };
+  }}
+>
 <!-- <form method="POST" action="?/sort" class="form compact"> -->
   <!-- Supplier (readonly, still submitted) -->
   <div class="row">
@@ -106,6 +140,8 @@
   </div>
 
   <div class="actions">
-    <button type="submit" class="primary">Post Sort</button>
+    <button type="submit" class="primary" disabled={isSubmitting}>
+      {isSubmitting ? 'Posting...' : 'Post Sort'}
+    </button>
   </div>
 </form>
