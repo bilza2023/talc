@@ -9,11 +9,6 @@
       label: 'Sort ➜ SORTED',
       icon: '🧪',
       href: (r) => `/stations/pss/sort?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
-    },
-    {
-      label: 'Dispatch ➜ KEF (Screened)',
-      icon: '🚚',
-      href: (r) => `/stations/pss/dispatch_kef_screened?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
     }
   ];
 </script>

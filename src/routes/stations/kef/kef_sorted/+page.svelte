@@ -6,12 +6,12 @@
 
   // Actions for KEF_SORTED
   const actions = [
-    {
-      label: 'Receive ➜ KEF (Sorted)',
-      icon: '📦',
-      href: (r) =>
-        `/stations/kef/receive_sorted?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
-    }
+    // {
+    //   label: 'Receive ➜ KEF (Sorted)',
+    //   icon: '📦',
+    //   href: (r) =>
+    //     `/stations/kef/receive_sorted?supplierId=${r.supplierId}&shade=${r.shade}&size=${r.size}&qty=${r.qty}`
+    // }
   ];
 </script>
 
