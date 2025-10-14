@@ -76,7 +76,6 @@
       min="0.01"
       step="0.01"
       value={qty}
-      readonly
       required
     />
   </div>
