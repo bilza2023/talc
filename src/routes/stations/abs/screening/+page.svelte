@@ -26,10 +26,7 @@
 
   // Derived numbers
   $: allocated = sizes.reduce((sum, s) => sum + Number(qty[s] || 0), 0);
-  // Prefer action result, then URL/merged fromView, then server .from
-  $: available = Number(
-      (form?.availableDb ?? fromView.availableDb ?? from.availableDb) || 0
-    );
+  $: available = Number((form?.availableDb ?? fromView.availableDb ?? from.availableDb) || 0);
   $: remaining = Math.max(0, available - allocated);
 
   const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 6 });
@@ -73,8 +70,8 @@
   </p>
 {/if}
 
-<form method="POST" action="?/screen" use:enhance class="form-grid" autocomplete="off">
-  <!-- Use merged values so URL params flow into the action without server changes -->
+<!-- Add .form to use your existing forms.css; keep existing structure/classes -->
+<form method="POST" action="?/screen" use:enhance class="form form-grid" autocomplete="off">
   <input type="hidden" name="supplierId" value={fromView.supplierId} />
   <input type="hidden" name="fromShade"   value={fromView.shade} />
   <input type="hidden" name="availableDb" value={available} />
@@ -96,176 +93,38 @@
   </div>
 
   <div class="actions">
-    <button type="submit" disabled={allocated <= 0}>Run Screening</button>
+    <button type="submit" class="primary" disabled={allocated <= 0}>Run Screening</button>
     <button type="submit" formaction="?/cancel" formmethod="POST" class="secondary">Cancel</button>
   </div>
 </form>
 
 <style>
-  @import '$lib/styles/tokens.css';
+  /* Minimal layout only — visuals come from tokens.css + forms.css already loaded */
 
-  /* ===== Summary panel (uses tokens) ===== */
-  .panel {
-    margin: 1rem 0;
-    padding: .9rem;
-    background: var(--surfaceColor);
-    border: 1px solid var(--borderColor);
-    border-radius: 12px;
-    box-shadow: 0 1px 0 rgba(0,0,0,.1), 0 8px 20px rgba(0,0,0,.08);
-    color: var(--primaryText);
-  }
-
+  .panel { margin: 1rem 0; padding: .9rem; }
   .info-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0,1fr));
     gap: .6rem;
     align-items: end;
   }
-  @media (max-width: 960px){
-    .info-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
-  }
-  @media (max-width: 640px){
-    .info-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  }
+  @media (max-width: 960px){ .info-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  @media (max-width: 640px){ .info-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 
-  .panel label {
-    display:block;
-    font-size: .92rem;
-    color: var(--secondaryText);
-    margin-bottom: .25rem;
-  }
-  .ro {
-    padding: .55rem .7rem;
-    border: 1px dashed color-mix(in oklab, var(--borderColor) 85%, transparent);
-    border-radius: 10px;
-    font-weight: 600;
-    background: color-mix(in oklab, var(--surfaceColor) 88%, black 0%);
-    color: var(--primaryText);
-  }
+  .panel label { display:block; margin-bottom: .25rem; }
+  .ro { padding: .5rem .7rem; }
 
-  /* ===== Messages ===== */
-  .success {
-    margin-top: .25rem;
-    color: var(--successColor, #29d37d);
-  }
-  .error {
-    margin-top: .25rem;
-    color: var(--errorColor, #ff6b6b);
-  }
-
-  /* ===== Form layout (keep your classes; style with tokens) ===== */
-  .form-grid {
-    display: grid;
-    gap: 1rem;
-  }
+  .form-grid { display: grid; gap: 1rem; }
 
   .sizes-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 220px));
     gap: .9rem;
   }
-  @media (max-width: 960px){
-    .sizes-grid { grid-template-columns: repeat(2, minmax(0, 220px)); }
-  }
-  @media (max-width: 640px){
-    .sizes-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 960px){ .sizes-grid { grid-template-columns: repeat(2, minmax(0, 220px)); } }
+  @media (max-width: 640px){ .sizes-grid { grid-template-columns: 1fr; } }
 
-  .size-card {
-    display: grid;
-    gap: .4rem;
-    padding: .9rem;
-    background: var(--surfaceColor);
-    border: 1px solid var(--borderColor);
-    border-radius: 12px;
-  }
-  .size-card > label {
-    font-size: .92rem;
-    color: var(--secondaryText);
-  }
+  .size-card { display: grid; gap: .4rem; padding: .9rem; }
 
-  /* Inputs — token background, border, and focus ring */
-  .size-card input,
-  .form-grid input,
-  .form-grid select,
-  .form-grid textarea {
-    width: 100%;
-    box-sizing: border-box;
-    padding: .65rem .8rem;
-    background: color-mix(in oklab, var(--surfaceColor) 88%, black 0%);
-    color: var(--primaryText);
-    border: 1px solid var(--borderColor);
-    border-radius: 12px;
-    outline: none;
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-  }
-  .size-card input::placeholder,
-  .form-grid input::placeholder,
-  .form-grid textarea::placeholder {
-    color: color-mix(in oklab, var(--secondaryText) 70%, transparent);
-  }
-  .size-card input:focus,
-  .form-grid input:focus,
-  .form-grid select:focus,
-  .form-grid textarea:focus {
-    border-color: var(--primaryColor);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primaryColor) 30%, transparent);
-  }
-
-  .size-card input { padding: .6rem .7rem; }
-
-  /* ===== Actions / Buttons (tokens + sensible variants) ===== */
-  .actions {
-    display: flex;
-    gap: .6rem;
-    flex-wrap: wrap;
-  }
-
-  .actions button,
-  .actions input[type="submit"],
-  .actions input[type="button"] {
-    appearance: none;
-    border: 1px solid var(--borderColor);
-    background: color-mix(in oklab, var(--primaryColor) 16%, var(--surfaceColor));
-    color: var(--primaryText);
-    padding: .6rem .9rem;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s ease, border-color .15s ease, transform .06s ease;
-  }
-  .actions button:hover,
-  .actions input[type="submit"]:hover {
-    background: color-mix(in oklab, var(--primaryColor) 24%, var(--surfaceColor));
-    border-color: color-mix(in oklab, var(--primaryColor) 55%, var(--borderColor));
-  }
-  .actions button:active,
-  .actions input[type="submit"]:active {
-    transform: translateY(1px);
-  }
-
-  /* Primary submit (Run Screening) */
-  .actions button[type="submit"]:not(.secondary) {
-    background: var(--primaryColor);
-    color: var(--accentText, #fff);
-    border-color: color-mix(in oklab, var(--primaryColor) 60%, var(--borderColor));
-  }
-  .actions button[type="submit"]:not(.secondary):hover {
-    filter: brightness(1.05);
-  }
-
-  /* Secondary (Cancel) */
-  .actions .secondary {
-    background: color-mix(in oklab, var(--primaryColor) 10%, var(--surfaceColor));
-    color: var(--primaryText);
-    border-color: color-mix(in oklab, var(--primaryColor) 45%, var(--borderColor));
-    opacity: .95;
-  }
-
-  /* Disabled state */
-  .actions button[disabled] {
-    opacity: .55;
-    cursor: not-allowed;
-    filter: grayscale(20%);
-  }
+  .actions { display: flex; gap: .6rem; flex-wrap: wrap; }
 </style>
