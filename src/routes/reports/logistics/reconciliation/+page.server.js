@@ -1,29 +1,34 @@
-// Logistics — Reconciliation (Dispatch vs Receive only, SERVER-SIDE pagination)
+// Logistics — Reconciliation (Dispatch vs Receive only, SERVER-SIDE pagination, table-only)
 import { prisma } from '$lib/stocks/stockEngine.js';
 import { parsePagination, makeEnvelope } from '$lib/reportEngine/index.js';
 
+// 🔒 single source of truth for page size (ignore URL pageSize)
+const PAGE_SIZE = 25;
+
 export const load = async ({ url }) => {
-  const { page, pageSize } = parsePagination(url, {
+  // only read the current page from URL; do NOT trust pageSize from query
+  const { page } = parsePagination(url, {
     defaultSort: 'createdAt',
     defaultDir: 'desc',
     allowedSorts: ['createdAt'],
+    defaultPage: 1,
+    defaultPageSize: PAGE_SIZE,
+    maxPageSize: PAGE_SIZE
   });
 
-  // ---- Pagination controls for Prisma ----
-  const skip = (page - 1) * pageSize;
-  const take = pageSize + 1; // fetch one extra to detect next page
+  // Build the set of transportIds that HAVE a RECEIVE (filter base & count)
+  const receiveIdList = await prisma.stockTransport.findMany({
+    where: { type: 'RECEIVE' },
+    select: { transportId: true }
+  }).then(r => r.map(x => x.transportId));
 
-  // ---- Pull only current-page dispatches ----
+  // Prisma paging — always 25 per page
+  const skip = (page - 1) * PAGE_SIZE;
+  const take = PAGE_SIZE + 1; // +1 to detect hasNext
+
+  // Only DISPATCH rows that have a matching RECEIVE
   const dispatches = await prisma.stockTransport.findMany({
-    where: {
-      type: 'DISPATCH',
-      transportId: {
-        in: await prisma.stockTransport.findMany({
-          where: { type: 'RECEIVE' },
-          select: { transportId: true }
-        }).then(r => r.map(x => x.transportId))
-      }
-    },
+    where: { type: 'DISPATCH', transportId: { in: receiveIdList } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     skip,
     take,
@@ -37,22 +42,21 @@ export const load = async ({ url }) => {
     }
   });
 
-  const hasNext = dispatches.length > pageSize;
-  const currentPageDispatches = hasNext ? dispatches.slice(0, pageSize) : dispatches;
+  const hasNext = dispatches.length > PAGE_SIZE;
+  const currentPageDispatches = hasNext ? dispatches.slice(0, PAGE_SIZE) : dispatches;
   const ids = currentPageDispatches.map(d => d.transportId);
 
-  // ---- Get only matching RECEIVES for those dispatch IDs ----
+  // Receives for just this page
   const receives = ids.length
     ? await prisma.stockTransport.findMany({
         where: { transportId: { in: ids }, type: 'RECEIVE' },
         select: { transportId: true, qty: true, amount: true }
       })
     : [];
-
   const recMap = new Map(receives.map(r => [r.transportId, r]));
 
-  // ---- Match and compute deltas ----
-  const matched = currentPageDispatches
+  // Table rows (dispatch vs receive)
+  const rows = currentPageDispatches
     .filter(d => recMap.has(d.transportId))
     .map(d => {
       const r = recMap.get(d.transportId);
@@ -69,18 +73,13 @@ export const load = async ({ url }) => {
       };
     });
 
-  // ---- KPI (based on current page) ----
-  const totalQtyDiff = matched.reduce((s, r) => s + r.qtyDelta, 0);
-  const totalAmtDiff = matched.reduce((s, r) => s + r.amountDelta, 0);
-  const total = matched.length;
+  // Total matched pairs (for totalPages)
+  const grandTotal = await prisma.stockTransport.count({
+    where: { type: 'DISPATCH', transportId: { in: receiveIdList } }
+  });
+  const totalPages = Math.max(1, Math.ceil(grandTotal / PAGE_SIZE));
 
-  const kpis = { total, totalQtyDiff, totalAmtDiff };
-
-  // ---- Get total record count for full pagination ----
-  const grandTotal = await prisma.stockTransport.count({ where: { type: 'DISPATCH' } });
-  const totalPages = Math.max(1, Math.ceil(grandTotal / pageSize));
-
-  // ---- Build schema + envelope ----
+  // Schema + envelope
   const schema = {
     columns: [
       { key: 'date', label: 'Date', type: 'datetime' },
@@ -96,16 +95,13 @@ export const load = async ({ url }) => {
   };
 
   const envelope = makeEnvelope({
-    meta: {
-      reportId: 'reconciliation',
-      title: 'Reconciliation — Dispatch vs Receive'
-    },
-    kpis,
+    meta: { reportId: 'reconciliation', title: 'Reconciliation — Dispatch vs Receive' },
+    kpis: {},
     schema,
-    rows: matched,
+    rows,
     paging: {
       page,
-      pageSize,
+      pageSize: PAGE_SIZE,   // 👈 always 25
       total: grandTotal,
       totalPages,
       hasPrev: page > 1,
@@ -113,5 +109,5 @@ export const load = async ({ url }) => {
     }
   });
 
-  return { envelope };
+  return { envelope, PAGE_SIZE };
 };
