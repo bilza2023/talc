@@ -1,4 +1,4 @@
-// Logistics — Reconciliation (Dispatch vs Receive only)
+// Logistics — Reconciliation (Dispatch vs Receive only, SERVER-SIDE pagination)
 import { prisma } from '$lib/stocks/stockEngine.js';
 import { parsePagination, makeEnvelope } from '$lib/reportEngine/index.js';
 
@@ -9,10 +9,24 @@ export const load = async ({ url }) => {
     allowedSorts: ['createdAt'],
   });
 
-  // --- All DISPATCHES ---
+  // ---- Pagination controls for Prisma ----
+  const skip = (page - 1) * pageSize;
+  const take = pageSize + 1; // fetch one extra to detect next page
+
+  // ---- Pull only current-page dispatches ----
   const dispatches = await prisma.stockTransport.findMany({
-    where: { type: 'DISPATCH' },
+    where: {
+      type: 'DISPATCH',
+      transportId: {
+        in: await prisma.stockTransport.findMany({
+          where: { type: 'RECEIVE' },
+          select: { transportId: true }
+        }).then(r => r.map(x => x.transportId))
+      }
+    },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    skip,
+    take,
     select: {
       transportId: true,
       createdAt: true,
@@ -22,9 +36,12 @@ export const load = async ({ url }) => {
       amount: true
     }
   });
-  const ids = dispatches.map(d => d.transportId);
 
-  // --- Only RECEIVES (ignore canceled/in-transit) ---
+  const hasNext = dispatches.length > pageSize;
+  const currentPageDispatches = hasNext ? dispatches.slice(0, pageSize) : dispatches;
+  const ids = currentPageDispatches.map(d => d.transportId);
+
+  // ---- Get only matching RECEIVES for those dispatch IDs ----
   const receives = ids.length
     ? await prisma.stockTransport.findMany({
         where: { transportId: { in: ids }, type: 'RECEIVE' },
@@ -34,8 +51,8 @@ export const load = async ({ url }) => {
 
   const recMap = new Map(receives.map(r => [r.transportId, r]));
 
-  // --- Match and compute deltas ---
-  const matched = dispatches
+  // ---- Match and compute deltas ----
+  const matched = currentPageDispatches
     .filter(d => recMap.has(d.transportId))
     .map(d => {
       const r = recMap.get(d.transportId);
@@ -52,21 +69,18 @@ export const load = async ({ url }) => {
       };
     });
 
-  // --- KPI ---
-  const total = matched.length;
+  // ---- KPI (based on current page) ----
   const totalQtyDiff = matched.reduce((s, r) => s + r.qtyDelta, 0);
   const totalAmtDiff = matched.reduce((s, r) => s + r.amountDelta, 0);
+  const total = matched.length;
 
   const kpis = { total, totalQtyDiff, totalAmtDiff };
 
-  // --- Pagination ---
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const start = (page - 1) * pageSize;
-  const paged = matched.slice(start, start + pageSize);
-  const hasPrev = page > 1;
-  const hasNext = page < totalPages;
+  // ---- Get total record count for full pagination ----
+  const grandTotal = await prisma.stockTransport.count({ where: { type: 'DISPATCH' } });
+  const totalPages = Math.max(1, Math.ceil(grandTotal / pageSize));
 
-  // --- Schema + Envelope ---
+  // ---- Build schema + envelope ----
   const schema = {
     columns: [
       { key: 'date', label: 'Date', type: 'datetime' },
@@ -88,8 +102,15 @@ export const load = async ({ url }) => {
     },
     kpis,
     schema,
-    rows: paged,
-    paging: { page, pageSize, total, totalPages, hasPrev, hasNext }
+    rows: matched,
+    paging: {
+      page,
+      pageSize,
+      total: grandTotal,
+      totalPages,
+      hasPrev: page > 1,
+      hasNext
+    }
   });
 
   return { envelope };
