@@ -12,7 +12,9 @@
     { title: 'Suppliers Ledger',       url: '/reports/supplier_ledger',         icon: '🪨', category: 'reports' },
     { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
     
-    { title: 'Reconciliation',           url: '/reports/logistics/reconciliation',           icon: '⛏️', category: 'reports' },
+    { title: 'Reconciliation',           url: '/reports/reconciliation',           icon: '⛏️', category: 'reports' },
+    
+    { title: 'In Transit',           url: '/reports/in-transit',           icon: '🚎', category: 'reports' },
     
     
     { title: 'Settings',         url: '/dashboard/ore_batches',    icon: '📦', category: 'settings' },
