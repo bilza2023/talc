@@ -194,13 +194,13 @@
   </div>
   
   <style>
-    .lt { color: var(--primaryText); }
+    .lt { color: var(--primaryText); background-color: var(--surfaceColor);}
     .toolbar { display:flex; gap:.5rem; margin: .25rem 0 .5rem; }
     .search {
       width: 260px; max-width: 100%;
       padding: .45rem .6rem; border-radius: .5rem;
       border: 1px solid var(--divider, #334);
-      background: var(--panelBg, #111827); color: inherit;
+      background: var(backgroundColor);
     }
     .tableWrap { overflow-x: auto; }
     table.list { width: 100%; border-collapse: collapse; }
