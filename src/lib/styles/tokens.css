@@ -95,8 +95,8 @@
 
 
 .theme-green {
-  --backgroundColor:#2F5A30;   /* canvas.default */
---surfaceColor:#2b4037;      /* canvas.overlay/subtle */
+  --backgroundColor:#4c6b4c;   /* canvas.default */
+--surfaceColor:#29463a;      /* canvas.overlay/subtle */
 --borderColor:#34393f;       /* border.default */
 --primaryColor:#3D7B3F;      /* accent.fg */
 --secondaryColor:#E7F2E8;    /* success.fg */
