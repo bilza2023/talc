@@ -1,4 +1,4 @@
-// Logistics → In-Transit (URL-paginated, filterable)
+// Logistics → In-Transit (flat under /reports)
 // Shows unsettled DISPATCH rows only, with KPIs and lane roll-up.
 import { prisma } from '$lib/stocks/stockEngine.js';
 import { parsePagination, makeEnvelope } from '$lib/reportEngine/index.js';
@@ -11,7 +11,7 @@ function readFilters(url) {
     supplierId: u.searchParams.get('supplierId') || '',
     shade: u.searchParams.get('shade') || '',
     size: u.searchParams.get('size') || '',
-    ageHrsMin: u.searchParams.get('ageHrsMin') || '', // numeric string (e.g. "48")
+    ageHrsMin: u.searchParams.get('ageHrsMin') || ''
   };
 }
 
@@ -32,7 +32,7 @@ export const load = async ({ url }) => {
     ...(filters.to ? { toMmaCode: filters.to } : {}),
     ...(filters.supplierId ? { supplierId: Number(filters.supplierId) } : {}),
     ...(filters.shade ? { shade: filters.shade } : {}),
-    ...(filters.size ? { size: filters.size } : {}),
+    ...(filters.size ? { size: filters.size } : {})
   };
 
   // 3) candidate dispatches
@@ -97,7 +97,7 @@ export const load = async ({ url }) => {
   const cmp = (a, b, key) => (a[key] ?? 0) < (b[key] ?? 0) ? -1 : (a[key] ?? 0) > (b[key] ?? 0) ? 1 : 0;
   const sorted = [...unsettled].sort((a, b) => {
     const primary = cmp(a, b, sort);
-    return (primary !== 0 ? (dir === 'asc' ? primary : -primary) : (b.id - a.id));
+    return primary !== 0 ? (dir === 'asc' ? primary : -primary) : (b.id - a.id);
   });
 
   const start = (page - 1) * pageSize;
@@ -116,12 +116,12 @@ export const load = async ({ url }) => {
       { key: 'size',        label: 'Size' },
       { key: 'qty',         label: 'Qty (t)' },
       { key: 'ageHrs',      label: 'Age (hrs)' },
-      { key: 'amount',      label: 'Amount' },
+      { key: 'amount',      label: 'Amount' }
     ]
   };
 
   const envelope = makeEnvelope({
-    meta: { reportId: 'logistics_in_transit', title: 'Logistics — In-Transit', defaultSort: { key: 'ageHrs', dir: 'desc' } },
+    meta: { reportId: 'in_transit', title: 'In-Transit', defaultSort: { key: 'ageHrs', dir: 'desc' } },
     kpis,
     facets: { from: fromOpts, to: toOpts, supplierId: supOpts, shade: shadeOpts, size: sizeOpts, ageHrsMin: ageOpts },
     schema,

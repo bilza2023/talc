@@ -1,5 +1,7 @@
-import { prisma } from '$lib/stocks/stockEngine.js';
-import { parsePagination, makeEnvelope } from '$lib/reportEngine/index.js';
+
+import { prisma } from '../../../lib/stocks/stockEngine.js';
+
+import { parsePagination, makeEnvelope } from '../../../lib/reportEngine/index.js';
 
 const PAGE_SIZE = 25;
 
