@@ -1,15 +1,45 @@
 <script>
+  import '$lib/styles/tokens.css';
   import { browser } from '$app/environment';
-  export let data;
+  import ListTable from '$lib/listTable/ListTable.svelte';
 
+  export let data;
   const { envelope } = data ?? {};
 
-  const cols    = envelope?.schema?.columns ?? [];
-  const rows    = envelope?.rows ?? [];
-  const paging  = envelope?.paging ?? { page: 1, pageSize: rows.length || 0, hasPrev: false, hasNext: false };
+  const rows   = envelope?.rows ?? [];
+  const paging = envelope?.paging ?? { page: 1, pageSize: rows.length || 0, hasPrev: false, hasNext: false };
 
-  // base index so S.No stays continuous across pages
+  // S.No should stay continuous across pages
   const baseIndex = ((paging.page || 1) - 1) * (paging.pageSize || 0);
+
+  // normalize rows → items for ListTable
+  const items = rows.map((r, i) => ({
+    sNo: baseIndex + i + 1,
+    transportId: r.transportId,
+    date: r.date,                              // Date | ISO string → ListTable kind:'date'
+    lane: r.lane,                              // "FROM→TO"
+    supplier: String(r.supplierId),            // search-friendly
+    shade: r.shade || '—',
+    size: r.size || '—',
+    qty: Number(r.qty ?? 0),
+    amount: Number(r.amount ?? 0)
+  }));
+
+  // ListTable column schema (local sort on key fields)
+  const columns = [
+    { id:'sNo',        label:'S.No',      accessor:'sNo',        kind:'number',  sortable:true, width:'70px' },
+    { id:'date',       label:'Date',      accessor:'date',       kind:'date',    sortable:true, format:'datetime', width:'180px' },
+    { id:'transport',  label:'Txn',       accessor:'transportId',kind:'text',    sortable:true },
+    { id:'lane',       label:'Lane',      accessor:'lane',       kind:'text',    sortable:true },
+    { id:'supplier',   label:'Supplier',  accessor:'supplier',   kind:'text',    sortable:true, align:'center', width:'110px' },
+    { id:'shade',      label:'Shade',     accessor:'shade',      kind:'badge',   sortable:true, align:'center', width:'110px' },
+    { id:'size',       label:'Size',      accessor:'size',       kind:'badge',   sortable:true, align:'center', width:'110px' },
+    { id:'qty',        label:'Qty',       accessor:'qty',        kind:'number',  sortable:true, align:'right',  width:'110px' },
+    { id:'amount',     label:'Amount',    accessor:'amount',     kind:'number',  sortable:true, align:'right',  width:'120px' }
+  ];
+
+  // fields to search (strings only work best)
+  const searchKeys = ['transportId','lane','supplier','shade','size'];
 
   // preserve existing query params and only tweak what's passed
   function q(obj) {
@@ -24,36 +54,13 @@
 
 <h1 class="title">{envelope?.meta?.title || 'In-Transit'}</h1>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th style="width:4.5rem">S.No</th>
-      {#each cols as c}<th>{c.label}</th>{/each}
-    </tr>
-  </thead>
-  <tbody>
-    {#if rows.length === 0}
-      <tr><td colspan={cols.length + 1} class="empty">No results</td></tr>
-    {:else}
-      {#each rows as r, i}
-        <tr>
-          <td>{(baseIndex + i + 1).toLocaleString()}</td>
-          {#each cols as c}
-            <td>
-              {#if c.type === 'datetime'}
-                {new Date(r[c.key]).toLocaleString()}
-              {:else if typeof r[c.key] === 'number'}
-                {r[c.key].toLocaleString()}
-              {:else}
-                {r[c.key]}
-              {/if}
-            </td>
-          {/each}
-        </tr>
-      {/each}
-    {/if}
-  </tbody>
-</table>
+<ListTable
+  items={items}
+  columns={columns}
+  rowKey="transportId"
+  searchable={true}
+  searchKeys={searchKeys}
+/>
 
 <nav class="pager">
   <a class="btn" aria-disabled={!paging.hasPrev} href={paging.hasPrev ? q({ page: paging.page - 1 }) : undefined}>Prev</a>
@@ -63,13 +70,8 @@
 
 <style>
   .title { text-align:center; margin: .5rem 0 1rem; color: var(--primaryText); }
-  .table { width:100%; border-collapse: collapse; }
-  th, td { border-bottom:1px solid var(--borderColor,#2b3a36); padding:.5rem; text-align:left; color: var(--primaryText,#e6ebf1); }
-  thead th { position:sticky; top:0; background: var(--surfaceElevated,#121a18); z-index:1; }
-  .empty { text-align:center; opacity:.7; }
   .pager { display:flex; justify-content:center; align-items:center; gap:.75rem; padding:.75rem 0; }
   .btn { padding:.4rem .7rem; border:1px solid var(--borderColor,#2b3a36); border-radius: var(--radiusMd,10px);
          text-decoration:none; color: var(--primaryText,#e6ebf1); background: var(--surfaceColor,#0f1a16); }
   .btn[aria-disabled="true"] { opacity:.5; pointer-events:none; }
-  @media (max-width: 640px) { th, td { padding:.4rem; font-size:.92rem; } }
 </style>
