@@ -1,133 +1,56 @@
-// Logistics → In-Transit (flat under /reports)
-// Shows unsettled DISPATCH rows only, with KPIs and lane roll-up.
-import { prisma } from '$lib/stocks/stockEngine.js';
-import { parsePagination, makeEnvelope } from '$lib/reportEngine/index.js';
+// Logistics → In-Transit (flat under /reports/in-transit)
+// Re-aligned to use the shared server-side report at $lib/reports/inbound.js
+// so UI consumes the canonical ReportEnvelope shape.
 
-function readFilters(url) {
-  const u = new URL(url);
+import { prisma } from '$lib/stocks/stockEngine.js';
+import { run as runInbound } from '$lib/reports/inbound.js';
+
+function readFilters(urlStr) {
+  const u = new URL(urlStr);
   return {
-    from: u.searchParams.get('from') || '',
-    to: u.searchParams.get('to') || '',
+    // inbound report supports these (others are ignored)
+    toMmaCode: u.searchParams.get('toMmaCode') || '',
     supplierId: u.searchParams.get('supplierId') || '',
-    shade: u.searchParams.get('shade') || '',
-    size: u.searchParams.get('size') || '',
-    ageHrsMin: u.searchParams.get('ageHrsMin') || ''
   };
 }
 
 export const load = async ({ url }) => {
-  // 1) pagination & sort (ageHrs is derived → sort in JS)
-  const { page, pageSize, sort, dir } = parsePagination(url, {
-    defaultSort: 'ageHrs',
-    defaultDir: 'desc',
-    allowedSorts: ['ageHrs', 'createdAt', 'qty', 'fromMmaCode', 'toMmaCode', 'supplierId'],
-    idField: 'id'
-  });
-
-  // 2) filters
+  // 1) delegate to the shared inbound report (it already handles paging/sort)
   const filters = readFilters(url);
-  const whereDispatch = {
-    type: 'DISPATCH',
-    ...(filters.from ? { fromMmaCode: filters.from } : {}),
-    ...(filters.to ? { toMmaCode: filters.to } : {}),
+  const params = {
+    ...(filters.toMmaCode ? { toMmaCode: filters.toMmaCode } : {}),
     ...(filters.supplierId ? { supplierId: Number(filters.supplierId) } : {}),
-    ...(filters.shade ? { shade: filters.shade } : {}),
-    ...(filters.size ? { size: filters.size } : {})
   };
 
-  // 3) candidate dispatches
-  const dispatches = await prisma.stockTransport.findMany({
-    where: whereDispatch,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    select: {
-      id: true, transportId: true, createdAt: true,
-      fromMmaCode: true, toMmaCode: true,
-      supplierId: true, shade: true, size: true, qty: true, amount: true
-    }
-  });
+  // NOTE: runInbound builds the canonical envelope:
+  // rows: [{ date, transportId, lane, supplierId, shade, size, qty, amount }]
+  const { envelope } = await runInbound({ prisma, url, params });
 
-  // 4) remove any with RECEIVE/CANCEL for same transportId
-  const ids = dispatches.map(d => d.transportId);
-  const settlements = ids.length
-    ? await prisma.stockTransport.findMany({
-        where: { transportId: { in: ids }, type: { in: ['RECEIVE', 'CANCEL'] } },
-        select: { transportId: true }
-      })
-    : [];
-  const settled = new Set(settlements.map(s => s.transportId));
+  // 2) KPIs (computed from the already-filtered, already-paged data)
+  // If you want KPIs on the full (unpaged) set, move KPI computation into the report itself.
+  const jobs = envelope.rows.length;
+  const qty = envelope.rows.reduce((s, r) => s + Number(r.qty || 0), 0);
 
-  const now = new Date();
-  let unsettled = dispatches
-    .filter(d => !settled.has(d.transportId))
-    .map(d => {
-      const ageHrs = (now.getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60);
-      return { ...d, qty: Number(d.qty ?? 0), ageHrs: Number(ageHrs.toFixed(1)) };
-    });
-
-  if (filters.ageHrsMin) {
-    const min = Number(filters.ageHrsMin) || 0;
-    unsettled = unsettled.filter(r => r.ageHrs >= min);
-  }
-
-  // 5) KPIs
-  const jobs = unsettled.length;
-  const qtySum = unsettled.reduce((s, r) => s + r.qty, 0);
-  const oldest = jobs ? Math.max(...unsettled.map(r => r.ageHrs)) : 0;
-  const overdue48 = unsettled.filter(r => r.ageHrs >= 48).length;
-  const kpis = { jobs, qty: qtySum, oldestHrs: oldest, overdue48 };
-
-  // 6) Lanes roll-up
+  // 3) Lanes roll-up (from the envelope rows)
   const laneMap = new Map();
-  for (const r of unsettled) {
-    const key = `${r.fromMmaCode}→${r.toMmaCode}`;
-    const row = laneMap.get(key) ?? { from: r.fromMmaCode, to: r.toMmaCode, jobs: 0, qty: 0 };
-    row.jobs += 1; row.qty += r.qty; laneMap.set(key, row);
+  for (const r of envelope.rows) {
+    const key = r.lane;
+    const row = laneMap.get(key) ?? { lane: key, jobs: 0, qty: 0 };
+    row.jobs += 1;
+    row.qty += Number(r.qty || 0);
+    laneMap.set(key, row);
   }
   const lanes = [...laneMap.values()].sort((a, b) => b.qty - a.qty);
 
-  // 7) Facet options (compact)
-  const fromOpts  = Array.from(new Set(unsettled.map(r => r.fromMmaCode))).sort();
-  const toOpts    = Array.from(new Set(unsettled.map(r => r.toMmaCode))).sort();
-  const supOpts   = Array.from(new Set(unsettled.map(r => String(r.supplierId)))).sort();
-  const shadeOpts = Array.from(new Set(unsettled.map(r => r.shade))).sort();
-  const sizeOpts  = Array.from(new Set(unsettled.map(r => r.size))).sort();
-  const ageOpts   = ['', '24', '48', '72'];
+  // 4) Facet options (compact, derived from the current rows)
+  const supOpts   = Array.from(new Set(envelope.rows.map(r => String(r.supplierId)))).sort();
+  const laneOpts  = Array.from(new Set(envelope.rows.map(r => r.lane))).sort();
+  const shadeOpts = Array.from(new Set(envelope.rows.map(r => r.shade))).sort();
+  const sizeOpts  = Array.from(new Set(envelope.rows.map(r => r.size))).sort();
 
-  // 8) sort & paginate (derived sort)
-  const cmp = (a, b, key) => (a[key] ?? 0) < (b[key] ?? 0) ? -1 : (a[key] ?? 0) > (b[key] ?? 0) ? 1 : 0;
-  const sorted = [...unsettled].sort((a, b) => {
-    const primary = cmp(a, b, sort);
-    return primary !== 0 ? (dir === 'asc' ? primary : -primary) : (b.id - a.id);
-  });
+  // 5) return exactly what the Svelte page needs
+  const kpis = { jobs, qty };
+  const options = { supplierId: supOpts, lane: laneOpts, shade: shadeOpts, size: sizeOpts };
 
-  const start = (page - 1) * pageSize;
-  const paged = sorted.slice(start, start + pageSize);
-  const hasNext = sorted.length > (start + pageSize);
-
-  // 9) schema & envelope
-  const schema = {
-    columns: [
-      { key: 'createdAt',   label: 'Date/Time', type: 'datetime' },
-      { key: 'transportId', label: 'TID' },
-      { key: 'fromMmaCode', label: 'From' },
-      { key: 'toMmaCode',   label: 'To' },
-      { key: 'supplierId',  label: 'Supplier' },
-      { key: 'shade',       label: 'Shade' },
-      { key: 'size',        label: 'Size' },
-      { key: 'qty',         label: 'Qty (t)' },
-      { key: 'ageHrs',      label: 'Age (hrs)' },
-      { key: 'amount',      label: 'Amount' }
-    ]
-  };
-
-  const envelope = makeEnvelope({
-    meta: { reportId: 'in_transit', title: 'In-Transit', defaultSort: { key: 'ageHrs', dir: 'desc' } },
-    kpis,
-    facets: { from: fromOpts, to: toOpts, supplierId: supOpts, shade: shadeOpts, size: sizeOpts, ageHrsMin: ageOpts },
-    schema,
-    rows: paged,
-    paging: { page, pageSize, total: null, hasPrev: page > 1, hasNext }
-  });
-
-  return { envelope, lanes, filters, options: { fromOpts, toOpts, supOpts, shadeOpts, sizeOpts, ageOpts } };
+  return { envelope, lanes, filters, options };
 };
