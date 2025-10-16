@@ -1,70 +1,36 @@
-// Server-side report: General Ledger (stockLedger)
-import { parsePagination, resolveOrderBy } from '../../src/lib/reportEngine/index.js';
-import { paginateQuery } from '../../src/lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '../../src/lib/reportEngine/envelope.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma } from '../../src/lib/stocks/stockEngine.js';
+import { run as runLedger } from '../../src/lib/reports/ledger.js';
+import { seedSuppliers, seedLedger, dt, mkUrl } from './_seed.js';
 
-
-export async function run({ prisma, url, params = {} }) {
-  const { page, pageSize, sort, dir } = parsePagination(url, {
-    defaultSort: 'createdAt',
-    defaultDir: 'desc',
-    allowedSorts: ['createdAt', 'id', 'qtyDelta', 'supplierId', 'mmaCode', 'size', 'shade'],
-    idField: 'id'
-  });
-  const orderBy = resolveOrderBy({ sort, dir, idField: 'id' });
-
-  const where = {
-    ...(params.supplierId ? { supplierId: Number(params.supplierId) } : {}),
-    ...(params.mmaCode ? { mmaCode: String(params.mmaCode) } : {}),
-    ...(params.shade ? { shade: String(params.shade) } : {}),
-    ...(params.size ? { size: String(params.size) } : {}),
-    ...(params.from || params.to
-      ? {
-          createdAt: {
-            ...(params.from ? { gte: new Date(params.from) } : {}),
-            ...(params.to ? { lte: new Date(params.to) } : {})
-          }
-        }
-      : {})
-  };
-
-  const { rows, paging } = await paginateQuery(prisma.stockLedger, {
-    where,
-    orderBy,
-    page,
-    pageSize,
-    select: {
-      id: true,
-      createdAt: true,
-      mmaCode: true,
-      supplierId: true,
-      shade: true,
-      size: true,
-      qtyDelta: true,
-      reason: true,
-      linkId: true
-    },
-    totalMode: 'count'
+describe('Report: ledger', () => {
+  beforeEach(async () => {
+    await seedSuppliers([{ id: 1, name: 'Alpha' }, { id: 2, name: 'Beta' }]);
+    await seedLedger([
+      { id: 101, createdAt: dt('2025-10-01T10:00:00Z'), mmaCode:'ABS_RAW',      supplierId:1, shade:'WHITE', size:'ANY',    qtyDelta: 10, reason:'PROCESS',  linkId:'p1' },
+      // reason changed to a valid enum value
+      { id: 102, createdAt: dt('2025-10-02T10:00:00Z'), mmaCode:'ABS_RAW',      supplierId:2, shade:'GREY',  size:'LUMPS',  qtyDelta: -2, reason:'PROCESS',  linkId:'w1' },
+      { id: 103, createdAt: dt('2025-10-02T10:00:00Z'), mmaCode:'PSS_SCREENED', supplierId:1, shade:'WHITE', size:'CHIPS',  qtyDelta:  5, reason:'PROCESS',  linkId:'p2' },
+    ]);
   });
 
-  const envelope = makeEnvelope({
-    meta: { reportId: 'ledger', title: 'Stock Ledger', defaultSort: { key: 'createdAt', dir: 'desc' } },
-    schema: {
-      columns: [
-        { key: 'createdAt', label: 'Date', type: 'datetime' },
-        { key: 'id',        label: 'ID' },
-        { key: 'mmaCode',   label: 'MMA' },
-        { key: 'supplierId',label: 'Supplier' },
-        { key: 'shade',     label: 'Shade' },
-        { key: 'size',      label: 'Size' },
-        { key: 'qtyDelta',  label: 'Δ Qty' },
-        { key: 'reason',    label: 'Reason' },
-        { key: 'linkId',    label: 'Link' }
-      ]
-    },
-    rows,
-    paging
+  it('paginates with stable ordering and returns envelope', async () => {
+    const url = mkUrl({ page: 1, pageSize: 2, sort: 'createdAt', dir: 'desc' });
+    const { envelope } = await runLedger({ prisma, url });
+
+    expect(envelope.meta.reportId).toBe('ledger');
+    expect(envelope.rows.map(r => r.id)).toEqual([103, 102]); // tie-break by id desc
+    expect(envelope.paging).toMatchObject({ page: 1, hasPrev: false, hasNext: true });
   });
 
-  return { envelope };
-}
+  it('applies filters', async () => {
+    const url = mkUrl({ page: 1, pageSize: 50 });
+    const { envelope } = await runLedger({
+      prisma,
+      url,
+      // "to" must be end-of-day; otherwise lte('2025-10-01T00:00:00Z') excludes the 10:00Z row
+      params: { supplierId: 1, shade: 'WHITE', size: 'ANY', mmaCode: 'ABS_RAW', from:'2025-10-01', to:'2025-10-01T23:59:59.999Z' }
+    });
+    expect(envelope.rows.map(r => r.id)).toEqual([101]);
+  });
+});

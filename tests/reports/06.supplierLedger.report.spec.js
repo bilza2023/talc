@@ -1,54 +1,30 @@
-// Supplier-focused ledger view
-import { parsePagination, resolveOrderBy } from '../../src/lib/reportEngine/index.js';
-import { paginateQuery } from '../../src/lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '../../src/lib/reportEngine/envelope.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma } from '../../src/lib/stocks/stockEngine.js';
+import { run as runSupplier } from '../../src/lib/reports/supplierLedger.js';
+import { seedSuppliers, seedLedger, dt, mkUrl } from './_seed.js';
 
-
-export async function run({ prisma, url, params = {} }) {
-  const supplierId = Number(params.supplierId);
-  if (!Number.isFinite(supplierId)) throw new Error('supplierId required');
-
-  const { page, pageSize, sort, dir } = parsePagination(url, {
-    defaultSort: 'createdAt',
-    defaultDir: 'desc',
-    allowedSorts: ['createdAt', 'id', 'qtyDelta', 'mmaCode', 'shade', 'size'],
-    idField: 'id'
-  });
-  const orderBy = resolveOrderBy({ sort, dir, idField: 'id' });
-
-  const where = {
-    supplierId,
-    ...(params.mmaCode ? { mmaCode: String(params.mmaCode) } : {}),
-    ...(params.shade ? { shade: String(params.shade) } : {}),
-    ...(params.size ? { size: String(params.size) } : {})
-  };
-
-  const { rows, paging } = await paginateQuery(prisma.stockLedger, {
-    where,
-    orderBy,
-    page,
-    pageSize,
-    select: { id: true, createdAt: true, mmaCode: true, shade: true, size: true, qtyDelta: true, reason: true, linkId: true },
-    totalMode: 'count'
+describe('Report: supplierLedger', () => {
+  beforeEach(async () => {
+    await seedSuppliers([{ id: 9, name: 'Niner' }, { id: 2, name: 'Two' }]);
+    await seedLedger([
+      { id: 201, createdAt: dt('2025-10-01T10:00:00Z'), mmaCode:'ABS_RAW',      supplierId:9, shade:'WHITE', size:'ANY',    qtyDelta: 7,  reason:'PROCESS',  linkId:'p1' },
+      // changed reason to a valid enum
+      { id: 202, createdAt: dt('2025-10-02T10:00:00Z'), mmaCode:'PSS_SCREENED', supplierId:9, shade:'GREY',  size:'LUMPS',  qtyDelta: -3, reason:'PROCESS',  linkId:'w1' },
+      { id: 203, createdAt: dt('2025-10-03T10:00:00Z'), mmaCode:'ABS_RAW',      supplierId:2, shade:'WHITE', size:'ANY',    qtyDelta: 1,  reason:'PROCESS',  linkId:'p2' },
+    ]);
   });
 
-  const envelope = makeEnvelope({
-    meta: { reportId: 'supplier_ledger', title: `Supplier Ledger · #${supplierId}`, defaultSort: { key: 'createdAt', dir: 'desc' } },
-    schema: {
-      columns: [
-        { key: 'createdAt', label: 'Date', type: 'datetime' },
-        { key: 'mmaCode',   label: 'MMA' },
-        { key: 'shade',     label: 'Shade' },
-        { key: 'size',      label: 'Size' },
-        { key: 'qtyDelta',  label: 'Δ Qty' },
-        { key: 'reason',    label: 'Reason' },
-        { key: 'linkId',    label: 'Link' },
-        { key: 'id',        label: 'ID' }
-      ]
-    },
-    rows,
-    paging
+  it('scopes strictly to supplierId', async () => {
+    const url = mkUrl({ page: 1, pageSize: 25, sort: 'createdAt', dir: 'asc' });
+    const { envelope } = await runSupplier({ prisma, url, params: { supplierId: 9 } });
+
+    expect(envelope.meta.reportId).toBe('supplier_ledger');
+    expect(envelope.rows.map(r => r.id)).toEqual([201, 202]);
+    expect(envelope.paging).toMatchObject({ hasPrev: false, hasNext: false });
   });
 
-  return { envelope };
-}
+  it('rejects when supplierId missing', async () => {
+    const url = mkUrl();
+    await expect(runSupplier({ prisma, url })).rejects.toThrow();
+  });
+});

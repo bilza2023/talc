@@ -2,9 +2,9 @@
 // Server-side report: General Ledger (stockLedger)
 // Sort/paging via reportEngine; deterministic order by createdAt + id.
 // Filters: supplierId?, mmaCode?, shade?, size?, date range?
-import { parsePagination, resolveOrderBy } from '$lib/reportEngine/index.js';
-import { paginateQuery } from '$lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '$lib/reportEngine/envelope.js';
+import { parsePagination, resolveOrderBy } from '../reportEngine/index.js';
+import { paginateQuery } from '../reportEngine/prismaPage.js';
+import { makeEnvelope } from  '../reportEngine/envelope.js';
 
 export async function run({ prisma, url, params = {} }) {
   const { page, pageSize, sort, dir } = parsePagination(url, {

@@ -1,9 +1,9 @@
 // Inbound (unsettled incoming dispatches): latest record per transportId with status DISPATCH.
 // Approach: compute settled transportIds once, then page remaining DISPATCH rows via paginateQuery.
 // Notes in your API docs also describe this as a flat array; here we still return an envelope for consistency.
-import { parsePagination, resolveOrderBy } from '$lib/reportEngine/index.js';
-import { paginateQuery } from '$lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '$lib/reportEngine/envelope.js';
+import { parsePagination, resolveOrderBy } from '../reportEngine/index.js';
+import { paginateQuery } from '../reportEngine/prismaPage.js';
+import { makeEnvelope } from '../reportEngine/envelope.js';
 
 export async function run({ prisma, url, params = {} }) {
   // Identify settled transports (RECEIVE or CANCEL exists)

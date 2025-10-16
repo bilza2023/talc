@@ -1,8 +1,8 @@
 // Flat transport event log (DISPATCH/RECEIVE/CANCEL), optionally filtered by lane/mma/supplier/date.
 // Uses deterministic ordering (createdAt, id).
-import { parsePagination, resolveOrderBy } from '$lib/reportEngine/index.js';
-import { paginateQuery } from '$lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '$lib/reportEngine/envelope.js';
+import { parsePagination, resolveOrderBy } from '../reportEngine/index.js';
+import { paginateQuery } from '../reportEngine/prismaPage.js';
+import { makeEnvelope } from  '../reportEngine/envelope.js';
 
 export async function run({ prisma, url, params = {} }) {
   const { page, pageSize, sort, dir } = parsePagination(url, {

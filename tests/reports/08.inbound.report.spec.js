@@ -1,73 +1,33 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma } from '../../src/lib/stocks/stockEngine.js';
+import { run as runInbound } from '../../src/lib/reports/inbound.js';
+import { seedSuppliers, seedTransport, dt, mkUrl } from './_seed.js';
 
-import { parsePagination, resolveOrderBy } from '../../src/lib/reportEngine/index.js';
-import { paginateQuery } from '../../src/lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '../../src/lib/reportEngine/envelope.js';
-
-
-export async function run({ prisma, url, params = {} }) {
-  const settled = await prisma.stockTransport.findMany({
-    where: { type: { in: ['RECEIVE', 'CANCEL'] } },
-    select: { transportId: true },
-    distinct: ['transportId']
-  });
-  const settledIds = settled.map(s => s.transportId);
-
-  const { page, pageSize, sort, dir } = parsePagination(url, {
-    defaultSort: 'createdAt',
-    defaultDir: 'desc',
-    allowedSorts: ['createdAt', 'id', 'qty', 'amount', 'supplierId', 'toMmaCode'],
-    idField: 'id'
-  });
-  const orderBy = resolveOrderBy({ sort, dir, idField: 'id' });
-
-  const where = {
-    type: 'DISPATCH',
-    ...(params.toMmaCode ? { toMmaCode: String(params.toMmaCode) } : {}),
-    ...(params.supplierId ? { supplierId: Number(params.supplierId) } : {}),
-    transportId: { notIn: settledIds }
-  };
-
-  const { rows, paging } = await paginateQuery(prisma.stockTransport, {
-    where,
-    orderBy,
-    page,
-    pageSize,
-    select: {
-      id: true, createdAt: true,
-      fromMmaCode: true, toMmaCode: true, transportId: true,
-      supplierId: true, shade: true, size: true, qty: true, amount: true
-    },
-    totalMode: 'count'
+describe('Report: inbound (in-transit)', () => {
+  beforeEach(async () => {
+    await seedSuppliers([{ id: 1, name: 'A' }, { id: 2, name: 'B' }, { id: 3, name: 'C' }]);
+    await seedTransport([
+      // settled
+      { id: 401, createdAt: dt('2025-10-01T08:00:00Z'), type:'DISPATCH', transportId:'T1', fromMmaCode:'ABS_RAW', toMmaCode:'PSS_SCREENED', supplierId:1, shade:'WHITE', size:'LUMPS', qty:10, amount:1000 },
+      { id: 402, createdAt: dt('2025-10-01T12:00:00Z'), type:'RECEIVE',  transportId:'T1', fromMmaCode:'ABS_RAW', toMmaCode:'PSS_SCREENED', supplierId:1, shade:'WHITE', size:'LUMPS', qty:10, amount:1000 },
+      { id: 403, createdAt: dt('2025-10-02T09:00:00Z'), type:'DISPATCH', transportId:'T2', fromMmaCode:'ABS_RAW', toMmaCode:'PSS_SCREENED', supplierId:2, shade:'GREY',  size:'CHIPS', qty:5,  amount:500  },
+      { id: 404, createdAt: dt('2025-10-02T10:00:00Z'), type:'CANCEL',   transportId:'T2', fromMmaCode:'ABS_RAW', toMmaCode:'PSS_SCREENED', supplierId:2, shade:'GREY',  size:'CHIPS', qty:0,  amount:0    },
+      // inbound
+      { id: 405, createdAt: dt('2025-10-03T09:00:00Z'), type:'DISPATCH', transportId:'T3', fromMmaCode:'ABS_RAW', toMmaCode:'PSS_SCREENED', supplierId:3, shade:'WHITE', size:'ANY',   qty:8,  amount:800  },
+    ]);
   });
 
-  const rowsOut = rows.map(r => ({
-    date: r.createdAt,
-    transportId: r.transportId,
-    lane: `${r.fromMmaCode}→${r.toMmaCode}`,
-    supplierId: r.supplierId,
-    shade: r.shade,
-    size: r.size,
-    qty: r.qty,
-    amount: r.amount ?? 0
-  }));
-
-  const envelope = makeEnvelope({
-    meta: { reportId: 'inbound', title: 'Inbound (In-Transit)', defaultSort: { key: 'createdAt', dir: 'desc' } },
-    schema: {
-      columns: [
-        { key: 'date',        label: 'Date', type: 'datetime' },
-        { key: 'transportId', label: 'Txn' },
-        { key: 'lane',        label: 'Lane' },
-        { key: 'supplierId',  label: 'Supplier' },
-        { key: 'shade',       label: 'Shade' },
-        { key: 'size',        label: 'Size' },
-        { key: 'qty',         label: 'Qty' },
-        { key: 'amount',      label: 'Amount' }
-      ]
-    },
-    rows: rowsOut,
-    paging
+  it('lists ONLY unsettled DISPATCH (no RECEIVE/CANCEL)', async () => {
+    const url = mkUrl({ page: 1, pageSize: 25, sort: 'createdAt', dir: 'desc' });
+    const { envelope } = await runInbound({ prisma, url });
+    expect(envelope.meta.reportId).toBe('inbound');
+    expect(envelope.rows.map(r => r.transportId)).toEqual(['T3']);
+    expect(envelope.rows[0].lane).toBe('ABS_RAW→PSS_SCREENED');
   });
 
-  return { envelope };
-}
+  it('allows filtering by toMmaCode and supplierId', async () => {
+    const url = mkUrl();
+    const { envelope } = await runInbound({ prisma, url, params: { toMmaCode:'PSS_SCREENED', supplierId:3 } });
+    expect(envelope.rows.map(r => r.transportId)).toEqual(['T3']);
+  });
+});

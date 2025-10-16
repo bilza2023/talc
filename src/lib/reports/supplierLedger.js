@@ -1,7 +1,7 @@
 // Supplier-focused ledger view (filter by supplierId required; other filters optional)
-import { parsePagination, resolveOrderBy } from '$lib/reportEngine/index.js';
-import { paginateQuery } from '$lib/reportEngine/prismaPage.js';
-import { makeEnvelope } from '$lib/reportEngine/envelope.js';
+import { parsePagination, resolveOrderBy } from '../reportEngine/index.js';
+import { paginateQuery } from '../reportEngine/prismaPage.js';
+import { makeEnvelope } from  '../reportEngine/envelope.js';
 
 export async function run({ prisma, url, params = {} }) {
   const supplierId = Number(params.supplierId);
