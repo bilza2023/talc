@@ -1,106 +1,111 @@
-// /src/routes/reports/supplier_ledger/+page.server.js
+// Reconciliation report loader (aligned to supplierLedger's shape)
 import { prisma } from '$lib/stocks/stockEngine.js';
 
 export const load = async ({ url }) => {
-  const supplierId = Number(url.searchParams.get('supplierId') ?? 0) || null;
-  const from = url.searchParams.get('from') || null;   // 'YYYY-MM-DD'
-  const to   = url.searchParams.get('to')   || null;
+  // Paging (fixed 25)
+  const page = Math.max(1, Number(url.searchParams.get('page') || 1));
+  const pageSize = 25;
+  const skip = (page - 1) * pageSize;
+  const take = pageSize + 1; // sentinel for hasNext
+  const baseIndex = (page - 1) * pageSize;
 
-  const supplier = supplierId
-    ? await prisma.supplier.findUnique({
-        where: { id: supplierId },
-        select: { id: true, name: true }
-      })
-    : null;
+  // 1) Get transportIds that have a RECEIVE
+  const receiveIds = await prisma.stockTransport.findMany({
+    where: { type: 'RECEIVE' },
+    select: { transportId: true }
+  }).then(list => list.map(x => x.transportId));
 
-  // Filter on docDate
-  const dateFilter = {};
-  if (from || to) {
-    if (from) dateFilter.gte = new Date(from);
-    if (to)   dateFilter.lte = new Date(to + 'T23:59:59.999Z');
-  }
-
-  const where = {
-    ...(supplierId ? { supplierId } : {}),
-    ...(from || to ? { docDate: dateFilter } : {})
-  };
-
-  // Select real columns from purchase_tbl + supplier name (for mixed runs)
-  const purchases = await prisma.purchase_tbl.findMany({
-    where,
-    orderBy: [{ docDate: 'asc' }, { id: 'asc' }],
+  // 2) Page DISPATCH rows that also have a RECEIVE
+  const dispatches = await prisma.stockTransport.findMany({
+    where: { type: 'DISPATCH', transportId: { in: receiveIds } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    skip,
+    take,
     select: {
       id: true,
-      docDate: true,
-      supplierId: true,
-      supplier: { select: { name: true } }, // <-- for inline supplier badge
+      transportId: true,
+      createdAt: true,
+      fromMmaCode: true,
       toMmaCode: true,
-      shade: true,
-      size: true,
-
-      lumps: true,
-      chips: true,
-      fines: true,
-      qtyTotal: true,
-
-      paymentMode: true,
-      ratePerMt: true,
-      freightPerMt: true,
-      supplierFreight: true,
-      roadExp: true,
-
-      cashPaid: true,
-      remarks: true,
-      meta: true,
-      depositLedgerId: true
+      qty: true,
+      amount: true
     }
   });
 
-  const num = (x) => (x == null ? 0 : Number(x));
+  const hasNext = dispatches.length > pageSize;
+  const pageSlice = hasNext ? dispatches.slice(0, pageSize) : dispatches;
+  const ids = pageSlice.map(d => d.transportId);
 
-  let sno = 0;
-  const rows = purchases.map(p => {
-    const lumps = num(p.lumps);
-    const chips = num(p.chips);
-    const fines = num(p.fines);
-    const totalQty = p.qtyTotal != null ? num(p.qtyTotal) : (lumps + chips + fines);
+  // 3) Receives for the current page’s transportIds
+  const receives = ids.length
+    ? await prisma.stockTransport.findMany({
+        where: { type: 'RECEIVE', transportId: { in: ids } },
+        select: { transportId: true, qty: true, amount: true }
+      })
+    : [];
+  const recMap = new Map(receives.map(r => [r.transportId, r]));
 
-    const rate           = num(p.ratePerMt);        // Rate/mt
-    const freightMt      = num(p.freightPerMt);     // Freight/mt
-    const suppFreight    = num(p.supplierFreight);  // Supplier Freight (per mt)
-    const roadExp        = num(p.roadExp);          // Road Exp (flat)
-    const cashPaid       = num(p.cashPaid);         // per-row allocation
+  // 4) Build rows — align keys to supplierLedger pattern
+  const rows = pageSlice
+    .filter(d => recMap.has(d.transportId))
+    .map((d, i) => {
+      const r = recMap.get(d.transportId);
+      const qtyD = Number(d.qty ?? 0);
+      const qtyR = Number(r.qty ?? 0);
+      const amtD = Number(d.amount ?? 0);
+      const amtR = Number(r.amount ?? 0);
 
-    const value            = totalQty * rate;
-    const netFreightMt     = freightMt - suppFreight;
-    const suppFreightTotal = (totalQty * suppFreight) + roadExp;
-    const netFreightTotal  = totalQty * netFreightMt;
+      return {
+        // required stable key (your ListTable may default to 'id')
+        id: d.transportId,                      // use transportId as the row id
+        createdAt: d.createdAt,                 // use createdAt (not 'date')
+        transportId: d.transportId,             // for the TID column
+        lane: `${d.fromMmaCode}→${d.toMmaCode}`,
+        qtyDispatch: qtyD,
+        qtyReceive: qtyR,
+        qtyDelta: qtyR - qtyD,
+        amountDispatch: amtD,
+        amountReceive: amtR,
+        amountDelta: amtR - amtD,
+        // handy S.No if you want to show it later
+        sNo: baseIndex + i + 1
+      };
+    });
 
-    // Particulars text (unchanged logic)
-    const particulars =
-      (p.meta && (p.meta.biltyNo || p.meta.challanNo || p.meta.truckNo)) ||
-      (p.depositLedgerId != null ? String(p.depositLedgerId) : String(p.id));
-
-    return {
-      sno: ++sno,
-      date: p.docDate instanceof Date ? p.docDate.toISOString().slice(0, 10) : String(p.docDate ?? ''),
-      particulars,
-      supplierName: p.supplier?.name ?? null,   // <-- for inline badge
-      purchaseId: p.id,                         // <-- for link fallback
-      depositLedgerId: p.depositLedgerId,       // <-- for preferred link
-
-      lumps, chips, fines,
-      rate, value,
-      freightMt, suppFreight, roadExp, suppFreightTotal,
-      cashPaid,
-      netFreightMt, netFreightTotal,
-      remarks: p.remarks ?? ''
-    };
+  // 5) Count for total pages
+  const totalDispatchWithReceive = await prisma.stockTransport.count({
+    where: { type: 'DISPATCH', transportId: { in: receiveIds } }
   });
+  const totalPages = Math.max(1, Math.ceil(totalDispatchWithReceive / pageSize));
 
-  return {
-    supplier,
-    period: { from, to },
-    rows
+  // 6) Schema — first column key changed to 'createdAt'
+  const schema = {
+    columns: [
+      { key: 'createdAt',     label: 'Date', type: 'datetime' }, // ← align to demo
+      { key: 'transportId',   label: 'TID' },
+      { key: 'lane',          label: 'From → To' },
+      { key: 'qtyDispatch',   label: 'Qty Dispatch' },
+      { key: 'qtyReceive',    label: 'Qty Receive' },
+      { key: 'qtyDelta',      label: 'Δ Qty' },
+      { key: 'amountDispatch', label: 'Amount D' },
+      { key: 'amountReceive',  label: 'Amount R' },
+      { key: 'amountDelta',    label: 'Δ Amount' }
+    ]
   };
+
+  const envelope = {
+    meta: { reportId: 'reconciliation', title: 'Reconciliation' },
+    schema,
+    rows,
+    paging: {
+      page,
+      pageSize,
+      total: totalDispatchWithReceive,
+      totalPages,
+      hasPrev: page > 1,
+      hasNext
+    }
+  };
+
+  return { envelope };
 };

@@ -2,33 +2,31 @@
   import '$lib/styles/tokens.css';
   import HomeNav from '$lib/components/HomeNav.svelte';
   import Card from '$lib/components/Card.svelte';
-
+  
+  
   const entries = [
-    { title: 'ABS',  url: '/stations/abs',  icon: '🗺️', category: 'stations' },
-    { title: 'PSS',  url: '/stations/pss',  icon: '🗺️', category: 'stations' },
-    { title: 'KEF',  url: '/stations/kef',  icon: '📦', category: 'stations' },
+  
+  { category: 'stations', title: 'ABS', url: '/stations/abs', icon: '🗺️' },
+  { category: 'stations', title: 'PSS', url: '/stations/pss', icon: '🗺️' },
+  { category: 'stations', title: 'KEF', url: '/stations/kef', icon: '📦' },
 
+  { category: 'reports', title: 'Suppliers Ledger', url: '/reports/supplier_ledger', icon: '🪨' },
+  { category: 'reports', title: 'Logistics', url: '/reports/logistics/overview', icon: '🧼' },
+  { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
+  { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
+  { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
 
-    { title: 'Suppliers Ledger',       url: '/reports/supplier_ledger',         icon: '🪨', category: 'reports' },
-    { title: 'Logistics',           url: '/reports/logistics/overview',           icon: '🧼', category: 'reports' },
-    
-    { title: 'Reconciliation',           url: '/reports/reconciliation',           icon: '⛏️', category: 'reports' },
-    
-    { title: 'In Transit',           url: '/reports/in-transit',           icon: '🚎', category: 'reports' },
-    
-    
-    { title: 'Settings',         url: '/dashboard/ore_batches',    icon: '📦', category: 'settings' },
-    
-    { title: 'Purchase', url: '/procurement', icon: '🚚', category: 'admin' },
-    { title: 'Help',      url: '/help/dashboard', icon: '❓', category: 'admin' },
-    // { title: 'Mines',     url: '/mines',          icon: '⛏️', category: 'admin' },
-    { title: 'Suppliers', url: '/suppliers',      icon: '👥', category: 'admin' },
-    // { title: 'Settings',  url: '/settings',       icon: '⚙️',  category: 'admin' }
-  ];
+  // { category: 'dashboard', title: 'Settings', url: '/dashboard/ore_batches', icon: '📦' },
+
+  { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
+  { category: 'admin', title: 'Help', url: '/help/dashboard', icon: '❓' },
+  { category: 'admin', title: 'Suppliers', url: '/suppliers', icon: '👥' },
+];
+
 
   const categories = [...new Set(entries.map(e => e.category))];
   let selected = categories[0] ?? '';
-  const iconMap = { stations:'🏗️', reports:'🚀', settings:'⛏️', admin:'⚙️' };
+  const iconMap = { stations:'🏗️', reports:'🚀', dashboard:'🖥️', admin:'⚙️' };
 
   $: visible = selected ? entries.filter(e => e.category === selected) : entries;
 </script>

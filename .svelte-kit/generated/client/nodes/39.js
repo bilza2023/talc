@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/stations/pss/pss_screened/+page.svelte";
+export { default as component } from "../../../../src/routes/suppliers/+page.svelte";
