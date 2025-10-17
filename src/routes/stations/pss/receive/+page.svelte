@@ -7,7 +7,7 @@
   const rows  = data?.rows ?? [];
 </script>
 
-<h1 class="page-title">KEF – Receive</h1>
+<h1 class="page-title">PSS – Receive</h1>
 
 <StationReceive {lanes} {rows} />
 

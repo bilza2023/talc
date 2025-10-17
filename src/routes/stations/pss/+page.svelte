@@ -19,7 +19,7 @@
 
   <!-- No loops: three explicit cards -->
   <div class="stack">
-    <Card href="/stations/pss/receive_abs_screened" icon="📥" label="Receive" />
+    <Card href="/stations/pss/receive" icon="📥" label="Receive" />
     <Card href="/stations/pss/pss_screened"         icon="📦" label="Screened" />
     <Card href="/stations/pss/pss_sorted"           icon="📦" label="Sorted" />
   </div>

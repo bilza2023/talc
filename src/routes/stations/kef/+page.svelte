@@ -17,7 +17,7 @@
 
   <!-- No loops: two explicit cards -->
   <div class="stack">
-    <Card href="/stations/kef/receive_pss_sorted" icon="📥" label="Receive" />
+    <Card href="/stations/kef/receive" icon="📥" label="Receive" />
     <Card href="/stations/kef/kef_sorted"         icon="📦" label="Sorted" />
   </div>
 </section>
