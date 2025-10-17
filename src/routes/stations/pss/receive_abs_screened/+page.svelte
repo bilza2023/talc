@@ -2,11 +2,18 @@
   import Receive from '$lib/components/Receive.svelte';
   export let data;
 
-  const lane = {
-    fromMmaCode: data.fromMmaCode,  // 'PSS_SORTED'
-    toMmaCode:   data.toMmaCode     // 'KEF_SORTED'
-  };
+  const rows = data?.rows ?? [];
+  const lane =
+    data?.lane ??
+    { from: '', to: '' };
+
+  const stationCode = data?.stationCode;
+  const stationName = data?.stationName;
 </script>
 
-<!-- Sorted lanes usually allow amount — toggle as needed -->
-<Receive {lane} rows={data.rows} showAmount={true} />
+<Receive
+  rows={rows}
+  lane={lane}
+  stationCode={stationCode}
+  stationName={stationName}
+/>

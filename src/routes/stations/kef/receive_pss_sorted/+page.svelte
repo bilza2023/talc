@@ -2,9 +2,13 @@
   import Receive from '$lib/components/Receive.svelte';
   export let data;
 
+
+const FROM_MMA = 'PSS_SORTED';
+const TO_MMA   = 'KEF_SORTED';
+
   const lane = {
-    fromMmaCode: data.fromMmaCode,   // 'PSS_SORTED'
-    toMmaCode:   data.toMmaCode      // 'KEF_SORTED'
+    fromMmaCode: FROM_MMA,   // 'PSS_SORTED'
+    toMmaCode:   TO_MMA      // 'KEF_SORTED'
   };
 </script>
 

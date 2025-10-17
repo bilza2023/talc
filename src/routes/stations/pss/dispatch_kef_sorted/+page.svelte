@@ -1,13 +1,22 @@
 <script>
   import Dispatch from '$lib/components/Dispatch.svelte';
+
   export let data;
 
-  const lane = {
-    fromMmaCode: data.fromMmaCode,   // 'PSS_SORTED'
-    toMmaCode:   data.toMmaCode,     // 'KEF_SORTED'
-    redirectTo:  '/stations/pss/pss_sorted'
-  };
+  const form = data?.form ?? {};
+  // Component prefers lane as an object {from, to}
+  const lane =
+    data?.lane ??
+    {
+      from: form.fromMmaCode ?? form.fromMma ?? form.from ?? '',
+      to:   form.toMmaCode   ?? form.toMma   ?? form.to   ?? ''
+    };
 </script>
 
-<Dispatch {lane} onHand={data.onHand ?? null} showAmount={true} />
-
+<Dispatch
+  {...form}
+  lane={lane}
+  stationCode={data?.stationCode}
+  stationName={data?.stationName}
+  fromUrl={data?.fromUrl}
+/>
