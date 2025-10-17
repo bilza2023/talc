@@ -1,44 +1,55 @@
 <script>
+  import { onMount } from 'svelte';
   import '$lib/styles/tokens.css';
   import HomeNav from '$lib/components/HomeNav.svelte';
   import Card from '$lib/components/Card.svelte';
-  
-  
+
   const entries = [
-  
-  { category: 'stations', title: 'ABS', url: '/stations/abs', icon: '🗺️' },
-  { category: 'stations', title: 'PSS', url: '/stations/pss', icon: '🗺️' },
-  { category: 'stations', title: 'KEF', url: '/stations/kef', icon: '📦' },
+    { category: 'stations', title: 'ABS', url: '/stations/abs', icon: '🗺️' },
+    { category: 'stations', title: 'PSS', url: '/stations/pss', icon: '🗺️' },
+    { category: 'stations', title: 'KEF', url: '/stations/kef', icon: '📦' },
 
-  { category: 'reports', title: 'Suppliers Ledger', url: '/reports/supplier_ledger', icon: '🪨' },
-  { category: 'reports', title: 'Logistics', url: '/reports/logistics/overview', icon: '🧼' },
-  { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
-  { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
-  { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
+    { category: 'reports', title: 'Suppliers Ledger', url: '/reports/supplier_ledger', icon: '🪨' },
+    { category: 'reports', title: 'Logistics', url: '/reports/logistics/overview', icon: '🧼' },
+    { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
+    { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
+    { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
 
-  // { category: 'dashboard', title: 'Settings', url: '/dashboard/ore_batches', icon: '📦' },
+    { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
+    { category: 'admin', title: 'Help', url: '/help', icon: '❓' },
+    { category: 'admin', title: 'Suppliers', url: '/suppliers', icon: '👥' },
 
-  { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
-  { category: 'admin', title: 'Help', url: '/help/dashboard', icon: '❓' },
-  { category: 'admin', title: 'Suppliers', url: '/suppliers', icon: '👥' },
-];
-
+  ];
 
   const categories = [...new Set(entries.map(e => e.category))];
-  let selected = categories[0] ?? '';
   const iconMap = { stations:'🏗️', reports:'🚀', dashboard:'🖥️', admin:'⚙️' };
 
-  $: visible = selected ? entries.filter(e => e.category === selected) : entries;
+  // PERSISTED TAB
+  let activeTab = 'stations'; // default
+
+  onMount(() => {
+    const saved = localStorage.getItem('homeTab');
+    const fallback = categories.includes('stations') ? 'stations' : (categories[0] ?? '');
+    activeTab = categories.includes(saved) ? saved : fallback;
+  });
+
+  function selectTab(tab) {
+    activeTab = tab;
+    localStorage.setItem('homeTab', tab);
+  }
+
+  $: visible = activeTab ? entries.filter(e => e.category === activeTab) : entries;
 </script>
 
 <!-- rename wrapper to avoid CSS collision -->
 <div class="home-nav-wrap">
   <HomeNav
-    items={categories}
-    iconMap={iconMap}
-    value={selected}
-    on:change={(e) => (selected = e.detail)}
-  />
+  items={categories}
+  iconMap={iconMap}
+  value={activeTab}
+  on:change={(e) => selectTab(e.detail)}
+/>
+
 </div>
 
 <div class="cards">

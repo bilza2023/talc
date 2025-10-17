@@ -46,7 +46,7 @@ export const server_loads = [4,5,6];
 
 export const dictionary = {
 		"/": [7],
-		"/help/dashboard": [8],
+		"/help": [8],
 		"/mines": [9],
 		"/process/screen": [~10],
 		"/process/sort": [11],
