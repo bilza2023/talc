@@ -1,4 +1,4 @@
-// /src/routes/stations/kef/receive_sorted/+page.server.js
+// /src/routes/stations/pss/receive_abs_screened/+page.server.js
 import { loadReceive } from '$lib/app/receiveLoader.js';
 
 const FROM_MMA = 'ABS_SCREENED';
