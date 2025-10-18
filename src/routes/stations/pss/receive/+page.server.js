@@ -49,22 +49,26 @@ export const actions = {
 
   cancel: async ({ request }) => {
     const form = await request.formData();
-
+  
     const transportId = String(form.get('transportId') ?? '').trim();
-    const toMmaCode   = String(form.get('toMmaCode') ?? '').trim();
-    const supplierId  = Number(form.get('supplierId') ?? '');
-
-    if (!transportId)                    return fail(400, { message: 'Missing transportId' });
-    if (toMmaCode !== TO_MMA)            return fail(400, { message: `Invalid toMmaCode for PSS Cancel: ${toMmaCode}` });
-    if (!Number.isFinite(supplierId) || supplierId <= 0) {
-      return fail(400, { message: 'Invalid supplierId' });
+    const toMmaCode   = String(form.get('toMmaCode') ?? '').trim(); // optional safety check
+  
+    if (!transportId) return fail(400, { message: 'Missing transportId' });
+  
+    // optional: keep your lane safety (harmless, helps catch wrong-page posts)
+    const TO_MMA = 'PSS_SCREENED';
+    if (toMmaCode && toMmaCode !== TO_MMA) {
+      return fail(400, { message: `Invalid toMmaCode for PSS Cancel: ${toMmaCode}` });
     }
-
+  
     try {
-      await executeCancel({ transportId, toMmaCode, supplierId });
+      await executeCancel({ transportId });
       return { ok: true };
     } catch (err) {
-      return fail(400, { message: err?.message || 'Cancel failed', transportId, toMmaCode });
+      console.error('[cancel]', transportId, err?.message);
+      return fail(400, { message: err?.message || 'Cancel failed', transportId });
     }
   }
+  
+  
 };

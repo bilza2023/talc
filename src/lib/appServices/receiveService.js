@@ -15,10 +15,13 @@ export async function listInboundFor(lane) {
   // Unsettled DISPATCH records headed to this MMA
   const inboundAll = (await stock.inbound({ mmaCode: toMmaCode })) ?? [];
 
+  // Exclude cancelled first
+  const active = inboundAll.filter(t => !isCancelled(t));
+
   // Optional lane narrow
   const filtered = fromMmaCode
-    ? inboundAll.filter(t => t.fromMmaCode === fromMmaCode && t.toMmaCode === toMmaCode)
-    : inboundAll.filter(t => t.toMmaCode === toMmaCode);
+    ? active.filter(t => t.fromMmaCode === fromMmaCode && t.toMmaCode === toMmaCode)
+    : active.filter(t => t.toMmaCode === toMmaCode);
 
   // Shape rows (keep dispatch defaults to allow "blank = inherit" at receive)
   const rows = filtered.map(t => ({
@@ -51,11 +54,15 @@ export async function listInboundForMany({ lanes = [] } = {}) {
   const pulls = await Promise.all(
     Object.keys(byTo).map(async (toMmaCode) => {
       const inboundAll = (await stock.inbound({ mmaCode: toMmaCode })) ?? [];
+
+      // Exclude cancelled first
+      const active = inboundAll.filter(t => !isCancelled(t));
+
       // Restrict to fromMmaCodes that are actually allowed for this toMmaCode (if any given)
       const allowFrom = new Set(byTo[toMmaCode].map(l => l.fromMmaCode).filter(Boolean));
       const filtered = allowFrom.size
-        ? inboundAll.filter(t => allowFrom.has(t.fromMmaCode) && t.toMmaCode === toMmaCode)
-        : inboundAll.filter(t => t.toMmaCode === toMmaCode);
+        ? active.filter(t => allowFrom.has(t.fromMmaCode) && t.toMmaCode === toMmaCode)
+        : active.filter(t => t.toMmaCode === toMmaCode);
 
       return filtered.map(t => ({
         transportId : t.transportId,
@@ -126,4 +133,21 @@ export async function executeReceive(payload) {
     size        : size != null ? String(size) : undefined,
     meta
   });
+}
+
+// replace ONLY this function
+export async function executeCancel({ transportId }) {
+  // minimal + explicit intent for audit trails
+  return stock.cancel({
+    transportId: String(transportId),
+    meta: { intent: 'cancel' }
+  });
+}
+
+
+/* ------------------------- helpers ------------------------- */
+
+function isCancelled(r) {
+  const m = r?.meta;
+  return m?.intent === 'cancel' || m?.cancelled === true || r?.status === 'CANCELLED';
 }
