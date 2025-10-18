@@ -1,22 +1,22 @@
 <script>
-  import '$lib/styles/tokens.css';
-  import StationReceive from '$lib/components/StationReceive.svelte';
-  export let data;
+  // Minimal page: no global CSS imports; tokens/forms already loaded app-wide.
+  import ReceiveTopLoop from '$lib/components/ReceiveTopLoop.svelte';
 
+  export let data;
   const lanes = data?.lanes ?? [];
-  const rows  = data?.rows ?? [];
+  const rows  = data?.rows  ?? [];
 </script>
 
-<h1 class="page-title">PSS – Receive</h1>
-
-<StationReceive {lanes} {rows} />
+<section class="page">
+  <ReceiveTopLoop {lanes} {rows} />
+</section>
 
 <style>
-  .page-title {
-    margin: 0 0 var(--spaceMd, 16px) 0;
-    color: var(--primaryText, #e6ebf1);
-    font-size: clamp(18px, 3.4vw, 24px);
-    font-weight: 650;
-    line-height: 1.25;
+  .page {
+    max-width: 1100px;
+    margin-inline: auto;
+    padding: var(--spaceMd, 16px);
+    display: grid;
+    gap: var(--spaceMd, 16px);
   }
 </style>

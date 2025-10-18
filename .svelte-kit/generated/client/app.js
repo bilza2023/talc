@@ -39,8 +39,7 @@ export const nodes = [
 	() => import('./nodes/35'),
 	() => import('./nodes/36'),
 	() => import('./nodes/37'),
-	() => import('./nodes/38'),
-	() => import('./nodes/39')
+	() => import('./nodes/38')
 ];
 
 export const server_loads = [4,5,6];
@@ -69,16 +68,15 @@ export const dictionary = {
 		"/stations/abs/screening": [~27,[3,4]],
 		"/stations/kef": [28,[3,5]],
 		"/stations/kef/kef_sorted": [~29,[3,5]],
-		"/stations/kef/receive_pss_sorted": [~31,[3,5]],
 		"/stations/kef/receive": [~30,[3,5]],
-		"/stations/pss": [32,[3,6]],
-		"/stations/pss/dispatch_kef_sorted": [~33,[3,6]],
-		"/stations/pss/pss_screened": [~34,[3,6]],
-		"/stations/pss/pss_sorted": [~35,[3,6]],
-		"/stations/pss/receive_abs_screened": [~37,[3,6]],
-		"/stations/pss/receive": [~36,[3,6]],
-		"/stations/pss/sort": [~38,[3,6]],
-		"/suppliers": [~39]
+		"/stations/pss": [31,[3,6]],
+		"/stations/pss/dispatch_kef_sorted": [~32,[3,6]],
+		"/stations/pss/pss_screened": [~33,[3,6]],
+		"/stations/pss/pss_sorted": [~34,[3,6]],
+		"/stations/pss/receive_abs_screened": [~36,[3,6]],
+		"/stations/pss/receive": [~35,[3,6]],
+		"/stations/pss/sort": [~37,[3,6]],
+		"/suppliers": [~38]
 	};
 
 export const hooks = {
