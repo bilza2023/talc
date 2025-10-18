@@ -6,14 +6,14 @@
 
   const entries = [
     { category: 'stations', title: 'ABS', url: '/stations/abs', icon: '🗺️' },
-    { category: 'stations', title: 'PSS', url: '/stations/pss', icon: '🗺️' },
+    { category: 'stations', title: 'PSS', url: '/stations/pss', icon: '🚠' },
     { category: 'stations', title: 'KEF', url: '/stations/kef', icon: '📦' },
 
     { category: 'reports', title: 'Suppliers Ledger', url: '/reports/supplier_ledger', icon: '🪨' },
     { category: 'reports', title: 'Stock', url: '/reports/stock', icon: '🧼' },
     { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
     { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
-    { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
+    // { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
 
     { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
     { category: 'admin', title: 'Help', url: '/help', icon: '❓' },
