@@ -1,41 +1,32 @@
 import { fail } from '@sveltejs/kit';
-import { listInboundForMany, executeReceive } from '$lib/appServices/receiveService.js';
+import { listInboundForMany, executeReceive, executeCancel } from '$lib/appServices/receiveService.js';
 
 const FROM_MMA = 'ABS_SCREENED';
 const TO_MMA   = 'PSS_SCREENED';
 
 export const load = async () => {
-  // Single lane for PSS Receive
   const lanes = [{ fromMmaCode: FROM_MMA, toMmaCode: TO_MMA }];
-
-  // Pull inbound from stock_transport via domain
   const { rows } = await listInboundForMany({ lanes });
-
-  // Component needs only lanes + rows
   return { lanes, rows };
 };
 
+// 🔴 SvelteKit rule: if you use named actions, do NOT use `default`.
+// We expose two named actions: `receive` and `cancel`.
 export const actions = {
-  default: async ({ request }) => {
+  receive: async ({ request }) => {
     const form = await request.formData();
 
     const transportId = String(form.get('transportId') ?? '').trim();
     const toMmaCode   = String(form.get('toMmaCode') ?? '').trim();
     const supplierId  = Number(form.get('supplierId') ?? '');
 
-    // Optional overrides (blank means "inherit dispatch defaults" in domain)
-    const qty    = form.get('qty');    // may be ''
-    const amount = form.get('amount'); // may be ''
-    const shade  = form.get('shade');  // may be ''
-    const size   = form.get('size');   // not present in UI; safe to ignore if ''
+    const qty    = form.get('qty');
+    const amount = form.get('amount');
+    const shade  = form.get('shade');
+    const size   = form.get('size');
 
-    // Guards (defense-in-depth)
-    if (!transportId) {
-      return fail(400, { message: 'Missing transportId' });
-    }
-    if (toMmaCode !== TO_MMA) {
-      return fail(400, { message: `Invalid toMmaCode for PSS Receive: ${toMmaCode}` });
-    }
+    if (!transportId)                    return fail(400, { message: 'Missing transportId' });
+    if (toMmaCode !== TO_MMA)            return fail(400, { message: `Invalid toMmaCode for PSS Receive: ${toMmaCode}` });
     if (!Number.isFinite(supplierId) || supplierId <= 0) {
       return fail(400, { message: 'Invalid supplierId' });
     }
@@ -50,12 +41,30 @@ export const actions = {
         shade:  shade === ''  ? undefined : String(shade),
         size:   size === ''   ? undefined : String(size)
       });
-
-      // No redirect: a normal POST reloads the page and removes the received row.
       return { ok: true };
     } catch (err) {
-      const message = err?.message || 'Receive failed';
-      return fail(400, { message, transportId, toMmaCode });
+      return fail(400, { message: err?.message || 'Receive failed', transportId, toMmaCode });
+    }
+  },
+
+  cancel: async ({ request }) => {
+    const form = await request.formData();
+
+    const transportId = String(form.get('transportId') ?? '').trim();
+    const toMmaCode   = String(form.get('toMmaCode') ?? '').trim();
+    const supplierId  = Number(form.get('supplierId') ?? '');
+
+    if (!transportId)                    return fail(400, { message: 'Missing transportId' });
+    if (toMmaCode !== TO_MMA)            return fail(400, { message: `Invalid toMmaCode for PSS Cancel: ${toMmaCode}` });
+    if (!Number.isFinite(supplierId) || supplierId <= 0) {
+      return fail(400, { message: 'Invalid supplierId' });
+    }
+
+    try {
+      await executeCancel({ transportId, toMmaCode, supplierId });
+      return { ok: true };
+    } catch (err) {
+      return fail(400, { message: err?.message || 'Cancel failed', transportId, toMmaCode });
     }
   }
 };
