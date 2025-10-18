@@ -1,7 +1,4 @@
-// Stock Slots — all MMAs, every slot (supplierId × shade × size) with qty > 0
-// Data source: stock.slots({ mmaCode, positiveOnly: true })
-
-import { prisma, stock } from '$lib/stocks/stockEngine.js';
+import { stock } from '$lib/stocks/stockEngine.js';
 
 const MMA_CODES = [
   'ABS_RAW',
@@ -11,48 +8,34 @@ const MMA_CODES = [
   'KEF_SORTED'
 ];
 
-export async function load() {
-  // Fetch slots for each MMA (positiveOnly = true by default)
-  const perMma = await Promise.all(
-    MMA_CODES.map(async (mmaCode) => {
-      const rows = await stock.slots({ mmaCode, positiveOnly: true }); // [{ mmaCode, supplierId, shade, size, qty }]
-      return rows;
-    })
-  );
+const MMA_TO_CATEGORY = {
+  ABS_RAW:       'Unscreened',
+  ABS_SCREENED:  'Screened',
+  PSS_SCREENED:  'Screened',
+  PSS_SORTED:    'Sorted',
+  KEF_SORTED:    'Sorted'
+};
 
-  // Flatten → items
-  const itemsRaw = perMma.flat();
+const COLUMNS = ['Unscreened', 'Screened', 'Sorted', 'Product'];
 
-  // Resolve supplier names (server-side)
-  const supplierIds = Array.from(new Set(itemsRaw.map(r => Number(r.supplierId)).filter(Boolean)));
-  const suppliers = supplierIds.length
-    ? await prisma.supplier.findMany({
-        where: { id: { in: supplierIds } },
-        select: { id: true, name: true, code: true }
-      })
-    : [];
-  const supplierMap = new Map(suppliers.map(s => [Number(s.id), String(s.name || s.code || s.id)]));
+export const load = async () => {
+  // Compute on-hand per MMA via engine (ledger-backed)
+  const rows = [];
+  for (const mmaCode of MMA_CODES) {
+    const onhand = await stock.onHand({ mmaCode }); // number or { qty }, engine handles reversals/cancels
+    const qty = typeof onhand === 'number' ? onhand : Number(onhand?.qty ?? 0);
 
-  // Normalize for ListTable (unique rowKey, numbers stay numbers, strings as strings)
-  const items = itemsRaw
-    .map(r => ({
-      id: `${r.mmaCode}::${r.supplierId}::${r.shade}::${r.size}`,
-      mmaCode: r.mmaCode,
-      supplierId: Number(r.supplierId),
-      supplierName: supplierMap.get(Number(r.supplierId)) || `#${r.supplierId}`,
-      shade: String(r.shade),
-      size: String(r.size),
-      qty: Number(r.qty)
-    }))
-    // Default initial order: group by MMA asc, then qty desc, then supplier asc
-    .sort((a, b) =>
-      a.mmaCode.localeCompare(b.mmaCode) ||
-      b.qty - a.qty ||
-      a.supplierName.localeCompare(b.supplierName)
-    );
+    const cat = MMA_TO_CATEGORY[mmaCode];
+    const row = { mmaCode, Unscreened: 0, Screened: 0, Sorted: 0, Product: 0 };
+    row[cat] = qty;
 
+    rows.push(row);
+  }
+
+  // Keep the payload tiny and explicit
   return {
-    title: 'Stock — Slots by MMA',
-    items
+    title: 'MMA Stock Totals',
+    columns: COLUMNS,
+    rows
   };
-}
+};

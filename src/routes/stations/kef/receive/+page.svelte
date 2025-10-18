@@ -1,15 +1,15 @@
 <script>
   import '$lib/styles/tokens.css';
-  import StationReceive from '$lib/components/StationReceive.svelte';
+  import ReceiveTopLoop from '$lib/components/ReceiveTopLoop.svelte';
   export let data;
 
   const lanes = data?.lanes ?? [];
   const rows  = data?.rows ?? [];
 </script>
 
-<h1 class="page-title">KEF – Receive</h1>
+<h1 class="page-title">KEF — Receive</h1>
 
-<StationReceive {lanes} {rows} />
+<ReceiveTopLoop {lanes} {rows} />
 
 <style>
   .page-title {
