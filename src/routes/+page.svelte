@@ -14,6 +14,8 @@
     { category: 'reports', title: 'Slots', url: '/reports/slot', icon: '🍿' },
     { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
     { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
+    { category: 'reports', title: 'Screening', url: '/reports/screening', icon: '🪜' },
+    { category: 'reports', title: 'Sorting', url: '/reports/sorting', icon: '💊' },
     // { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
 
     { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
