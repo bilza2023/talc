@@ -10,7 +10,7 @@
     { category: 'stations', title: 'KEF', url: '/stations/kef', icon: '📦' },
 
     { category: 'reports', title: 'Suppliers Ledger', url: '/reports/supplier_ledger', icon: '🪨' },
-    { category: 'reports', title: 'Logistics', url: '/reports/logistics/overview', icon: '🧼' },
+    { category: 'reports', title: 'Stock', url: '/reports/stock', icon: '🧼' },
     { category: 'reports', title: 'Reconciliation', url: '/reports/reconciliation', icon: '⛏️' },
     { category: 'reports', title: 'In Transit', url: '/reports/in-transit', icon: '🚎' },
     { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
