@@ -1,130 +1,89 @@
 <script>
   import '$lib/styles/tokens.css';
+  import ListTable from '$lib/listTable/ListTable.svelte';
 
   export let data;
-  const envelope = data?.envelope ?? null;
 
-  const columns = envelope?.schema?.columns ?? [];
-  const rows    = envelope?.rows ?? [];
-  const paging  = envelope?.paging ?? { page: 1, pageSize: 25, hasPrev: false, hasNext: false };
+  const title  = data?.title ?? 'Purchase Ledger';
+  const groups = data?.groups ?? [];
 
-  function q(obj = {}) {
-    const u = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    Object.entries(obj).forEach(([k, v]) => (v === '' || v == null) ? u.delete(k) : u.set(k, String(v)));
-    return `?${u.toString()}`;
-  }
+  // One column schema reused for every group table
+  const columns = [
+    { id:'docDate',  label:'Date',      accessor:'docDate',     kind:'date',  format:'date', sortable:true,  width:'120px' },
+    { id:'supplier', label:'Supplier',  accessor:'supplierName',kind:'text',  primary:true,  sortable:true },
+    { id:'mma',      label:'MMA',       accessor:'toMmaCode',   kind:'badge', sortable:true, align:'center', width:'110px' },
+    { id:'shade',    label:'Shade',     accessor:'shade',       kind:'badge', sortable:true, align:'center', width:'110px' },
+    { id:'size',     label:'Size',      accessor:'size',        kind:'badge', sortable:true, align:'center', width:'110px' },
+    { id:'qty',      label:'Qty (t)',   accessor:'quantity',    kind:'number',sortable:true, align:'right',  width:'110px' },
 
-  function fmt(val) {
-    if (val == null) return '';
-    if (typeof val === 'number') return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    if (val instanceof Date) return val.toLocaleString();
-    return String(val);
-  }
+    // Commercials (optional; blank if null)
+    { id:'rate',     label:'Rate/MT',   accessor:'ratePerMt',       kind:'number', sortable:true, align:'right', width:'110px' },
+    { id:'frt',      label:'Freight/MT',accessor:'freightPerMt',    kind:'number', sortable:true, align:'right', width:'120px' },
+    { id:'sfrt',     label:'Supp. Frt', accessor:'supplierFreight', kind:'number', sortable:true, align:'right', width:'120px' },
+    { id:'road',     label:'Road Exp',  accessor:'roadExp',         kind:'number', sortable:true, align:'right', width:'110px' },
+    { id:'cash',     label:'Cash Paid', accessor:'cashPaid',        kind:'number', sortable:true, align:'right', width:'110px' },
+
+    // Light text tails
+    { id:'pmode',    label:'Payment',   accessor:'paymentMode', kind:'text', align:'center', width:'120px' },
+    { id:'remarks',  label:'Remarks',   accessor:'remarks',     kind:'text' }
+  ];
 </script>
 
-{#if !envelope}
-  <section class="empty">
-    <h1 class="title">Reconciliation</h1>
-    <p class="hint">No data.</p>
-  </section>
-{:else}
-  <h1 class="title">{envelope?.meta?.title || 'Reconciliation'}</h1>
+<section class="wrap">
+  <h1 class="page-title">{title}</h1>
 
-  <div class="table-wrapper">
-    <table class="report-table">
-      <thead>
-        <tr>
-          {#each columns as col}
-            <th>{col.label}</th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#if rows.length === 0}
-          <tr><td colspan={columns.length} class="no-data">No records found</td></tr>
-        {:else}
-          {#each rows as r}
-            <tr>
-              {#each columns as col}
-                <td>{fmt(r[col.key])}</td>
-              {/each}
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
-  </div>
+  <!-- Optional date range echo -->
+  {#if data?.from || data?.to}
+    <p class="filters">
+      {#if data?.from}<span>From: <b>{data.from}</b></span>{/if}
+      {#if data?.to}<span>To: <b>{data.to}</b></span>{/if}
+    </p>
+  {/if}
 
-  <nav class="pager" aria-label="Pagination">
-    {#if paging?.hasPrev}
-      <a class="btn" href={q({ page: (paging.page || 1) - 1 })} rel="prev">Prev</a>
-    {/if}
-    <span class="page-info">Page {paging?.page || 1}</span>
-    {#if paging?.hasNext}
-      <a class="btn" href={q({ page: (paging.page || 1) + 1 })} rel="next">Next</a>
-    {/if}
-  </nav>
-{/if}
+  {#if groups.length === 0}
+    <p class="empty">No purchases found.</p>
+  {/if}
+
+  {#each groups as g}
+    <h2 class="group">{g.mma}</h2>
+    <ListTable
+      items={g.items}
+      columns={columns}
+      rowKey="id"
+      searchable={false}
+      thumbBaseUrl=""
+    />
+  {/each}
+</section>
 
 <style>
-  .title {
-    margin: 0 0 12px 0;
-    text-align: center;
-    font-size: clamp(18px, 3.6vw, 22px);
-    color: var(--primaryText, #e6ebf1);
+  .wrap {
+    margin-inline: auto;
+    padding: 1rem;
+    width: min(96vw, 1200px);
+    color: var(--primaryText);
   }
-
-  .table-wrapper {
-    overflow-x: auto;
+  .page-title {
+    margin: 0 0 .75rem 0;
+    font-size: 1.25rem;
+    color: var(--primaryText);
   }
-
-  .report-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 16px;
-  }
-
-  th, td {
-    border: 1px solid var(--borderColor, #2b3a36);
-    padding: 6px 10px;
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  th {
-    background: color-mix(in srgb, var(--surfaceColor, #0f1a16) 80%, transparent);
-    color: var(--primaryText, #e6ebf1);
-    position: sticky;
-    top: 0;
-  }
-
-  tr:nth-child(even) {
-    background: color-mix(in srgb, var(--surfaceColor, #0f1a16) 60%, transparent);
-  }
-
-  .no-data {
-    text-align: center;
-    opacity: 0.7;
-  }
-
-  .pager {
-    margin-top: 12px;
+  .filters {
+    margin: 0 0 1rem 0;
+    color: var(--secondaryText);
     display: flex;
-    gap: 8px;
-    justify-content: center;
-    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
-
-  .btn {
-    padding: 6px 10px;
-    border-radius: var(--radiusLg, 12px);
-    border: 1px solid var(--borderColor, #2b3a36);
-    text-decoration: none;
-    color: var(--primaryText, #e6ebf1);
-    background: color-mix(in srgb, var(--surfaceColor, #0f1a16) 70%, transparent);
+  .group {
+    margin: 1.25rem 0 .5rem 0;
+    padding: .25rem .5rem;
+    font-size: 1.05rem;
+    color: var(--primaryText);
+    border-left: 4px solid var(--borderColor);
   }
-
-  .page-info { opacity: 0.8; }
-  .empty { padding: 24px; text-align: center; }
-  .hint  { margin-top: 8px; opacity: 0.8; }
+  .empty {
+    margin: .75rem 0;
+    color: var(--secondaryText);
+  }
 </style>

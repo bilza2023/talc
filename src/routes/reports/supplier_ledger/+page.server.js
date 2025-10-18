@@ -1,111 +1,68 @@
-// Reconciliation report loader (aligned to supplierLedger's shape)
+// Server: Purchase Ledger (grouped by MMA / station)
+// Source of truth: purchase_tbl
+
 import { prisma } from '$lib/stocks/stockEngine.js';
 
-export const load = async ({ url }) => {
-  // Paging (fixed 25)
-  const page = Math.max(1, Number(url.searchParams.get('page') || 1));
-  const pageSize = 25;
-  const skip = (page - 1) * pageSize;
-  const take = pageSize + 1; // sentinel for hasNext
-  const baseIndex = (page - 1) * pageSize;
+export async function load({ url }) {
+  // Optional date filters (?from=YYYY-MM-DD&to=YYYY-MM-DD)
+  const from = url.searchParams.get('from');
+  const to   = url.searchParams.get('to');
 
-  // 1) Get transportIds that have a RECEIVE
-  const receiveIds = await prisma.stockTransport.findMany({
-    where: { type: 'RECEIVE' },
-    select: { transportId: true }
-  }).then(list => list.map(x => x.transportId));
+  const where = {
+    ...(from ? { docDate: { gte: new Date(from) } } : {}),
+    ...(to   ? { docDate: { ...(where?.docDate ?? {}), lte: new Date(to) } } : {})
+  };
 
-  // 2) Page DISPATCH rows that also have a RECEIVE
-  const dispatches = await prisma.stockTransport.findMany({
-    where: { type: 'DISPATCH', transportId: { in: receiveIds } },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    skip,
-    take,
-    select: {
-      id: true,
-      transportId: true,
-      createdAt: true,
-      fromMmaCode: true,
-      toMmaCode: true,
-      qty: true,
-      amount: true
-    }
-  });
-
-  const hasNext = dispatches.length > pageSize;
-  const pageSlice = hasNext ? dispatches.slice(0, pageSize) : dispatches;
-  const ids = pageSlice.map(d => d.transportId);
-
-  // 3) Receives for the current page’s transportIds
-  const receives = ids.length
-    ? await prisma.stockTransport.findMany({
-        where: { type: 'RECEIVE', transportId: { in: ids } },
-        select: { transportId: true, qty: true, amount: true }
-      })
-    : [];
-  const recMap = new Map(receives.map(r => [r.transportId, r]));
-
-  // 4) Build rows — align keys to supplierLedger pattern
-  const rows = pageSlice
-    .filter(d => recMap.has(d.transportId))
-    .map((d, i) => {
-      const r = recMap.get(d.transportId);
-      const qtyD = Number(d.qty ?? 0);
-      const qtyR = Number(r.qty ?? 0);
-      const amtD = Number(d.amount ?? 0);
-      const amtR = Number(r.amount ?? 0);
-
-      return {
-        // required stable key (your ListTable may default to 'id')
-        id: d.transportId,                      // use transportId as the row id
-        createdAt: d.createdAt,                 // use createdAt (not 'date')
-        transportId: d.transportId,             // for the TID column
-        lane: `${d.fromMmaCode}→${d.toMmaCode}`,
-        qtyDispatch: qtyD,
-        qtyReceive: qtyR,
-        qtyDelta: qtyR - qtyD,
-        amountDispatch: amtD,
-        amountReceive: amtR,
-        amountDelta: amtR - amtD,
-        // handy S.No if you want to show it later
-        sNo: baseIndex + i + 1
-      };
-    });
-
-  // 5) Count for total pages
-  const totalDispatchWithReceive = await prisma.stockTransport.count({
-    where: { type: 'DISPATCH', transportId: { in: receiveIds } }
-  });
-  const totalPages = Math.max(1, Math.ceil(totalDispatchWithReceive / pageSize));
-
-  // 6) Schema — first column key changed to 'createdAt'
-  const schema = {
-    columns: [
-      { key: 'createdAt',     label: 'Date', type: 'datetime' }, // ← align to demo
-      { key: 'transportId',   label: 'TID' },
-      { key: 'lane',          label: 'From → To' },
-      { key: 'qtyDispatch',   label: 'Qty Dispatch' },
-      { key: 'qtyReceive',    label: 'Qty Receive' },
-      { key: 'qtyDelta',      label: 'Δ Qty' },
-      { key: 'amountDispatch', label: 'Amount D' },
-      { key: 'amountReceive',  label: 'Amount R' },
-      { key: 'amountDelta',    label: 'Δ Amount' }
+  const rows = await prisma.purchase_tbl.findMany({
+    where,
+    include: {
+      supplier: { select: { id: true, name: true, code: true } }
+    },
+    orderBy: [
+      { toMmaCode: 'asc' },
+      { docDate: 'asc' },
+      { supplier: { name: 'asc' } },
+      { id: 'asc' }
     ]
-  };
+  });
 
-  const envelope = {
-    meta: { reportId: 'reconciliation', title: 'Reconciliation' },
-    schema,
-    rows,
-    paging: {
-      page,
-      pageSize,
-      total: totalDispatchWithReceive,
-      totalPages,
-      hasPrev: page > 1,
-      hasNext
-    }
-  };
+  // Normalize for ListTable (light rows; strings where helpful)
+  const items = rows.map(r => ({
+    id: r.id, // cuid
+    docDate: r.docDate?.toISOString() ?? null,  // ListTable kind:'date' friendly
+    supplierName: r.supplier?.name || r.supplier?.code || String(r.supplierId),
+    toMmaCode: r.toMmaCode,    // e.g., ABS_RAW
+    shade: String(r.shade),
+    size: String(r.size),
+    quantity: Number(r.quantity),
 
-  return { envelope };
-};
+    // commercials (optional numbers)
+    ratePerMt:        r.ratePerMt        ?? null,
+    freightPerMt:     r.freightPerMt     ?? null,
+    supplierFreight:  r.supplierFreight  ?? null,
+    roadExp:          r.roadExp          ?? null,
+    cashPaid:         r.cashPaid         ?? null,
+    paymentMode:      r.paymentMode      ?? '',
+    remarks:          r.remarks          ?? ''
+  }));
+
+  // Group by MMA/station (toMmaCode) → render multiple ListTables
+  const groupMap = new Map();
+  for (const it of items) {
+    if (!groupMap.has(it.toMmaCode)) groupMap.set(it.toMmaCode, []);
+    groupMap.get(it.toMmaCode).push(it);
+  }
+
+  // Preserve order by toMmaCode asc
+  const groups = Array.from(groupMap.entries()).map(([mma, list]) => ({
+    mma,
+    items: list
+  }));
+
+  return {
+    title: 'Purchase Ledger',
+    from: from || null,
+    to: to || null,
+    groups
+  };
+}
