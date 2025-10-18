@@ -1,4 +1,4 @@
-
+// tests/appServices/receiveService.test.js
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock before importing the service
@@ -68,7 +68,7 @@ describe('receiveService', () => {
     // Asked domain for inbound to target MMA
     expect(stock.inbound).toHaveBeenCalledWith({ mmaCode: 'PSS_SCREENED' });
 
-    // Only ABS→PSS rows, shaped with dispatchedQty
+    // Only ABS→PSS rows, shaped with qty from dispatch
     expect(out).toMatchObject({
       fromMmaCode: 'ABS_SCREENED',
       toMmaCode: 'PSS_SCREENED'
@@ -81,10 +81,10 @@ describe('receiveService', () => {
       supplierId: 77,
       shade: 'WHITE',
       size: 'LUMPS',
-      dispatchedQty: 10
+      qty: 10
     });
     expect(r1.createdAt).toBe(now);
-    expect(r2.dispatchedQty).toBe(20);
+    expect(r2.qty).toBe(20);
   });
 
   it('listInboundFor → when fromMmaCode omitted, returns all inbound to target MMA', async () => {
