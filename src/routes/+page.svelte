@@ -19,8 +19,8 @@
     // { category: 'reports', title: 'Procurement', url: '/reports/procurement', icon: '🎯' },
 
     { category: 'admin', title: 'Purchase', url: '/procurement', icon: '🚚' },
-    { category: 'admin', title: 'Help', url: '/help', icon: '❓' },
     { category: 'admin', title: 'Suppliers', url: '/suppliers', icon: '👥' },
+    { category: 'admin', title: 'Help', url: '/help', icon: '❓' },
 
   ];
 

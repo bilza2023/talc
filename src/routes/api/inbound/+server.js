@@ -4,11 +4,6 @@ import { parsePagination, makeEnvelope } from '../../../lib/reportEngine/index.j
 
 const PAGE_SIZE = 25;
 
-/**
- * Build the inbound (unsettled) envelope using Prisma only (no raw SQL).
- * Unsettled = latest DISPATCH per transportId with NO matching RECEIVE/CANCEL.
- * Optional filter: ?mmaCode=<toMmaCode>
- */
 async function makeInboundEnvelope(url) {
   const sp = url instanceof URL ? url.searchParams : new URL(url, 'http://x/').searchParams;
   const mmaCode = sp.get('mmaCode') || undefined;
@@ -22,8 +17,6 @@ async function makeInboundEnvelope(url) {
     maxPageSize: PAGE_SIZE
   });
 
-  // 1) Candidate DISPATCH rows (optionally filter by toMmaCode).
-  // NOTE: transportId is required in schema, so no "not: null" check.
   const dispatchWhere = {
     type: 'DISPATCH',
     ...(mmaCode ? { toMmaCode: mmaCode } : {})
@@ -39,7 +32,6 @@ async function makeInboundEnvelope(url) {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
   });
 
-  // 2) Keep only the latest DISPATCH per transportId (list is newest-first already).
   const latestByTid = new Map();
   for (const d of dispatchRows) {
     const tid = String(d.transportId);
@@ -47,7 +39,6 @@ async function makeInboundEnvelope(url) {
   }
   const latest = Array.from(latestByTid.values());
 
-  // 3) Remove any transportId that has RECEIVE or CANCEL
   const tids = latest.map(r => String(r.transportId));
   let unsettled = latest;
   if (tids.length) {
@@ -59,14 +50,12 @@ async function makeInboundEnvelope(url) {
     unsettled = latest.filter(r => !settledSet.has(String(r.transportId)));
   }
 
-  // 4) Totals + pagination
   const total = unsettled.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const pageRows = unsettled.slice(start, end);
 
-  // 5) Map to table rows
   const rows = pageRows.map(d => ({
     date: d.createdAt,
     transportId: String(d.transportId),
@@ -106,14 +95,9 @@ async function makeInboundEnvelope(url) {
   });
 }
 
-// SvelteKit API route (what the test calls)
 export async function GET({ url }) {
   const envelope = await makeInboundEnvelope(url);
-  // align with test: expects { ok: true, data: [...] }
   return new Response(JSON.stringify({ ok: true, data: envelope.rows }), {
     headers: { 'content-type': 'application/json' }
   });
 }
-
-// Optional: keep for any UI that imports load()
-export const load = async ({ url }) => ({ envelope: await makeInboundEnvelope(url) });
